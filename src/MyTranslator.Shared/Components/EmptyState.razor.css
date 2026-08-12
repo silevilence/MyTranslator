@@ -1,0 +1,17 @@
+.mt-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.mt-empty-state-icon {
+    opacity: 0.38;
+}
+
+.mt-empty-state-action {
+    margin-top: 4px;
+}

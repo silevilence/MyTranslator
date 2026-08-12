@@ -1,0 +1,6 @@
+/* MyTranslator 共享基础样式（经 index.html 引用 _content/MyTranslator.Shared/css/mt.css） */
+
+/* 等宽字体栈（设计规范 §3.2）：占位符/标记/分段 ID/差异文本使用 */
+.mt-mono {
+    font-family: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}

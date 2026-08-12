@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.9" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.11" />
+    <PackageReference Include="MudBlazor" Version="9.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyTranslator.Shared\MyTranslator.Shared.csproj" />
+  </ItemGroup>
+
+  <!-- resx 统一放 Resources/（组件规范 §5），LogicalName 保持与 IStringLocalizer<T> 类型全名一致 -->
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\App.resx">
+      <LogicalName>MyTranslator.Web.App.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Home.resx">
+      <LogicalName>MyTranslator.Web.Pages.Home.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Login.resx">
+      <LogicalName>MyTranslator.Web.Pages.Login.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Navigation.resx">
+      <LogicalName>MyTranslator.Web.Layout.Navigation.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

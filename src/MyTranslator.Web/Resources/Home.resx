@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>主页</value>
+  </data>
+  <data name="ConnectivityTitle" xml:space="preserve">
+    <value>后端连通性</value>
+  </data>
+  <data name="ConnectivityDescription" xml:space="preserve">
+    <value>调用后端健康检查接口验证前后端连通（路径经配置注入，契约见 docs/back）</value>
+  </data>
+  <data name="ConnectivityOk" xml:space="preserve">
+    <value>后端连通正常</value>
+  </data>
+  <data name="ConnectivityFailed" xml:space="preserve">
+    <value>无法连接后端，请确认后端已启动且 Token 有效</value>
+  </data>
+  <data name="SharedTitle" xml:space="preserve">
+    <value>共享组件库</value>
+  </data>
+  <data name="SharedDescription" xml:space="preserve">
+    <value>以下为共享组件库（MyTranslator.Shared）渲染示例，Web 与桌面端共用同一套组件与主题</value>
+  </data>
+  <data name="EmptyDemoTitle" xml:space="preserve">
+    <value>暂无任务</value>
+  </data>
+  <data name="EmptyDemoDescription" xml:space="preserve">
+    <value>创建翻译任务后，将在此处展示任务列表</value>
+  </data>
+  <data name="EmptyDemoAction" xml:space="preserve">
+    <value>新建任务</value>
+  </data>
+  <data name="EmptyDemoActionHint" xml:space="preserve">
+    <value>任务管理功能将在后续版本提供</value>
+  </data>
+</root>

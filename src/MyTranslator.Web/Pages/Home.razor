@@ -1,0 +1,65 @@
+@page "/"
+@attribute [Authorize]
+@using MyTranslator.Shared.Components
+@using MyTranslator.Web.Services
+@inject HealthService Health
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<Home> Localizer
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<MudText Typo="Typo.h1">@Localizer["Title"]</MudText>
+
+<section class="mt-section" aria-labelledby="connectivity-title">
+    <MudText Typo="Typo.h2" id="connectivity-title">@Localizer["ConnectivityTitle"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["ConnectivityDescription"]</MudText>
+
+    <div class="mt-4">
+        @if (_status == HealthStatus.Checking)
+        {
+            <MudSkeleton Width="100%" Height="56px" />
+        }
+        else if (_status == HealthStatus.Ok)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                @Localizer["ConnectivityOk"]
+            </MudAlert>
+        }
+        else
+        {
+            <ErrorBanner Message="@Localizer["ConnectivityFailed"]" OnRetry="CheckHealthAsync" />
+        }
+    </div>
+</section>
+
+<section class="mt-section" aria-labelledby="shared-title">
+    <MudText Typo="Typo.h2" id="shared-title">@Localizer["SharedTitle"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["SharedDescription"]</MudText>
+
+    <MudPaper Elevation="0" Outlined="true" Class="pa-6 mt-4">
+        <EmptyState Title="@Localizer["EmptyDemoTitle"]"
+                    Description="@Localizer["EmptyDemoDescription"]"
+                    ActionText="@Localizer["EmptyDemoAction"]"
+                    OnAction="OnEmptyDemoAction" />
+    </MudPaper>
+</section>
+
+@code {
+    private HealthStatus _status = HealthStatus.Checking;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckHealthAsync();
+    }
+
+    private async Task CheckHealthAsync()
+    {
+        _status = HealthStatus.Checking;
+        _status = await Health.CheckAsync();
+    }
+
+    private void OnEmptyDemoAction()
+    {
+        Snackbar.Add(Localizer["EmptyDemoActionHint"], Severity.Info);
+    }
+}

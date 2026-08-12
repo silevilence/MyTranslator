@@ -1,0 +1,51 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<SharedStrings> Localizer
+
+<div class="mt-empty-state">
+    <MudIcon Icon="@Icon" Size="Size.Large" Color="Color.Default" Class="mt-empty-state-icon" />
+    <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-empty-state-title">
+        @(Title ?? Localizer["EmptyState.DefaultTitle"])
+    </MudText>
+    @if (!string.IsNullOrEmpty(Description))
+    {
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mt-empty-state-description">
+            @Description
+        </MudText>
+    }
+    @if (!string.IsNullOrEmpty(ActionText))
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnActionAsync" Class="mt-empty-state-action">
+            @ActionText
+        </MudButton>
+    }
+</div>
+
+@code {
+    /// <summary>空态图标，默认收件箱。</summary>
+    [Parameter]
+    public string? Icon { get; set; } = Icons.Material.Filled.Inbox;
+
+    /// <summary>主说明文案；未传时使用资源默认值。</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>次要说明文案，可为空。</summary>
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>主行动按钮文案；为空则不渲染按钮。</summary>
+    [Parameter]
+    public string? ActionText { get; set; }
+
+    /// <summary>主行动按钮回调。</summary>
+    [Parameter]
+    public EventCallback OnAction { get; set; }
+
+    private async Task OnActionAsync()
+    {
+        if (OnAction.HasDelegate)
+        {
+            await OnAction.InvokeAsync();
+        }
+    }
+}

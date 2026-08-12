@@ -1,0 +1,57 @@
+@using MyTranslator.Shared.Theme
+@using MyTranslator.Shared.Services
+@inject ThemeService Theme
+@inject IStringLocalizer<App> Localizer
+
+<MudThemeProvider Theme="@_theme" IsDarkMode="@Theme.IsDark" IsDarkModeChanged="OnDarkModeChanged" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+                <Authorizing>
+                    <LayoutView Layout="typeof(MainLayout)">
+                        <MudSkeleton Width="100%" Height="80px" />
+                        <MudSkeleton Width="100%" Height="160px" Class="mt-4" />
+                    </LayoutView>
+                </Authorizing>
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="main" />
+        </Found>
+        <NotFound>
+            <PageTitle>@Localizer["NotFoundTitle"]</PageTitle>
+            <LayoutView Layout="typeof(MainLayout)">
+                <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+                    <EmptyState Icon="@Icons.Material.Filled.ExploreOff"
+                                Title="@Localizer["NotFoundTitle"]"
+                                Description="@Localizer["NotFoundDescription"]" />
+                </MudContainer>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    private MudTheme _theme = MyTranslatorTheme.Create();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Theme.InitializeAsync();
+        Theme.Changed += OnThemeChanged;
+    }
+
+    /// <summary>
+    /// 系统暗色跟随等非用户操作仅同步状态，不持久化（持久化只发生在用户显式切换）。
+    /// </summary>
+    private void OnDarkModeChanged(bool dark) => Theme.ApplyDark(dark);
+
+    private void OnThemeChanged(object? sender, EventArgs e) => StateHasChanged();
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

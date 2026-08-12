@@ -1,0 +1,102 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@using MyTranslator.Shared.Services
+@inject AuthStateProvider Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<Login> Localizer
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="4" Class="pa-8">
+        <MudText Typo="Typo.h5" Align="Align.Center">@Localizer["AppTitle"]</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mt-2">
+            @Localizer["Subtitle"]
+        </MudText>
+
+        <MudTextField T="string"
+                      Label="@Localizer["TokenLabel"]"
+                      HelperText="@Localizer["TokenHint"]"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showToken ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="ToggleTokenVisibility"
+                      @bind-Value="_token"
+                      Class="mt-8" />
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudText Typo="Typo.body2" Color="Color.Error" Class="mt-2" role="alert">@_error</MudText>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   Disabled="_busy" OnClick="OnLoginAsync" StartIcon="@Icons.Material.Filled.Login">
+            @(_busy ? Localizer["Saving"] : Localizer["Login"])
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _token = string.Empty;
+    private bool _showToken;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 已保存 Token 视为已登录，直接进入主界面
+        if (await Auth.GetTokenAsync() is { Length: > 0 })
+        {
+            Nav.NavigateTo(GetReturnUrl());
+        }
+    }
+
+    private async Task OnLoginAsync()
+    {
+        var token = _token.Trim();
+        if (string.IsNullOrEmpty(token))
+        {
+            _error = Localizer["RequiredError"];
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Auth.LoginAsync(token);
+            Snackbar.Add(Localizer["Saved"], Severity.Success);
+            Nav.NavigateTo(GetReturnUrl());
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ToggleTokenVisibility() => _showToken = !_showToken;
+
+    private string GetReturnUrl()
+    {
+        var queryStart = Nav.Uri.IndexOf('?');
+        if (queryStart < 0)
+        {
+            return "/";
+        }
+
+        var query = Nav.Uri[(queryStart + 1)..];
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length == 2 && kv[0] == "returnUrl")
+            {
+                return Uri.UnescapeDataString(kv[1].Replace('+', ' '));
+            }
+        }
+
+        return "/";
+    }
+}

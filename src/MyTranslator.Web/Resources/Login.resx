@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="AppTitle" xml:space="preserve">
+    <value>MyTranslator</value>
+  </data>
+  <data name="Subtitle" xml:space="preserve">
+    <value>请输入后端分配的 API Token 以继续</value>
+  </data>
+  <data name="TokenLabel" xml:space="preserve">
+    <value>API Token</value>
+  </data>
+  <data name="TokenHint" xml:space="preserve">
+    <value>开发环境默认使用 `sk-dev-` 前缀的固定 Token</value>
+  </data>
+  <data name="Login" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="Saving" xml:space="preserve">
+    <value>登录中…</value>
+  </data>
+  <data name="RequiredError" xml:space="preserve">
+    <value>请输入 Token</value>
+  </data>
+  <data name="Saved" xml:space="preserve">
+    <value>Token 已保存</value>
+  </data>
+</root>

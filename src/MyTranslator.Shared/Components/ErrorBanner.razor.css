@@ -1,0 +1,15 @@
+.mt-error-banner {
+    margin-bottom: 16px;
+}
+
+.mt-error-banner-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.mt-error-banner-message {
+    flex: 1 1 auto;
+    min-width: 0;
+}

@@ -1,0 +1,50 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<SharedStrings> Localizer
+
+<div class="mt-error-banner" role="alert">
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="false">
+        <div class="mt-error-banner-row">
+            <MudText Typo="Typo.body1" Class="mt-error-banner-message">@Message</MudText>
+            @if (ShowRetry && !string.IsNullOrEmpty(RetryText))
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="OnRetryAsync" Class="mt-error-banner-retry">
+                    @RetryText
+                </MudButton>
+            }
+        </div>
+    </MudAlert>
+</div>
+
+@code {
+    /// <summary>错误文案。</summary>
+    [Parameter, EditorRequired]
+    public required string Message { get; set; }
+
+    /// <summary>是否显示重试按钮。</summary>
+    [Parameter]
+    public bool ShowRetry { get; set; } = true;
+
+    /// <summary>重试按钮文案；为空不渲染。</summary>
+    [Parameter]
+    public string? RetryText { get; set; }
+
+    /// <summary>重试回调。</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (RetryText is null && ShowRetry)
+        {
+            RetryText = Localizer["ErrorBanner.Retry"];
+        }
+    }
+
+    private async Task OnRetryAsync()
+    {
+        if (OnRetry.HasDelegate)
+        {
+            await OnRetry.InvokeAsync();
+        }
+    }
+}

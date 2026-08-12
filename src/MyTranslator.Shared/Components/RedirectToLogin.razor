@@ -1,0 +1,25 @@
+@namespace MyTranslator.Shared.Components
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    /// <summary>
+    /// 未认证访问受保护页时重定向到登录页，携带 returnUrl 以便登录后回跳。
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState!;
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri);
+            var target = string.IsNullOrEmpty(currentPath)
+                ? "/login"
+                : $"/login?returnUrl={Uri.EscapeDataString(currentPath)}";
+            Navigation.NavigateTo(target);
+        }
+    }
+}

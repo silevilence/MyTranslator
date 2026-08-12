@@ -108,11 +108,11 @@
   - [ ] 编写 `docs/back` 接口约定文档：Token 获取方式、请求头格式、错误码约定
   - 验收：curl 以有效 Token 访问受保护接口返回 200，无 Token / 伪造 Token 返回 401；生成→使用→撤销后立即失效；未配置 `INITIAL_TOKEN` 时 dev 固定 Token 可直接使用；`docs/back` 存在鉴权约定文档
 
-- [ ] **前端：搭建 Blazor WASM 框架、共享组件库与 Token 登录**（网页端骨架 + 登录闭环）
-  - [ ] Blazor WebAssembly 项目骨架：路由、布局、导航菜单
-  - [ ] Razor Class Library 共享组件库：基础组件（按钮/表格/弹窗等）与 `docs/front` 界面规范文档
-  - [ ] Token 登录界面：输入并保存 Token（本地持久化），全局 HTTP 客户端自动附加鉴权头，401 自动跳转登录
-  - [ ] 调用后端健康检查接口验证前后端连通
+- [x] **前端：搭建 Blazor WASM 框架、共享组件库与 Token 登录**（网页端骨架 + 登录闭环）
+  - [x] Blazor WebAssembly 项目骨架：路由、布局、导航菜单
+  - [x] Razor Class Library 共享组件库：基础组件（按钮/表格/弹窗等）与 `docs/front` 界面规范文档
+  - [x] Token 登录界面：输入并保存 Token（本地持久化），全局 HTTP 客户端自动附加鉴权头，401 自动跳转登录
+  - [x] 调用后端健康检查接口验证前后端连通
   - 验收：浏览器打开页面→输入 dev Token→进入主界面；清空 Token 后访问自动跳登录；共享组件渲染正常；`docs/front` 存在界面规范文档
 
 ### 二、基础功能

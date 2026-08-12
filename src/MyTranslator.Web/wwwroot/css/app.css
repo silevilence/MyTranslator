@@ -1,0 +1,86 @@
+/* MyTranslator Web 基础样式（布局间距见 MainLayout.razor.css / 主题 token 见 MyTranslatorTheme） */
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+#app {
+    height: 100%;
+}
+
+.mt-section {
+    margin-top: 24px;
+}
+
+.mt-section:first-of-type {
+    margin-top: 16px;
+}
+
+/* 焦点可见性（审查标准 维度四） */
+:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+/* Blazor 启动加载进度 */
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: var(--mud-palette-action-disabled, #e0e0e0);
+    stroke-width: 0.6rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: var(--mud-palette-primary, #2563eb);
+    stroke-dasharray: calc(3.141 * var(--loading-progress-width, 6rem));
+    stroke-dashoffset: calc(3.141 * var(--loading-progress-width, 6rem) * (1 - var(--loading-progress, 0)));
+    stroke-linecap: round;
+}
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: bold;
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+}
+
+.loading-progress-text:after {
+    content: var(--loading-progress-text, "加载中");
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-progress {
+        display: none;
+    }
+}
+
+/* Blazor 未处理错误浮层 */
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
