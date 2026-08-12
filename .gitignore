@@ -1,0 +1,58 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+.vscode/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+*.nuget.props
+*.nuget.targets
+
+## MAUI / platform specifics
+*.userprefs
+*.apk
+*.aab
+*.appx
+*.appxmanifest
+*.msix
+*.msixbundle
+*.ipa
+*.pdb
+*.cache
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+## OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Local app data
+appsettings.Development.json
+*.local.json
