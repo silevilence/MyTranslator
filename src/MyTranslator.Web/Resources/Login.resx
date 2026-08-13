@@ -25,7 +25,7 @@
     <value>API Token</value>
   </data>
   <data name="TokenHint" xml:space="preserve">
-    <value>开发环境默认使用 `sk-dev-` 前缀的固定 Token</value>
+    <value>开发环境默认固定 Token：`sk-dev-00000000000000000000000000000000`（后端未配置 INITIAL_TOKEN 时启用）</value>
   </data>
   <data name="Login" xml:space="preserve">
     <value>登录</value>

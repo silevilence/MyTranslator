@@ -34,7 +34,7 @@ public class AuthStateProviderTests
         var state = await auth.GetAuthenticationStateAsync();
 
         Assert.True(state.User.Identity?.IsAuthenticated);
-        Assert.Equal("Bearer", state.User.Identity.AuthenticationType);
+        Assert.Equal("Bearer", state.User.Identity?.AuthenticationType);
     }
 
     [Fact]

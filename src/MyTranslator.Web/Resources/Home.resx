@@ -24,9 +24,6 @@
   <data name="ConnectivityOk" xml:space="preserve">
     <value>后端连通正常</value>
   </data>
-  <data name="ConnectivityFailed" xml:space="preserve">
-    <value>无法连接后端，请确认后端已启动且 Token 有效</value>
-  </data>
   <data name="SharedTitle" xml:space="preserve">
     <value>共享组件库</value>
   </data>

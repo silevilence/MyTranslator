@@ -15,11 +15,11 @@
     <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["ConnectivityDescription"]</MudText>
 
     <div class="mt-4">
-        @if (_status == HealthStatus.Checking)
+        @if (_checking)
         {
             <MudSkeleton Width="100%" Height="56px" />
         }
-        else if (_status == HealthStatus.Ok)
+        else if (_result is { IsOk: true })
         {
             <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
                 @Localizer["ConnectivityOk"]
@@ -27,7 +27,7 @@
         }
         else
         {
-            <ErrorBanner Message="@Localizer["ConnectivityFailed"]" OnRetry="CheckHealthAsync" />
+            <ErrorBanner Message="@_result?.ErrorMessage" OnRetry="CheckHealthAsync" />
         }
     </div>
 </section>
@@ -45,7 +45,8 @@
 </section>
 
 @code {
-    private HealthStatus _status = HealthStatus.Checking;
+    private bool _checking = true;
+    private HealthCheckResult? _result;
 
     protected override async Task OnInitializedAsync()
     {
@@ -54,8 +55,9 @@
 
     private async Task CheckHealthAsync()
     {
-        _status = HealthStatus.Checking;
-        _status = await Health.CheckAsync();
+        _checking = true;
+        _result = await Health.CheckAsync();
+        _checking = false;
     }
 
     private void OnEmptyDemoAction()

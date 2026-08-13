@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Network" xml:space="preserve">
+    <value>无法连接后端，请确认后端服务已启动</value>
+  </data>
+  <data name="BadRequest" xml:space="preserve">
+    <value>请求参数错误，请检查输入后重试</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>Token 无效或已撤销，请重新登录</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>无权执行该操作</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>请求的资源不存在</value>
+  </data>
+  <data name="ServerError" xml:space="preserve">
+    <value>后端服务异常，请稍后重试</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>请求失败，请稍后重试</value>
+  </data>
+</root>
