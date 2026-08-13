@@ -197,10 +197,15 @@ internal sealed record TextExtractionResult(
     string? Reason,
     IReadOnlyList<ExtractedUnit> Units);
 
-internal sealed record ExtractedUnit(bool IsSegment, string Text, string MarkupTableJson)
+internal sealed record ExtractedUnit(
+    bool IsSegment,
+    string Text,
+    string MarkupTableJson,
+    string ProtectedType)
 {
     public static ExtractedUnit Segment(string text, string markupTableJson = "[]") =>
-        new(true, text, markupTableJson);
+        new(true, text, markupTableJson, string.Empty);
 
-    public static ExtractedUnit Protected(string text) => new(false, text, "[]");
+    public static ExtractedUnit Protected(string text, string type = "textWhitespace") =>
+        new(false, text, "[]", type);
 }

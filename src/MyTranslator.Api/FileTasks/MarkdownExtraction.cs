@@ -31,7 +31,7 @@ internal static partial class MarkdownExtraction
             var raw = text[start..end];
             if (IsProtected(block) || string.IsNullOrWhiteSpace(raw))
             {
-                units.Add(ExtractedUnit.Protected(raw));
+                units.Add(ExtractedUnit.Protected(raw, ProtectedType(block, raw)));
             }
             else
             {
@@ -70,6 +70,15 @@ internal static partial class MarkdownExtraction
 
     private static bool IsProtected(Block block) =>
         block is CodeBlock or HtmlBlock or ThematicBreakBlock;
+
+    private static string ProtectedType(Block block, string raw) => block switch
+    {
+        CodeBlock => "markdownCodeBlock",
+        HtmlBlock => "markdownHtmlBlock",
+        ThematicBreakBlock => "markdownThematicBreak",
+        _ when string.IsNullOrWhiteSpace(raw) => "textWhitespace",
+        _ => "markdownStructure"
+    };
 
     private static void AddLineBlockUnits(string raw, ICollection<ExtractedUnit> units)
     {

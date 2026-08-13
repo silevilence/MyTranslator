@@ -21,6 +21,7 @@ public sealed class UrlImportClient(HttpClient httpClient)
 
         for (var redirect = 0; redirect <= MaximumRedirects; redirect++)
         {
+            ValidateSourceUri(current);
             await EnsurePublicAddressAsync(current, cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Get, current);
             request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (compatible; MyTranslator/1.0)");
@@ -85,6 +86,18 @@ public sealed class UrlImportClient(HttpClient httpClient)
         }
 
         throw new InvalidFileTaskRequestException("source_fetch_failed", "The source URL could not be fetched.");
+    }
+
+    private static void ValidateSourceUri(Uri uri)
+    {
+        if (!uri.IsAbsoluteUri ||
+            uri.Scheme is not ("http" or "https") ||
+            string.IsNullOrWhiteSpace(uri.Host) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            throw new InvalidFileTaskRequestException("invalid_source_url", "The source URL is invalid.");
+        }
     }
 
     private static async Task<byte[]> ReadLimitedAsync(HttpContent content, CancellationToken cancellationToken)

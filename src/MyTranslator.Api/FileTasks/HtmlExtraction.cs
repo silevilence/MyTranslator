@@ -90,11 +90,8 @@ internal static partial class HtmlExtraction
         }
 
         var orderedCandidates = scopes
-            .SelectMany(FindLeafCandidates)
+            .SelectMany(scope => FindCandidateRanges(scope, body, parsed, text.Length))
             .Distinct()
-            .Select(element => TryGetRange(element, parsed.ElementRanges))
-            .Where(range => range is not null)
-            .Select(range => range!)
             .OrderBy(range => range.Start);
         var candidates = NonOverlapping(orderedCandidates).ToList();
 
@@ -111,20 +108,20 @@ internal static partial class HtmlExtraction
         {
             if (candidate.Start > position)
             {
-                units.Add(ExtractedUnit.Protected(text[position..candidate.Start]));
+                units.Add(ProtectedHtml(text[position..candidate.Start]));
             }
 
             var raw = text[candidate.Start..candidate.End];
             var segment = ExtractMarkup(raw);
             units.Add(MarkupExtraction.HasTranslatableText(segment.SourceText, segment.MarkupTableJson)
                 ? ExtractedUnit.Segment(segment.SourceText, segment.MarkupTableJson)
-                : ExtractedUnit.Protected(raw));
+                : ProtectedHtml(raw));
             position = candidate.End;
         }
 
         if (position < text.Length)
         {
-            units.Add(ExtractedUnit.Protected(text[position..]));
+            units.Add(ProtectedHtml(text[position..]));
         }
 
         return new TextExtractionResult(text, encodingName, null, null, null, null, units);
@@ -164,7 +161,11 @@ internal static partial class HtmlExtraction
         }
     }
 
-    private static IReadOnlyList<IElement> FindLeafCandidates(IElement scope)
+    private static IReadOnlyList<HtmlRange> FindCandidateRanges(
+        IElement scope,
+        IElement body,
+        ParsedHtml parsed,
+        int textLength)
     {
         if (IsExcluded(scope) || scope.Ancestors().OfType<IElement>().Any(IsExcluded))
         {
@@ -176,16 +177,90 @@ internal static partial class HtmlExtraction
             .Where(element => !element.QuerySelectorAll(string.Join(',', BlockTags))
                 .Any(descendant => !IsExcluded(descendant) &&
                     !descendant.Ancestors().OfType<IElement>().Any(IsExcluded)))
+            .Select(element => TryGetRange(element, parsed.ElementRanges))
+            .Where(range => range is not null)
+            .Select(range => range!)
+            .OrderBy(range => range.Start)
             .ToList();
-        if (leafBlocks.Count > 0)
+        if (!ReferenceEquals(scope, body) && BlockTags.Contains(scope.LocalName) && leafBlocks.Count == 0)
+        {
+            var scopeRange = TryGetRange(scope, parsed.ElementRanges);
+            return scopeRange is null ? [] : [scopeRange];
+        }
+
+        var contentRange = FindContentRange(scope, body, parsed, textLength);
+        if (contentRange is null)
         {
             return leafBlocks;
         }
 
-        return [scope];
+        var candidates = new List<HtmlRange>();
+        var position = contentRange.Start;
+        foreach (var block in leafBlocks)
+        {
+            AddTranslatableGap(contentRange.Start, contentRange.End, position, block.Start, parsed, candidates);
+            candidates.Add(block);
+            position = Math.Max(position, block.End);
+        }
+
+        AddTranslatableGap(contentRange.Start, contentRange.End, position, contentRange.End, parsed, candidates);
+        return candidates;
+    }
+
+    private static HtmlRange? FindContentRange(
+        IElement scope,
+        IElement body,
+        ParsedHtml parsed,
+        int textLength)
+    {
+        var start = scope.SourceReference?.Position.Index;
+        if (start is not null && parsed.ElementRanges.TryGetValue(start.Value, out var elementRange))
+        {
+            var opening = parsed.Tokens.FirstOrDefault(token =>
+                token.Type == HtmlTokenType.StartTag && token.Start == start.Value);
+            var closing = parsed.Tokens.FirstOrDefault(token =>
+                token.Type == HtmlTokenType.EndTag &&
+                token.Name.Equals(scope.LocalName, StringComparison.OrdinalIgnoreCase) &&
+                token.End == elementRange.End);
+            return new HtmlRange(
+                opening is null ? elementRange.Start : opening.End,
+                closing is null ? elementRange.End : closing.Start);
+        }
+
+        return ReferenceEquals(scope, body) ? new HtmlRange(0, textLength) : null;
+    }
+
+    private static void AddTranslatableGap(
+        int scopeStart,
+        int scopeEnd,
+        int gapStart,
+        int gapEnd,
+        ParsedHtml parsed,
+        ICollection<HtmlRange> candidates)
+    {
+        var start = Math.Max(scopeStart, gapStart);
+        var end = Math.Min(scopeEnd, gapEnd);
+        if (start >= end)
+        {
+            return;
+        }
+
+        var hasText = parsed.Tokens.Any(token =>
+            token.Type == HtmlTokenType.Character &&
+            token.Start >= start &&
+            token.End <= end &&
+            token.Start < token.End);
+        if (hasText)
+        {
+            candidates.Add(new HtmlRange(start, end));
+        }
     }
 
     private static bool IsExcluded(IElement element) => ExcludedTags.Contains(element.LocalName);
+
+    private static ExtractedUnit ProtectedHtml(string text) => ExtractedUnit.Protected(
+        text,
+        string.IsNullOrWhiteSpace(text) ? "textWhitespace" : "htmlStructure");
 
     private static HtmlRange? TryGetRange(
         IElement element,
@@ -280,9 +355,17 @@ internal static partial class HtmlExtraction
                 }
                 else
                 {
-                    items.Add(MarkupItem.Paired(id, tokenRaw, $"HTML {token.Name} 标签"));
-                    openings.Push((token.Name, id));
-                    builder.Append($"<x{id}>");
+                    if (parsed.ElementRanges.ContainsKey(token.Start))
+                    {
+                        items.Add(MarkupItem.Paired(id, tokenRaw, $"HTML {token.Name} 标签"));
+                        openings.Push((token.Name, id));
+                        builder.Append($"<x{id}>");
+                    }
+                    else
+                    {
+                        items.Add(MarkupItem.Standalone(id, tokenRaw, $"HTML {token.Name} 未闭合标签"));
+                        builder.Append($"<x{id}/>");
+                    }
                 }
             }
             else if (token.Type == HtmlTokenType.EndTag)

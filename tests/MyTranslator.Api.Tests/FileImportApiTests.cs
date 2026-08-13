@@ -5,6 +5,9 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MyTranslator.Api.Data;
 
 namespace MyTranslator.Api.Tests;
 
@@ -157,6 +160,47 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
     }
 
     [Fact]
+    public async Task MalformedHtmlProducesBalancedPlaceholders()
+    {
+        const string html = "<html><body><p>Hello <b>bold</p></body></html>";
+        using var client = CreateClient();
+        using var request = CreateFileRequest(html, "malformed.html", "text/html", "html");
+
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("taskId").GetGuid();
+        var page = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var segment = Assert.Single(page.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("<x1>Hello <x2/>bold</x1>", segment.GetProperty("sourceText").GetString());
+        Assert.Equal("standalone", segment.GetProperty("markupTable")[1].GetProperty("kind").GetString());
+        Assert.Equal("<b>", segment.GetProperty("markupTable")[1].GetProperty("originalText").GetString());
+    }
+
+    [Theory]
+    [InlineData("<html><body>Hello<p>World</p></body></html>", 2, "Hello")]
+    [InlineData("Plain body text", 1, "Plain body text")]
+    public async Task HtmlExtractsTranslatableTextOutsideBlockElements(
+        string html,
+        int expectedCount,
+        string expectedText)
+    {
+        using var client = CreateClient();
+        using var request = CreateFileRequest(html, "body.html", "text/html", "html");
+
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("taskId").GetGuid();
+        var page = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var sourceTexts = page.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("sourceText").GetString())
+            .ToArray();
+
+        Assert.Equal(expectedCount, sourceTexts.Length);
+        Assert.Contains(expectedText, sourceTexts);
+    }
+
+    [Fact]
     public async Task HtmlSelectorMustMatchInsideBody()
     {
         const string html = "<html><head><title>Head</title></head><body><p>Body</p></body></html>";
@@ -242,6 +286,23 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
     }
 
     [Fact]
+    public async Task UrlImportRejectsRedirectToUnsupportedSchemeWithStableProblem()
+    {
+        using var handler = new RedirectHandler(new Uri("ftp://example.com/file.html"));
+        using var urlFactory = new ApiFactory("Development", null, handler);
+        using var client = urlFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", DevelopmentToken);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/tasks/imports/url",
+            new { url = "https://93.184.216.34/page.html", fileType = "html" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_source_url", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task SegmentListUsesOpaqueCursorPagination()
     {
         using var client = CreateClient();
@@ -303,6 +364,41 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
     }
 
     [Fact]
+    public async Task SourceUnitsReportSpecificProtectedBlockTypes()
+    {
+        const string markdown = "Text\n\n```csharp\nvar x = 1;\n```";
+        using var client = CreateClient();
+        using var request = CreateFileRequest(markdown, "types.md", "text/markdown", "markdown");
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("taskId").GetGuid();
+
+        var sourceUnits = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/source-units");
+        var protectedTypes = sourceUnits.GetProperty("items").EnumerateArray()
+            .Where(item => item.GetProperty("kind").GetString() == "protectedBlock")
+            .Select(item => item.GetProperty("protectedBlock").GetProperty("type").GetString())
+            .ToArray();
+
+        Assert.Contains("textWhitespace", protectedTypes);
+        Assert.Contains("markdownCodeBlock", protectedTypes);
+    }
+
+    [Fact]
+    public async Task InvalidPageLimitUsesPaginationProblemCode()
+    {
+        using var client = CreateClient();
+        using var request = CreateFileRequest("Text", "limit.txt", "text/plain", "txt");
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        var response = await client.GetAsync($"/api/tasks/{created.GetProperty("taskId").GetGuid()}/segments?limit=201");
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_pagination", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task HtmlReextractionPreviewsThenReplacesSegments()
     {
         const string html = "<html><body><main id='main'><p>Main text</p></main><aside><p>Aside text</p></aside></body></html>";
@@ -343,6 +439,35 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
         Assert.Equal(2, applied.GetProperty("extractionRevision").GetInt32());
         Assert.DoesNotContain(current.GetProperty("id").GetGuid(), originalIds);
         Assert.Contains("Main text", current.GetProperty("sourceText").GetString());
+    }
+
+    [Fact]
+    public async Task WhitespaceOnlyTargetDoesNotRequireTranslationLossConfirmation()
+    {
+        const string html = "<html><body><main><p>Main text</p></main><aside><p>Aside text</p></aside></body></html>";
+        using var client = CreateClient();
+        using var request = CreateFileRequest(html, "whitespace.html", "text/html", "html");
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("taskId").GetGuid();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var segment = await database.TranslationSegments.FirstAsync(item => item.TaskId == taskId);
+            segment.TargetText = "   ";
+            await database.SaveChangesAsync();
+        }
+
+        var previewResponse = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/extraction-previews",
+            new { selector = "main" });
+        var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var applyResponse = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/extraction-previews/{preview.GetProperty("previewId").GetGuid()}/apply",
+            new { confirmTranslationLoss = false });
+
+        Assert.Equal(HttpStatusCode.OK, applyResponse.StatusCode);
     }
 
     [Fact]
@@ -686,6 +811,17 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
             };
             return Task.FromResult(response);
         }
+    }
+
+    private sealed class RedirectHandler(Uri location) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Redirect)
+            {
+                RequestMessage = request,
+                Headers = { Location = location }
+            });
     }
 
     private sealed class EncodedHtmlHandler(string html, Encoding encoding) : HttpMessageHandler

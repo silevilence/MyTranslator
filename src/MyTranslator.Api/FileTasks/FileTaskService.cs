@@ -149,7 +149,7 @@ public sealed class FileTaskService(
     {
         if (limit is < 1 or > 200)
         {
-            throw new InvalidFileTaskRequestException("invalid_cursor", "The page limit must be between 1 and 200.");
+            throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
 
         var task = await database.TranslationTasks
@@ -192,7 +192,7 @@ public sealed class FileTaskService(
     {
         if (limit is < 1 or > 200)
         {
-            throw new InvalidFileTaskRequestException("invalid_cursor", "The page limit must be between 1 and 200.");
+            throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
 
         var task = await database.TranslationTasks
@@ -328,7 +328,7 @@ public sealed class FileTaskService(
     {
         if (limit is < 1 or > 200)
         {
-            throw new InvalidFileTaskRequestException("invalid_cursor", "The page limit must be between 1 and 200.");
+            throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
 
         var preview = GetPreview(taskId, previewId);
@@ -386,7 +386,9 @@ public sealed class FileTaskService(
         }
 
         var translatedCount = await database.TranslationSegments.CountAsync(
-            segment => segment.TaskId == taskId && segment.TargetText != null && segment.TargetText != string.Empty,
+            segment => segment.TaskId == taskId &&
+                       segment.TargetText != null &&
+                       segment.TargetText.Trim() != string.Empty,
             cancellationToken);
         var confirmedCount = await database.TranslationSegments.CountAsync(
             segment => segment.TaskId == taskId && segment.ConfirmationStatus == "confirmed",
@@ -925,7 +927,7 @@ public sealed class FileTaskService(
                 {
                     Id = Guid.NewGuid(),
                     SourceUnitOrder = sourceUnitOrder,
-                    Type = "textWhitespace",
+                    Type = unit.ProtectedType,
                     PreviewText = unit.Text.Length <= 200 ? unit.Text : unit.Text[..200],
                     ByteLength = Encoding.GetEncoding(encodingName).GetByteCount(unit.Text),
                     ContentHash = TextExtraction.Hash(unit.Text, encodingName),
