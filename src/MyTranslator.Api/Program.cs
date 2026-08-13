@@ -6,7 +6,10 @@ using Microsoft.OpenApi;
 using MyTranslator.Api;
 using MyTranslator.Api.Authentication;
 using MyTranslator.Api.Data;
+using MyTranslator.Api.FileTasks;
 using MyTranslator.Api.Tokens;
+
+System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,11 @@ var connectionString = ResolveSqliteConnectionString(
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<FileTaskService>();
+builder.Services.AddSingleton<ExtractionPreviewStore>();
+builder.Services.AddHttpClient<UrlImportClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(PublicAddressHttpHandler.Create);
 builder.Services.AddHostedService<DatabaseInitializer>();
 builder.Services
     .AddAuthentication(TokenAuthenticationDefaults.Scheme)
@@ -118,6 +126,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }))
     .WithName("GetHealth")
     .WithTags("System");
 app.MapTokenEndpoints();
+app.MapFileTaskEndpoints();
 
 app.Run();
 
