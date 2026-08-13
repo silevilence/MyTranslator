@@ -63,4 +63,15 @@ public class ApiErrorMessageProviderTests
         var exception = new ApiErrorException(409, "task_busy", null, null, "test");
         Assert.Equal("任务正在执行其他操作，请稍后重试", Create().ForError(exception));
     }
+
+    [Fact]
+    public void ForException_按异常类型映射()
+    {
+        var provider = Create();
+        Assert.Equal("任务正在执行其他操作，请稍后重试",
+            provider.ForException(new ApiErrorException(409, "task_busy", null, null, "test")));
+        Assert.Equal("无法连接后端，请确认后端服务已启动",
+            provider.ForException(new HttpRequestException("network down")));
+        Assert.Equal(provider.For(null), provider.ForException(new InvalidOperationException("unknown")));
+    }
 }

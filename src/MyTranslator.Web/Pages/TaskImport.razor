@@ -146,8 +146,8 @@
         _busy = true;
         try
         {
-            // 大小上限由后端强制（413 content_too_large），本地仅给出宽松上限避免整文件读入内存
-            await using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+            // 本地上限与契约 §4.1 默认上传上限一致（10 MiB）；后端仍权威强制（413 content_too_large）
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
             var summary = await Import.CreateFromFileAsync(
                 stream,
                 file.Name,
@@ -157,13 +157,14 @@
             Snackbar.Add(Localizer["ImportCreated"], Severity.Success);
             Nav.NavigateTo($"/tasks/{summary.TaskId}");
         }
-        catch (ApiErrorException ex)
+        catch (IOException)
         {
-            Snackbar.Add(ErrorProvider.ForError(ex), Severity.Error);
+            // OpenReadStream 超过本地上限时抛 IOException，按 content_too_large 文案提示
+            Snackbar.Add(ErrorProvider.ForError(413, "content_too_large"), Severity.Error);
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            Snackbar.Add(ErrorProvider.For(null), Severity.Error);
+            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
         }
         finally
         {
@@ -195,13 +196,9 @@
             Snackbar.Add(Localizer["ImportCreated"], Severity.Success);
             Nav.NavigateTo($"/tasks/{summary.TaskId}");
         }
-        catch (ApiErrorException ex)
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            Snackbar.Add(ErrorProvider.ForError(ex), Severity.Error);
-        }
-        catch (HttpRequestException)
-        {
-            Snackbar.Add(ErrorProvider.For(null), Severity.Error);
+            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
         }
         finally
         {

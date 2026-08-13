@@ -98,14 +98,9 @@
                 {
                     break; // 滚动取消：不视为错误
                 }
-                catch (ApiErrorException ex)
+                catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
                 {
-                    _loadError = ErrorProvider.ForError(ex);
-                    break;
-                }
-                catch (HttpRequestException)
-                {
-                    _loadError = ErrorProvider.For(null);
+                    _loadError = ErrorProvider.ForException(ex);
                     break;
                 }
             }

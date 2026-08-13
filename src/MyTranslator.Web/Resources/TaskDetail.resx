@@ -21,6 +21,9 @@
   <data name="Export" xml:space="preserve">
     <value>导出文件</value>
   </data>
+  <data name="ExportNotReady" xml:space="preserve">
+    <value>完成全部分段翻译后可导出</value>
+  </data>
   <data name="ExportStarted" xml:space="preserve">
     <value>文件已开始下载</value>
   </data>

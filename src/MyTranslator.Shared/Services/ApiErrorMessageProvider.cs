@@ -57,4 +57,19 @@ public class ApiErrorMessageProvider
     {
         return ForError(exception.StatusCode, exception.Code);
     }
+
+    /// <summary>
+    /// 按异常类型返回映射文案：<see cref="ApiErrorException"/> 按 code 映射；
+    /// <see cref="HttpRequestException"/> 视为网络不可达；其余按未知处理。
+    /// 页面捕获异常统一经此方法取文案，避免各页重复编写捕获形状。
+    /// </summary>
+    public string ForException(Exception exception)
+    {
+        return exception switch
+        {
+            ApiErrorException api => ForError(api),
+            HttpRequestException => For(null),
+            _ => For(null),
+        };
+    }
 }
