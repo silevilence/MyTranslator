@@ -99,15 +99,6 @@
 
 ### 一、前后端基本框架
 
-- [ ] **后端：搭建 Web API 框架与 Token 鉴权**（API 骨架 + SQLite + 多 Token 鉴权体系）
-  - [ ] 创建 ASP.NET Core Web API 项目骨架：统一 `/api` 路由前缀、统一错误响应格式、Swagger 文档
-  - [ ] 接入 SQLite 数据库与迁移机制，建立 Token 存储表
-  - [ ] 全部 `/api` 接口默认要求 `Authorization: Bearer sk-{32位guid}`（公开白名单接口除外），Token 存库校验
-  - [ ] Token 管理 API：生成、撤销、列表（供外部系统申请、可单独吊销）
-  - [ ] 初始 Token 由部署环境变量 `INITIAL_TOKEN` 注入，作为首条 Token 记录；dev 环境未配置时自动启用固定开发 Token（`sk-dev-` 前缀），日志提示，鉴权行为与生产一致
-  - [ ] 编写 `docs/back` 接口约定文档：Token 获取方式、请求头格式、错误码约定
-  - 验收：curl 以有效 Token 访问受保护接口返回 200，无 Token / 伪造 Token 返回 401；生成→使用→撤销后立即失效；未配置 `INITIAL_TOKEN` 时 dev 固定 Token 可直接使用；`docs/back` 存在鉴权约定文档
-
 - [x] **前端：搭建 Blazor WASM 框架、共享组件库与 Token 登录**（网页端骨架 + 登录闭环）
   - [x] Blazor WebAssembly 项目骨架：路由、布局、导航菜单
   - [x] Razor Class Library 共享组件库：基础组件（按钮/表格/弹窗等）与 `docs/front` 界面规范文档
@@ -151,3 +142,12 @@
   - 验收：界面完成术语增删改查，刷新后数据一致
 
 ## ✅ 已完成 (Completed)
+
+- [x] **后端：搭建 Web API 框架与 Token 鉴权**（API 骨架 + SQLite + 多 Token 鉴权体系）
+  - [x] 创建 ASP.NET Core Web API 项目骨架：统一 `/api` 路由前缀、统一错误响应格式、Swagger 文档
+  - [x] 接入 SQLite 数据库与迁移机制，建立 Token 存储表
+  - [x] 全部 `/api` 接口默认要求 `Authorization: Bearer sk-{32位guid}`（公开白名单接口除外），Token 存库校验
+  - [x] Token 管理 API：生成、撤销、列表（供外部系统申请、可单独吊销）
+  - [x] 初始 Token 由部署环境变量 `INITIAL_TOKEN` 注入，作为首条 Token 记录；dev 环境未配置时自动启用固定开发 Token（`sk-dev-` 前缀），日志提示，鉴权行为与生产一致
+  - [x] 编写 `docs/back` 接口约定文档：Token 获取方式、请求头格式、错误码约定
+  - 验收：curl 以有效 Token 访问受保护接口返回 200，无 Token / 伪造 Token 返回 401；生成→使用→撤销后立即失效；未配置 `INITIAL_TOKEN` 时 dev 固定 Token 可直接使用；`docs/back` 存在鉴权约定文档

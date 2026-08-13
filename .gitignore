@@ -56,3 +56,6 @@ Desktop.ini
 ## Local app data
 appsettings.Development.json
 *.local.json
+*.db
+*.db-shm
+*.db-wal
