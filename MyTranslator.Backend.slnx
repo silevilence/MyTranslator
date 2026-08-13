@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/MyTranslator.Api/MyTranslator.Api.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/MyTranslator.Api.Tests/MyTranslator.Api.Tests.csproj" />
-  </Folder>
-</Solution>

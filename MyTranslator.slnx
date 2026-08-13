@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/MyTranslator.Api/MyTranslator.Api.csproj" />
     <Project Path="src/MyTranslator.Shared/MyTranslator.Shared.csproj" />
     <Project Path="src/MyTranslator.Web/MyTranslator.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/MyTranslator.Api.Tests/MyTranslator.Api.Tests.csproj" />
     <Project Path="tests/MyTranslator.Shared.Tests/MyTranslator.Shared.Tests.csproj" />
   </Folder>
 </Solution>

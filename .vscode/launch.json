@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: MyTranslator.Api",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/MyTranslator.Api/MyTranslator.Api.csproj",
+      "launchSettingsProfile": null,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5199"
+      },
+      "presentation": {
+        "group": "MyTranslator",
+        "order": 2
+      }
+    },
+    {
+      "name": "Frontend: MyTranslator.Web",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/MyTranslator.Web/MyTranslator.Web.csproj",
+      "launchSettingsProfile": "http",
+      "presentation": {
+        "group": "MyTranslator",
+        "order": 3
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "MyTranslator: Full Stack",
+      "configurations": [
+        "Backend: MyTranslator.Api",
+        "Frontend: MyTranslator.Web"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "group": "MyTranslator",
+        "order": 1
+      }
+    }
+  ]
+}

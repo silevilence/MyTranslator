@@ -7,7 +7,9 @@ obj/
 *.userosscache
 *.sln.docstates
 project.lock.json
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
 
 ## Build results
 [Dd]ebug/
