@@ -1,0 +1,20 @@
+.mt-dev-token {
+    margin-top: 16px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--mud-palette-background-gray);
+}
+
+.mt-dev-token-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.mt-dev-token-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+}

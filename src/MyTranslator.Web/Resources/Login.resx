@@ -25,7 +25,28 @@
     <value>API Token</value>
   </data>
   <data name="TokenHint" xml:space="preserve">
-    <value>开发环境默认固定 Token：`sk-dev-00000000000000000000000000000000`（后端未配置 INITIAL_TOKEN 时启用）</value>
+    <value>输入后端分配的 API Token（开发环境可使用下方固定 Token 一键填入或复制）</value>
+  </data>
+  <data name="DevTokenLabel" xml:space="preserve">
+    <value>开发环境固定 Token</value>
+  </data>
+  <data name="DevTokenValue" xml:space="preserve">
+    <value>sk-dev-00000000000000000000000000000000</value>
+  </data>
+  <data name="DevTokenButton" xml:space="preserve">
+    <value>填入开发 Token</value>
+  </data>
+  <data name="CopyToken" xml:space="preserve">
+    <value>复制 Token</value>
+  </data>
+  <data name="DevTokenFilled" xml:space="preserve">
+    <value>已填入开发 Token，点击「登录」</value>
+  </data>
+  <data name="TokenCopied" xml:space="preserve">
+    <value>Token 已复制</value>
+  </data>
+  <data name="CopyFailed" xml:space="preserve">
+    <value>复制失败，请手动选中复制</value>
   </data>
   <data name="Login" xml:space="preserve">
     <value>登录</value>

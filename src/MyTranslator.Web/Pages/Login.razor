@@ -4,6 +4,8 @@
 @using MyTranslator.Shared.Services
 @inject AuthStateProvider Auth
 @inject NavigationManager Nav
+@inject IJSRuntime Js
+@inject IConfiguration Config
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<Login> Localizer
 
@@ -27,6 +29,25 @@
                       @bind-Value="_token"
                       Class="mt-8" />
 
+        <div class="mt-dev-token">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["DevTokenLabel"]</MudText>
+            <div class="mt-dev-token-row">
+                <code class="mt-mono mt-dev-token-value">@Localizer["DevTokenValue"]</code>
+                @if (!string.IsNullOrEmpty(_devToken))
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Input"
+                               OnClick="FillDevTokenAsync">
+                        @Localizer["DevTokenButton"]
+                    </MudButton>
+                }
+                <MudIconButton Size="Size.Small" Color="Color.Default"
+                               Icon="@Icons.Material.Filled.ContentCopy"
+                               aria-label="@Localizer["CopyToken"]"
+                               OnClick="CopyDevTokenAsync" />
+            </div>
+        </div>
+
         @if (!string.IsNullOrEmpty(_error))
         {
             <MudText Typo="Typo.body2" Color="Color.Error" Class="mt-2" role="alert">@_error</MudText>
@@ -41,12 +62,16 @@
 
 @code {
     private string _token = string.Empty;
+    private string? _devToken;
     private bool _showToken;
     private bool _busy;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
+        // 开发环境一键填入：仅在本地配置 Auth:DevToken 时启用（生产为空则不显示按钮）
+        _devToken = Config["Auth:DevToken"];
+
         // 已保存 Token 视为已登录，直接进入主界面
         if (await Auth.GetTokenAsync() is { Length: > 0 })
         {
@@ -75,6 +100,24 @@
         {
             _busy = false;
         }
+    }
+
+    private void FillDevTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_devToken))
+        {
+            return;
+        }
+
+        _token = _devToken;
+        Snackbar.Add(Localizer["DevTokenFilled"], Severity.Info);
+    }
+
+    private async Task CopyDevTokenAsync()
+    {
+        var ok = await Js.InvokeAsync<bool>("mtStorage.copyText", Localizer["DevTokenValue"]);
+        Snackbar.Add(ok ? Localizer["TokenCopied"] : Localizer["CopyFailed"],
+            ok ? Severity.Success : Severity.Error);
     }
 
     private void ToggleTokenVisibility() => _showToken = !_showToken;

@@ -16,4 +16,22 @@ window.mtStorage = {
     setDarkMode: function (dark) {
         window.localStorage.setItem('mt.darkMode', dark ? '1' : '0');
     },
+    copyText: function (text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
+        }
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return Promise.resolve(ok);
+        } catch (e) {
+            return Promise.resolve(false);
+        }
+    },
 };
