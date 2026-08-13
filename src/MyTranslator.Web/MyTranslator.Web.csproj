@@ -32,6 +32,12 @@
     <EmbeddedResource Update="Resources\Navigation.resx">
       <LogicalName>MyTranslator.Web.Layout.Navigation.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TaskImport.resx">
+      <LogicalName>MyTranslator.Web.Pages.TaskImport.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TaskDetail.resx">
+      <LogicalName>MyTranslator.Web.Pages.TaskDetail.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

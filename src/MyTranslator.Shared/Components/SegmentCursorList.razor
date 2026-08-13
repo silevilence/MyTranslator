@@ -1,0 +1,132 @@
+@namespace MyTranslator.Shared.Components
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<SharedStrings> Localizer
+
+<div class="mt-segment-list">
+    @if (_loadError is not null)
+    {
+        <ErrorBanner Message="@_loadError" RetryText="@Localizer["SegmentList.Retry"]" OnRetry="RetryAsync" />
+    }
+    <Virtualize ItemsProvider="LoadItemsAsync" OverscanCount="6" Context="segment">
+        <ItemContent>
+            @RowTemplate(segment)
+        </ItemContent>
+        <EmptyContent>
+            @if (_hasLoaded)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-4">
+                    @(EmptyMessage ?? Localizer["SegmentList.Empty"])
+                </MudText>
+            }
+        </EmptyContent>
+    </Virtualize>
+</div>
+
+@code {
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly List<Segment> _items = [];
+
+    /// <summary>不透明游标；null 表示尚未加载首页。</summary>
+    private string? _nextCursor;
+
+    /// <summary>已确认没有下一页（后端返回 nextCursor 为 null）。</summary>
+    private bool _noMorePages;
+
+    private int _totalCount;
+    private bool _hasLoaded;
+    private string? _loadError;
+
+    /// <summary>游标分页加载器：入参为不透明游标（首页为 null），返回一页分段。</summary>
+    [Parameter, EditorRequired]
+    public required Func<string?, CancellationToken, Task<SegmentPage>> LoadPage { get; set; }
+
+    /// <summary>行模板（分段）。</summary>
+    [Parameter, EditorRequired]
+    public required RenderFragment<Segment> RowTemplate { get; set; }
+
+    /// <summary>空列表文案；未传时使用资源默认值。</summary>
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    /// <summary>加载期间遇到 409 extraction_revision_changed（重新提取导致游标失效）时触发。</summary>
+    [Parameter]
+    public EventCallback OnRevisionChanged { get; set; }
+
+    private async ValueTask<ItemsProviderResult<Segment>> LoadItemsAsync(ItemsProviderRequest request)
+    {
+        try
+        {
+            await _gate.WaitAsync(request.CancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return new ItemsProviderResult<Segment>([], _totalCount);
+        }
+
+        try
+        {
+            var need = request.StartIndex + request.Count;
+            while (_items.Count < need && !_noMorePages)
+            {
+                try
+                {
+                    var page = await LoadPage(_nextCursor, request.CancellationToken);
+                    _nextCursor = page.NextCursor;
+                    _noMorePages = page.NextCursor is null;
+                    _totalCount = page.TotalCount;
+                    _hasLoaded = true;
+                    _items.AddRange(page.Items);
+                }
+                catch (ApiErrorException ex) when (ex.Code == "extraction_revision_changed")
+                {
+                    // 游标绑定创建它的提取修订；重新提取后旧游标失效，按契约从第一页重新加载
+                    _loadError = null;
+                    _items.Clear();
+                    _nextCursor = null;
+                    _noMorePages = false;
+                    _totalCount = 0;
+                    _hasLoaded = true;
+                    if (OnRevisionChanged.HasDelegate)
+                    {
+                        await OnRevisionChanged.InvokeAsync();
+                    }
+
+                    return new ItemsProviderResult<Segment>([], 0);
+                }
+                catch (OperationCanceledException)
+                {
+                    break; // 滚动取消：不视为错误
+                }
+                catch (ApiErrorException ex)
+                {
+                    _loadError = ErrorProvider.ForError(ex);
+                    break;
+                }
+                catch (HttpRequestException)
+                {
+                    _loadError = ErrorProvider.For(null);
+                    break;
+                }
+            }
+
+            var items = _items.Skip(request.StartIndex).Take(request.Count).ToArray();
+            return new ItemsProviderResult<Segment>(items, _totalCount);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private void RetryAsync()
+    {
+        _loadError = null;
+        _items.Clear();
+        _nextCursor = null;
+        _noMorePages = false;
+        _totalCount = 0;
+        _hasLoaded = false;
+        StateHasChanged();
+    }
+}

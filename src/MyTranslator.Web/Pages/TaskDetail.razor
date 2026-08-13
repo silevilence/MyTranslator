@@ -1,0 +1,304 @@
+@page "/tasks/{TaskId:guid}"
+@attribute [Authorize]
+@using MyTranslator.Shared.Models
+@using MyTranslator.Shared.Services
+@inject ImportExportService Import
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IJSRuntime Js
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<TaskDetail> Localizer
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+@if (_loadError is not null)
+{
+    <ErrorBanner Message="@_loadError" OnRetry="LoadAsync" />
+}
+else if (_summary is null)
+{
+    <MudSkeleton Width="100%" Height="120px" />
+    <MudSkeleton Width="100%" Height="320px" Class="mt-4" />
+}
+else
+{
+    <MudText Typo="Typo.h1">@Localizer["Title"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+        <code class="mt-mono">@_summary.TaskId</code>
+    </MudText>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+        <div class="mt-task-header">
+            <div class="mt-task-header-left">
+                @StatusBadge(_summary.Status)
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ms-2">
+                    @Localizer["Revision", _summary.ExtractionRevision]
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Download"
+                       Disabled="_exporting"
+                       OnClick="ExportAsync">
+                @if (_exporting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                }
+                @Localizer["Export"]
+            </MudButton>
+        </div>
+
+        <MudDivider Class="my-4" />
+
+        <div class="mt-task-meta">
+            <div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["SourceSection"]</MudText>
+                <MudText Typo="Typo.body1">@GetSourceDisplay()</MudText>
+                @if (_summary.Source?.FinalUrl is not null)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        @Localizer["FinalUrl"]<span class="ms-1">@_summary.Source.FinalUrl</span>
+                    </MudText>
+                }
+            </div>
+            <div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["FileType"]</MudText>
+                <MudText Typo="Typo.body1">@_summary.FileType</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["Encoding"]</MudText>
+                <MudText Typo="Typo.body1">@(_summary.OriginalEncoding ?? Localizer["EncodingUnknown"])</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["ByteLength"]</MudText>
+                <MudText Typo="Typo.body1">@FormatBytes(_summary.Source?.ByteLength)</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["Counts"]</MudText>
+                <MudText Typo="Typo.body1">
+                    @Localizer["CountsSegments", _summary.Counts?.Segments ?? 0]、
+                    @Localizer["CountsProtected", _summary.Counts?.ProtectedBlocks ?? 0]、
+                    @Localizer["CountsChapters", _summary.Counts?.Chapters ?? 0]
+                </MudText>
+            </div>
+            @if (_summary.Segmentation is { } segmentation)
+            {
+                <div>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["SegmentationSection"]</MudText>
+                    <MudText Typo="Typo.body1">@GetSegmentationDisplay(segmentation)</MudText>
+                </div>
+            }
+        </div>
+    </MudPaper>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+        <MudText Typo="Typo.h2">@Localizer["SegmentsTitle"]</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["SegmentsHint"]</MudText>
+
+        <div class="mt-task-segments">
+            <SegmentCursorList @key="_segmentsKey"
+                               LoadPage="LoadSegmentsAsync"
+                               OnRevisionChanged="OnSegmentsRevisionChanged">
+                <RowTemplate>
+                    <div class="mt-task-segment-row">
+                        <code class="mt-mono mt-task-segment-order">@context.Order</code>
+                        <div class="mt-task-segment-source">
+                            <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)"
+                                                 MarkupTable="@context.MarkupTable" />
+                            @if (context.Chapter is { } chapter)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                                    @Localizer["ChapterTitle", chapter.Title ?? chapter.ResourcePath ?? chapter.Id.ToString()]
+                                </MudText>
+                            }
+                        </div>
+                        <div class="mt-task-segment-side">
+                            @if (string.IsNullOrEmpty(context.TargetText))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["TargetEmpty"]</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">@context.TargetText</MudText>
+                            }
+                            @ConfirmationBadge(context.ConfirmationStatus)
+                        </div>
+                    </div>
+                </RowTemplate>
+            </SegmentCursorList>
+        </div>
+    </MudPaper>
+
+    @if (_summary.Capabilities?.CanReextract == true)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+            <ReextractionPanel TaskId="@TaskId" OnApplied="OnReextractionApplied" />
+        </MudPaper>
+    }
+}
+
+@code {
+    private TaskSummary? _summary;
+    private string? _loadError;
+    private bool _exporting;
+    private int _segmentsKey;
+
+    [Parameter]
+    public Guid TaskId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadError = null;
+        try
+        {
+            _summary = await Import.GetTaskAsync(TaskId);
+        }
+        catch (ApiErrorException ex)
+        {
+            _loadError = ErrorProvider.ForError(ex);
+        }
+        catch (HttpRequestException)
+        {
+            _loadError = ErrorProvider.For(null);
+        }
+    }
+
+    private Task<SegmentPage> LoadSegmentsAsync(string? cursor, CancellationToken cancellationToken)
+    {
+        return Import.GetSegmentsAsync(TaskId, cursor, cancellationToken);
+    }
+
+    private async Task OnReextractionApplied(TaskSummary summary)
+    {
+        // 重新提取后：分段 ID 全部更换、extractionRevision 递增，旧列表与游标失效，从第一页重新加载
+        _summary = summary;
+        _segmentsKey++;
+    }
+
+    private async Task OnSegmentsRevisionChanged()
+    {
+        // 分页期间任务被重新提取（409 extraction_revision_changed）：按契约从第一页重新加载
+        _segmentsKey++;
+        await LoadAsync();
+    }
+
+    private async Task ExportAsync()
+    {
+        if (_summary is null || _exporting)
+        {
+            return;
+        }
+
+        _exporting = true;
+        try
+        {
+            var result = await Import.ExportAsync(TaskId);
+            var base64 = Convert.ToBase64String(result.Content);
+            var downloaded = await Js.InvokeAsync<bool>(
+                "mtDownload.download", result.FileName, result.MediaType, base64);
+            Snackbar.Add(
+                downloaded ? Localizer["ExportStarted"] : Localizer["ExportFailedBrowser"],
+                downloaded ? Severity.Success : Severity.Error);
+        }
+        catch (ApiErrorException ex)
+        {
+            Snackbar.Add(ErrorProvider.ForError(ex), Severity.Error);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(ErrorProvider.For(null), Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private string GetSourceDisplay()
+    {
+        var source = _summary?.Source;
+        if (source?.FileName is not null)
+        {
+            return source.FileName;
+        }
+
+        if (source?.RequestedUrl is not null)
+        {
+            return source.RequestedUrl;
+        }
+
+        return Localizer["SourceUnknown"];
+    }
+
+    private string GetSegmentationDisplay(TaskSegmentation segmentation)
+    {
+        var recommended = FormatSegmentationMode(segmentation.Recommended);
+        var effective = FormatSegmentationMode(segmentation.Effective);
+        var reason = segmentation.Reason switch
+        {
+            "blank_line_blocks_present" => Localizer["SegmentationReasonBlankLineBlocks"],
+            "few_or_no_blank_lines" => Localizer["SegmentationReasonFewBlankLines"],
+            _ => null,
+        };
+
+        var text = $"{Localizer["SegmentationRecommended", recommended]} → {Localizer["SegmentationEffective", effective]}";
+        if (segmentation.Requested is not null)
+        {
+            text = $"{Localizer["SegmentationRequested", FormatSegmentationMode(segmentation.Requested)]}，{text}";
+        }
+
+        return reason is null ? text : $"{text}（{reason}）";
+    }
+
+    private string FormatSegmentationMode(string? mode)
+    {
+        return mode switch
+        {
+            "paragraph" => Localizer["SegmentationModeParagraph"],
+            "line" => Localizer["SegmentationModeLine"],
+            _ => mode ?? "-",
+        };
+    }
+
+    private static string FormatBytes(long? byteLength)
+    {
+        if (byteLength is null)
+        {
+            return "-";
+        }
+
+        return byteLength switch
+        {
+            < 1024 => $"{byteLength} B",
+            < 1024 * 1024 => $"{byteLength / 1024d:0.#} KB",
+            _ => $"{byteLength / (1024d * 1024):0.#} MB",
+        };
+    }
+
+    private RenderFragment StatusBadge(string? status) => __builder =>
+    {
+        var (text, color, icon) = status switch
+        {
+            "created" => (Localizer["StatusCreated"], Color.Default, Icons.Material.Filled.Schedule),
+            "processing" => (Localizer["StatusProcessing"], Color.Info, Icons.Material.Filled.Sync),
+            "completed" => (Localizer["StatusCompleted"], Color.Success, Icons.Material.Filled.CheckCircle),
+            "failed" => (Localizer["StatusFailed"], Color.Error, Icons.Material.Filled.ErrorOutline),
+            _ => (Localizer["StatusUnknown"], Color.Default, Icons.Material.Filled.HelpOutline),
+        };
+        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon">@text</MudChip>
+    };
+
+    private RenderFragment ConfirmationBadge(string? status) => __builder =>
+    {
+        var (text, color, icon) = status switch
+        {
+            "translated" => (Localizer["ConfirmationTranslated"], Color.Info, Icons.Material.Filled.Edit),
+            "confirmed" => (Localizer["ConfirmationConfirmed"], Color.Success, Icons.Material.Filled.Verified),
+            _ => (Localizer["ConfirmationPending"], Color.Default, Icons.Material.Filled.Schedule),
+        };
+        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Text" Icon="icon">@text</MudChip>
+    };
+}

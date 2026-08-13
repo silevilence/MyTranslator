@@ -35,4 +35,32 @@ public class ApiErrorMessageProviderTests
     {
         Assert.Equal(expected, Create().For(status));
     }
+
+    [Theory]
+    [InlineData("task_not_exportable", "任务暂不可导出：译文不完整或占位符不合法")]
+    [InlineData("translation_loss_confirmation_required", "重新提取将丢失已有译文，需确认后继续")]
+    [InlineData("unable_to_infer_file_type", "无法推断文件类型，请显式指定")]
+    [InlineData("selector_no_match", "选择器在所有目标文档中均无匹配")]
+    [InlineData("extraction_preview_expired", "提取预览已过期，请重新创建")]
+    [InlineData("content_too_large", "内容超过大小上限")]
+    public void ForError_已知错误码优先映射文案(string code, string expected)
+    {
+        Assert.Equal(expected, Create().ForError(409, code));
+    }
+
+    [Fact]
+    public void ForError_未知错误码_降级为状态码映射()
+    {
+        var provider = Create();
+        Assert.Equal(provider.For(404), provider.ForError(404, "future_unknown_code"));
+        Assert.Equal(provider.For(418), provider.ForError(418, null));
+        Assert.Equal(provider.For(null), provider.ForError(null, "future_unknown_code"));
+    }
+
+    [Fact]
+    public void ForError_ApiErrorException_按code映射()
+    {
+        var exception = new ApiErrorException(409, "task_busy", null, null, "test");
+        Assert.Equal("任务正在执行其他操作，请稍后重试", Create().ForError(exception));
+    }
 }

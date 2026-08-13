@@ -1,0 +1,240 @@
+@namespace MyTranslator.Shared.Components
+@inject ImportExportService Import
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<ReextractionPanel> Localizer
+
+<section class="mt-reextract" aria-labelledby="mt-reextract-title">
+    <MudText Typo="Typo.h2" id="mt-reextract-title">@Localizer["Title"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["Description"]</MudText>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+        <MudTextField T="string"
+                      Label="@Localizer["SelectorLabel"]"
+                      HelperText="@Localizer["SelectorHelper"]"
+                      Variant="Variant.Outlined"
+                      @bind-Value="_selector"
+                      Error="_selectorError is not null"
+                      ErrorText="_selectorError"
+                      Disabled="_creating || _applying" />
+        <div class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Gesture"
+                       Disabled="_applying || _creating || string.IsNullOrWhiteSpace(_selector)"
+                       OnClick="CreatePreviewAsync">
+                @if (_creating)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                }
+                @Localizer["CreatePreview"]
+            </MudButton>
+        </div>
+    </MudPaper>
+
+    @if (_preview is not null)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+            <MudText Typo="Typo.body1" Class="font-weight-medium">@Localizer["PreviewTitle"]</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                @Localizer["PreviewCounts", _preview.Counts?.Segments ?? 0, _preview.Counts?.ProtectedBlocks ?? 0, _preview.Counts?.Chapters ?? 0]
+            </MudText>
+
+            @if (_preview.TranslationLoss is { } loss && (loss.TranslatedSegments > 0 || loss.ConfirmedSegments > 0))
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-3">
+                    @Localizer["LossWarning", loss.TranslatedSegments, loss.ConfirmedSegments]
+                </MudAlert>
+            }
+
+            <MudText Typo="Typo.body2" Class="mt-4 mb-2">@Localizer["PreviewSegmentsTitle"]</MudText>
+            <div class="mt-reextract-preview-list">
+                <SegmentCursorList @key="_previewKey"
+                                   LoadPage="LoadPreviewSegmentsAsync"
+                                   OnRevisionChanged="OnPreviewRevisionChanged"
+                                   EmptyMessage="@Localizer["PreviewSegmentsEmpty"]">
+                    <RowTemplate>
+                        <div class="mt-reextract-row">
+                            <code class="mt-mono mt-reextract-order">@context.Order</code>
+                            <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)"
+                                                 MarkupTable="@context.MarkupTable" />
+                        </div>
+                    </RowTemplate>
+                </SegmentCursorList>
+            </div>
+
+            <div class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.SwapHoriz"
+                           Disabled="_creating || _applying"
+                           OnClick="ApplyPreviewAsync">
+                    @if (_applying)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                    }
+                    @Localizer["ApplyPreview"]
+                </MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Class="ms-2"
+                           Disabled="_creating || _applying"
+                           OnClick="DiscardPreviewAsync">
+                    @Localizer["DiscardPreview"]
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+</section>
+
+@code {
+    private string _selector = string.Empty;
+    private string? _selectorError;
+    private bool _creating;
+    private bool _applying;
+    private ReextractionPreview? _preview;
+    private int _previewKey;
+
+    /// <summary>任务 ID（canReextract = true 的 html 类任务）。</summary>
+    [Parameter, EditorRequired]
+    public required Guid TaskId { get; set; }
+
+    /// <summary>应用预览成功后的回调，参数为新任务摘要（extractionRevision 已递增）。</summary>
+    [Parameter]
+    public EventCallback<TaskSummary> OnApplied { get; set; }
+
+    private Task<SegmentPage> LoadPreviewSegmentsAsync(string? cursor, CancellationToken cancellationToken)
+    {
+        var preview = _preview ?? throw new InvalidOperationException("预览不存在");
+        return Import.GetReextractionPreviewSegmentsAsync(TaskId, preview.PreviewId, cursor, cancellationToken);
+    }
+
+    private async Task CreatePreviewAsync()
+    {
+        _creating = true;
+        _selectorError = null;
+        try
+        {
+            var preview = await Import.CreateReextractionPreviewAsync(TaskId, _selector.Trim());
+            _preview = preview;
+            _previewKey++;
+            Snackbar.Add(Localizer["PreviewCreated"], Severity.Success);
+        }
+        catch (ApiErrorException ex)
+        {
+            _selectorError = ex.Code switch
+            {
+                "invalid_selector" => Localizer["ErrorInvalidSelector"],
+                "selector_no_match" => Localizer["ErrorSelectorNoMatch"],
+                _ => ErrorProvider.ForError(ex),
+            };
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(ErrorProvider.For(null), Severity.Error);
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private async Task ApplyPreviewAsync()
+    {
+        if (_preview is null || _applying)
+        {
+            return;
+        }
+
+        if (_preview.TranslationLoss is { RequiresConfirmation: true } loss)
+        {
+            var confirmed = await ShowLossConfirmAsync(loss.TranslatedSegments, loss.ConfirmedSegments);
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        await ApplyAsync(true);
+    }
+
+    private async Task ApplyAsync(bool confirmTranslationLoss)
+    {
+        if (_preview is null)
+        {
+            return;
+        }
+
+        _applying = true;
+        try
+        {
+            var summary = await Import.ApplyReextractionAsync(
+                TaskId, _preview.PreviewId, confirmTranslationLoss);
+            _preview = null;
+            Snackbar.Add(Localizer["Applied"], Severity.Success);
+            await OnApplied.InvokeAsync(summary);
+        }
+        catch (ApiErrorException ex)
+        {
+            switch (ex.Code)
+            {
+                case "translation_loss_confirmation_required":
+                    // 后端复查发现最新损失，用最新计数重新确认
+                    var translated = ex.GetErrorInt("translatedSegments")
+                        ?? _preview?.TranslationLoss?.TranslatedSegments ?? 0;
+                    var confirmedCount = ex.GetErrorInt("confirmedSegments")
+                        ?? _preview?.TranslationLoss?.ConfirmedSegments ?? 0;
+                    if (await ShowLossConfirmAsync(translated, confirmedCount))
+                    {
+                        await ApplyAsync(true);
+                    }
+
+                    break;
+                case "extraction_preview_stale":
+                case "extraction_preview_expired":
+                    _preview = null;
+                    Snackbar.Add(ErrorProvider.ForError(ex), Severity.Warning);
+                    break;
+                default:
+                    Snackbar.Add(ErrorProvider.ForError(ex), Severity.Error);
+                    break;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(ErrorProvider.For(null), Severity.Error);
+        }
+        finally
+        {
+            _applying = false;
+        }
+    }
+
+    private async Task<bool> ShowLossConfirmAsync(int translatedSegments, int confirmedSegments)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, Localizer["ConfirmApplyMessage"] },
+            { x => x.Detail, Localizer["LossWarning", translatedSegments, confirmedSegments] },
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            BackdropClick = false,
+            MaxWidth = MaxWidth.Small,
+        };
+        var dialog = await Dialog.ShowAsync<ConfirmDialog>(Localizer["ConfirmApplyTitle"], parameters, options);
+        var result = await dialog.Result;
+        return result is { Canceled: false } && result.Data is true;
+    }
+
+    private void DiscardPreviewAsync()
+    {
+        _preview = null;
+        _selectorError = null;
+    }
+
+    private void OnPreviewRevisionChanged()
+    {
+        // 任务提取修订已变化（他处重新提取）：预览基于旧修订，已不可用
+        _preview = null;
+        Snackbar.Add(ErrorProvider.ForError(409, "extraction_revision_changed"), Severity.Warning);
+    }
+}

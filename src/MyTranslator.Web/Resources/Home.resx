@@ -39,7 +39,4 @@
   <data name="EmptyDemoAction" xml:space="preserve">
     <value>新建任务</value>
   </data>
-  <data name="EmptyDemoActionHint" xml:space="preserve">
-    <value>任务管理功能将在后续版本提供</value>
-  </data>
 </root>

@@ -18,4 +18,31 @@
   <data name="ErrorBanner.Retry" xml:space="preserve">
     <value>重试</value>
   </data>
+  <data name="ConfirmDialog.Title" xml:space="preserve">
+    <value>确认操作</value>
+  </data>
+  <data name="ConfirmDialog.Confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="ConfirmDialog.Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Markup.OpenRef" xml:space="preserve">
+    <value>开标记 {0}：{1}</value>
+  </data>
+  <data name="Markup.CloseRef" xml:space="preserve">
+    <value>闭标记 {0}：{1}</value>
+  </data>
+  <data name="Markup.StandaloneRef" xml:space="preserve">
+    <value>{0} = {1}</value>
+  </data>
+  <data name="Markup.RefNoMeaning" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="SegmentList.Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="SegmentList.Empty" xml:space="preserve">
+    <value>暂无分段</value>
+  </data>
 </root>

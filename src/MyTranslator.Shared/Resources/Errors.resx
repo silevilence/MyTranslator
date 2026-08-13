@@ -33,4 +33,82 @@
   <data name="Unknown" xml:space="preserve">
     <value>请求失败，请稍后重试</value>
   </data>
+  <data name="invalid_file_type" xml:space="preserve">
+    <value>不支持的文件类型，请选择 txt / markdown / html / epub</value>
+  </data>
+  <data name="invalid_file_type_for_url" xml:space="preserve">
+    <value>URL 导入仅支持 html 文件类型</value>
+  </data>
+  <data name="unable_to_infer_file_type" xml:space="preserve">
+    <value>无法推断文件类型，请显式指定</value>
+  </data>
+  <data name="invalid_segmentation_mode" xml:space="preserve">
+    <value>分段模式无效（仅支持段落式或换行式）</value>
+  </data>
+  <data name="segmentation_mode_not_applicable" xml:space="preserve">
+    <value>该文件类型不支持分段模式参数</value>
+  </data>
+  <data name="invalid_selector" xml:space="preserve">
+    <value>CSS 选择器无效，请检查格式</value>
+  </data>
+  <data name="invalid_source_url" xml:space="preserve">
+    <value>URL 格式或协议不合法，请输入 http/https 地址</value>
+  </data>
+  <data name="unsafe_source_url" xml:space="preserve">
+    <value>URL 指向禁止访问的网络地址</value>
+  </data>
+  <data name="invalid_cursor" xml:space="preserve">
+    <value>分页游标无效，请从第一页重新加载</value>
+  </data>
+  <data name="task_not_found" xml:space="preserve">
+    <value>任务不存在或已被删除</value>
+  </data>
+  <data name="extraction_preview_not_found" xml:space="preserve">
+    <value>提取预览不存在或不属于该任务</value>
+  </data>
+  <data name="task_busy" xml:space="preserve">
+    <value>任务正在执行其他操作，请稍后重试</value>
+  </data>
+  <data name="reextraction_not_supported" xml:space="preserve">
+    <value>该任务不支持重新提取</value>
+  </data>
+  <data name="task_not_exportable" xml:space="preserve">
+    <value>任务暂不可导出：译文不完整或占位符不合法</value>
+  </data>
+  <data name="translation_loss_confirmation_required" xml:space="preserve">
+    <value>重新提取将丢失已有译文，需确认后继续</value>
+  </data>
+  <data name="extraction_preview_stale" xml:space="preserve">
+    <value>任务已发生其他变更，提取预览已失效，请重新创建</value>
+  </data>
+  <data name="extraction_revision_changed" xml:space="preserve">
+    <value>任务内容已更新，请从第一页重新加载</value>
+  </data>
+  <data name="extraction_preview_expired" xml:space="preserve">
+    <value>提取预览已过期，请重新创建</value>
+  </data>
+  <data name="content_too_large" xml:space="preserve">
+    <value>内容超过大小上限</value>
+  </data>
+  <data name="unsupported_media_type" xml:space="preserve">
+    <value>不支持的媒体类型</value>
+  </data>
+  <data name="import_parse_failed" xml:space="preserve">
+    <value>文件内容损坏或无法按所选类型解析</value>
+  </data>
+  <data name="selector_no_match" xml:space="preserve">
+    <value>选择器在所有目标文档中均无匹配</value>
+  </data>
+  <data name="dynamic_page_not_supported" xml:space="preserve">
+    <value>该页面依赖 JavaScript 渲染，无法导入</value>
+  </data>
+  <data name="target_encoding_unrepresentable" xml:space="preserve">
+    <value>译文包含原文件编码无法表示的字符</value>
+  </data>
+  <data name="source_fetch_failed" xml:space="preserve">
+    <value>获取 URL 内容失败，请检查地址后重试</value>
+  </data>
+  <data name="source_fetch_timeout" xml:space="preserve">
+    <value>获取 URL 内容超时，请稍后重试</value>
+  </data>
 </root>

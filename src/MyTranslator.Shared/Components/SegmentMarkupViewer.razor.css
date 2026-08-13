@@ -1,0 +1,17 @@
+/* 占位符引用样式（设计规范 §3.2 等宽字体栈 / §3.3 Mono 13px；颜色经主题 CSS 变量注入，禁止硬编码） */
+.mt-markup-ref {
+    font-family: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: 13px;
+    color: var(--mud-palette-primary);
+    background-color: var(--mud-palette-background-gray);
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 3px;
+    padding: 0 4px;
+    white-space: nowrap;
+    cursor: help;
+}
+
+.mt-markup-ref:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}

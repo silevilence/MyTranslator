@@ -1,0 +1,58 @@
+/* 任务详情页布局（色值/字号一律经主题 token，禁止硬编码） */
+.mt-task-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.mt-task-header-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.mt-task-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.mt-task-segments {
+    height: 480px;
+    overflow-y: auto;
+    margin-top: 16px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+}
+
+.mt-task-segment-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--mud-palette-divider-light);
+}
+
+.mt-task-segment-order {
+    color: var(--mud-palette-text-secondary);
+    flex-shrink: 0;
+    min-width: 36px;
+}
+
+.mt-task-segment-source {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.mt-task-segment-side {
+    flex-shrink: 0;
+    max-width: 40%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+}

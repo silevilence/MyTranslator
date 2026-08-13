@@ -3,7 +3,7 @@
 @using MyTranslator.Shared.Components
 @using MyTranslator.Web.Services
 @inject HealthService Health
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 @inject IStringLocalizer<Home> Localizer
 
 <PageTitle>@Localizer["Title"]</PageTitle>
@@ -62,6 +62,6 @@
 
     private void OnEmptyDemoAction()
     {
-        Snackbar.Add(Localizer["EmptyDemoActionHint"], Severity.Info);
+        Nav.NavigateTo("/tasks/import");
     }
 }

@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="MyTranslator.Shared.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <SupportedPlatform Include="browser" />
   </ItemGroup>
 
@@ -16,6 +20,13 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.11" />
     <PackageReference Include="MudBlazor" Version="9.8.0" />
+  </ItemGroup>
+
+  <!-- 组件 resx：LogicalName 与组件类型全名一致（组件规范 §5） -->
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\ReextractionPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.ReextractionPanel.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

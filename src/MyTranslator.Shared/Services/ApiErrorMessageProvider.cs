@@ -33,4 +33,28 @@ public class ApiErrorMessageProvider
             _ => _localizer["Unknown"],
         };
     }
+
+    /// <summary>
+    /// 按 docs/back 错误码优先返回文案（Errors.resx 以错误码为键）；未知错误码降级为状态码映射。
+    /// 前端不得自行解释错误码，一律经本方法取文案。
+    /// </summary>
+    public string ForError(int? status, string? code)
+    {
+        if (!string.IsNullOrEmpty(code))
+        {
+            var localized = _localizer[code];
+            if (!localized.ResourceNotFound)
+            {
+                return localized.Value;
+            }
+        }
+
+        return For(status);
+    }
+
+    /// <summary>按 <see cref="ApiErrorException"/> 的 code/状态码返回映射文案。</summary>
+    public string ForError(ApiErrorException exception)
+    {
+        return ForError(exception.StatusCode, exception.Code);
+    }
 }

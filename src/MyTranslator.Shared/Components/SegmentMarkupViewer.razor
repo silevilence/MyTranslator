@@ -1,0 +1,71 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<SharedStrings> Localizer
+
+<span class="mt-markup-text">
+    @foreach (var part in _parts)
+    {
+        @if (part.Item is null)
+        {
+            <span>@part.Text</span>
+        }
+        else
+        {
+            <MudTooltip Placement="Placement.Top" Duration="150">
+                <ChildContent>
+                    <span class="mt-markup-ref" tabindex="0" aria-label="@GetDescription(part)">
+                        @part.Text
+                    </span>
+                </ChildContent>
+                <TooltipContent>
+                    <span class="mt-markup-tooltip">@GetDescription(part)</span>
+                </TooltipContent>
+            </MudTooltip>
+        }
+    }
+</span>
+
+@code {
+    private IReadOnlyList<MarkupPart> _parts = [];
+
+    /// <summary>分段可译文本，含与 <c>MarkupTable</c> 对应的占位符引用。</summary>
+    [Parameter, EditorRequired]
+    public required string Text { get; set; }
+
+    /// <summary>分段只读标记表；占位符引用必须能与表内同 ID、同种类记录对应。</summary>
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<MarkupItem> MarkupTable { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _parts = MarkupReferenceParser.Parse(Text, MarkupTable);
+    }
+
+    private string GetDescription(MarkupPart part)
+    {
+        var item = part.Item;
+        if (item is null)
+        {
+            return part.Text;
+        }
+
+        var original = part.Kind switch
+        {
+            MarkupReferenceKind.Open => item.OpeningText,
+            MarkupReferenceKind.Close => item.ClosingText,
+            _ => item.OriginalText,
+        };
+        var originalText = string.IsNullOrWhiteSpace(original) ? part.Text : original;
+
+        if (string.IsNullOrWhiteSpace(item.Meaning))
+        {
+            return string.Format(Localizer["Markup.RefNoMeaning"], originalText);
+        }
+
+        return part.Kind switch
+        {
+            MarkupReferenceKind.Open => string.Format(Localizer["Markup.OpenRef"], originalText, item.Meaning),
+            MarkupReferenceKind.Close => string.Format(Localizer["Markup.CloseRef"], originalText, item.Meaning),
+            _ => string.Format(Localizer["Markup.StandaloneRef"], originalText, item.Meaning),
+        };
+    }
+}

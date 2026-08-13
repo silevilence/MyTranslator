@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>重新提取</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>通过 CSS 选择器指定可译范围重新提取分段；范围外内容保留为受保护块，导出时原样还原</value>
+  </data>
+  <data name="SelectorLabel" xml:space="preserve">
+    <value>CSS 选择器</value>
+  </data>
+  <data name="SelectorHelper" xml:space="preserve">
+    <value>例如：main article 或 nav[aria-label='Table of contents']</value>
+  </data>
+  <data name="CreatePreview" xml:space="preserve">
+    <value>创建提取预览</value>
+  </data>
+  <data name="PreviewCreated" xml:space="preserve">
+    <value>提取预览已创建</value>
+  </data>
+  <data name="PreviewTitle" xml:space="preserve">
+    <value>提取预览</value>
+  </data>
+  <data name="PreviewCounts" xml:space="preserve">
+    <value>共 {0} 个分段、{1} 个受保护块、{2} 个章</value>
+  </data>
+  <data name="LossWarning" xml:space="preserve">
+    <value>应用后丢失 {0} 个已翻译分段、{1} 个已确认分段</value>
+  </data>
+  <data name="ApplyPreview" xml:space="preserve">
+    <value>应用预览</value>
+  </data>
+  <data name="DiscardPreview" xml:space="preserve">
+    <value>丢弃预览</value>
+  </data>
+  <data name="Applied" xml:space="preserve">
+    <value>重新提取已应用，分段已更新</value>
+  </data>
+  <data name="ConfirmApplyTitle" xml:space="preserve">
+    <value>将丢失译文</value>
+  </data>
+  <data name="ConfirmApplyMessage" xml:space="preserve">
+    <value>应用后将替换当前分段，已有译文与确认状态将丢失且不可恢复。</value>
+  </data>
+  <data name="ErrorInvalidSelector" xml:space="preserve">
+    <value>选择器无效，请检查格式</value>
+  </data>
+  <data name="ErrorSelectorNoMatch" xml:space="preserve">
+    <value>选择器在所有目标文档中均无匹配</value>
+  </data>
+  <data name="PreviewSegmentsTitle" xml:space="preserve">
+    <value>预览分段</value>
+  </data>
+  <data name="PreviewSegmentsEmpty" xml:space="preserve">
+    <value>预览范围内没有可译分段（匹配内容均为受保护内容）</value>
+  </data>
+</root>

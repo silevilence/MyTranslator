@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>任务详情</value>
+  </data>
+  <data name="Revision" xml:space="preserve">
+    <value>提取版本 {0}</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>导出文件</value>
+  </data>
+  <data name="ExportStarted" xml:space="preserve">
+    <value>文件已开始下载</value>
+  </data>
+  <data name="ExportFailedBrowser" xml:space="preserve">
+    <value>浏览器无法完成下载，请重试</value>
+  </data>
+  <data name="SourceSection" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="SourceUnknown" xml:space="preserve">
+    <value>未知来源</value>
+  </data>
+  <data name="FinalUrl" xml:space="preserve">
+    <value>最终地址：</value>
+  </data>
+  <data name="FileType" xml:space="preserve">
+    <value>文件类型</value>
+  </data>
+  <data name="Encoding" xml:space="preserve">
+    <value>编码</value>
+  </data>
+  <data name="EncodingUnknown" xml:space="preserve">
+    <value>多编码（epub 容器）</value>
+  </data>
+  <data name="ByteLength" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Counts" xml:space="preserve">
+    <value>内容统计</value>
+  </data>
+  <data name="CountsSegments" xml:space="preserve">
+    <value>{0} 分段</value>
+  </data>
+  <data name="CountsProtected" xml:space="preserve">
+    <value>{0} 受保护块</value>
+  </data>
+  <data name="CountsChapters" xml:space="preserve">
+    <value>{0} 章</value>
+  </data>
+  <data name="SegmentationSection" xml:space="preserve">
+    <value>分段模式</value>
+  </data>
+  <data name="SegmentationRecommended" xml:space="preserve">
+    <value>推荐：{0}</value>
+  </data>
+  <data name="SegmentationEffective" xml:space="preserve">
+    <value>生效：{0}</value>
+  </data>
+  <data name="SegmentationRequested" xml:space="preserve">
+    <value>请求：{0}</value>
+  </data>
+  <data name="SegmentationModeParagraph" xml:space="preserve">
+    <value>段落式</value>
+  </data>
+  <data name="SegmentationModeLine" xml:space="preserve">
+    <value>换行式</value>
+  </data>
+  <data name="SegmentationReasonBlankLineBlocks" xml:space="preserve">
+    <value>检测到空行块</value>
+  </data>
+  <data name="SegmentationReasonFewBlankLines" xml:space="preserve">
+    <value>几乎没有空行</value>
+  </data>
+  <data name="SegmentsTitle" xml:space="preserve">
+    <value>分段预览</value>
+  </data>
+  <data name="SegmentsHint" xml:space="preserve">
+    <value>仅展示可译分段；受保护块在导出时原位还原</value>
+  </data>
+  <data name="ChapterTitle" xml:space="preserve">
+    <value>章：{0}</value>
+  </data>
+  <data name="TargetEmpty" xml:space="preserve">
+    <value>未翻译</value>
+  </data>
+  <data name="StatusCreated" xml:space="preserve">
+    <value>创建</value>
+  </data>
+  <data name="StatusProcessing" xml:space="preserve">
+    <value>处理中</value>
+  </data>
+  <data name="StatusCompleted" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="StatusFailed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="StatusUnknown" xml:space="preserve">
+    <value>未知状态</value>
+  </data>
+  <data name="ConfirmationPending" xml:space="preserve">
+    <value>待翻译</value>
+  </data>
+  <data name="ConfirmationTranslated" xml:space="preserve">
+    <value>已翻译</value>
+  </data>
+  <data name="ConfirmationConfirmed" xml:space="preserve">
+    <value>已确认</value>
+  </data>
+</root>

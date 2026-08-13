@@ -21,6 +21,7 @@ builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<ApiErrorMessageProvider>();
+builder.Services.AddScoped<ImportExportService>();
 builder.Services.AddScoped<ThemeService>();
 
 // Web 端服务
