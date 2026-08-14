@@ -109,16 +109,20 @@
   - [ ] 任务创建入口（上传/URL）与空态、错误态；状态筛选（创建/处理中/完成/失败）
   - 验收：进入首页看到任务列表与进度，可创建任务并进入详情；刷新后数据一致
 
-- [ ] **后端：LLM 配置管理 API**（AI 翻译配置读取/修改）
-  - [ ] 读取/更新 Provider、BaseUrl、ApiKey、Model、BatchSize、RequestTimeout、MaxAttempts
-  - [ ] ApiKey 仅存掩码/摘要，任何响应不返回明文密钥；配置变更加载方式由部署实现决定（立即生效或重启加载）
-  - [ ] 更新 `docs/back` AI 翻译接口约定 §3（由"不提供远程配置 API"改为提供配置管理接口）
-  - 验收：通过 API 读取并修改配置；修改后新翻译运行按新配置执行；密钥不泄露；未配置时创建翻译运行仍返回 503 `llm_not_configured`
+- [ ] **后端：AI 提供商与模型配置管理 API**（二级配置 + Microsoft.Extensions.AI 执行层迁移，见 ADR-0003）
+  - [ ] 二级配置模型：Provider（kind/baseUrl/apiKey/enabled，v1 支持 `openai` 与 `ollama` 连接器）→ Model（厂商模型 ID/展示名/能力元数据 supportsThinking/supportsToolUse/supportsStreaming）；Provider.isDefault 全局唯一、Model.isDefault 提供商内唯一合成默认对
+  - [ ] 配置 CRUD API：提供商与模型增删改查、默认对设置；ApiKey 明文存 SQLite、响应一律掩码（`sk-***abcd`）且不写日志；无默认对时创建翻译运行返回 503 `llm_not_configured`
+  - [ ] 执行层迁移 Microsoft.Extensions.AI：移除 `ITranslationProvider`，翻译处理器直接消费 `IChatClient`（按 kind 工厂构造；批量提示词、JSON 解析、超时/鉴权错误码映射迁入处理器）；新增 NuGet：`Microsoft.Extensions.AI`、`Microsoft.Extensions.AI.OpenAI`、`Microsoft.Extensions.AI.Ollama`
+  - [ ] 翻译运行请求新增可选 `providerId`/`modelId`（三档解析：都缺省→默认对；只传 providerId→该提供商默认模型；都传→精确指定）；运行资源回显所选提供商/模型
+  - [ ] 新增错误码：404 `provider_not_found`、422 `model_not_found`；503 语义收窄为「选中的提供商/模型未配置完整」
+  - [ ] 更新 `docs/back` AI 翻译接口约定 §3（配置模型与配置管理接口）、§4（请求/响应字段）、§10.1（错误码）
+  - 验收：通过 API 配置多个提供商与模型并设默认对；创建翻译运行可显式选择提供商/模型或走默认对；不同提供商/模型可实际翻译；密钥不泄露；无效选择返回对应错误码
 
-- [ ] **前端：AI 模型配置界面**（LLM 配置表单）
-  - [ ] 配置展示与编辑（Provider/BaseUrl/Key/Model/批量参数），密钥输入不回显明文
-  - [ ] 保存生效提示与配置状态展示（未配置时提示将影响翻译功能）
-  - 验收：界面可查看/修改 LLM 配置并保存；保存后触发翻译可用
+- [ ] **前端：AI 模型配置界面**（提供商/模型两级管理 + 翻译面板选择器）
+  - [ ] 提供商/模型两级管理界面：提供商 CRUD（kind/BaseUrl/Key，密钥不回显明文、enabled/默认对设置）+ 模型 CRUD（厂商模型 ID/展示名/能力标注）
+  - [ ] 翻译操作面板新增提供商/模型选择器（缺省显示默认对），提交翻译时随请求携带（ADR-0003 三档解析）
+  - [ ] 保存生效提示与配置状态展示（未配置默认对时提示将影响翻译功能）
+  - 验收：界面可配置多个提供商与模型、设默认对并保存；翻译面板可选择提供商/模型发起翻译；刷新后配置与选择一致
 
 - [ ] **后端：术语表管理 API 与术语对齐检查**（术语 CRUD + 对齐校验接口）
   - [ ] 术语条目增删改查与模糊匹配查询接口（供翻译/规则引擎复用）
