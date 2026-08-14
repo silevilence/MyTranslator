@@ -111,4 +111,52 @@
   <data name="source_fetch_timeout" xml:space="preserve">
     <value>获取 URL 内容超时，请稍后重试</value>
   </data>
+  <data name="invalid_language_tag" xml:space="preserve">
+    <value>语言标签格式无效，请输入合法的 BCP 47 标签（如 zh-CN）</value>
+  </data>
+  <data name="invalid_extraction_revision" xml:space="preserve">
+    <value>提取版本无效，请刷新页面后重试</value>
+  </data>
+  <data name="invalid_pagination" xml:space="preserve">
+    <value>分页参数无效</value>
+  </data>
+  <data name="translation_run_not_found" xml:space="preserve">
+    <value>翻译运行不存在或已失效</value>
+  </data>
+  <data name="no_segments_to_translate" xml:space="preserve">
+    <value>没有待翻译的分段（全部已有译文）</value>
+  </data>
+  <data name="invalid_segment_state" xml:space="preserve">
+    <value>分段状态异常，无法执行翻译</value>
+  </data>
+  <data name="unsupported_language_pair" xml:space="preserve">
+    <value>不支持的源/目标语言组合</value>
+  </data>
+  <data name="llm_not_configured" xml:space="preserve">
+    <value>服务端 AI 翻译尚未配置，请联系部署方配置后重试</value>
+  </data>
+  <data name="segment_translation_failed" xml:space="preserve">
+    <value>部分分段翻译失败，详情见失败列表</value>
+  </data>
+  <data name="llm_provider_unavailable" xml:space="preserve">
+    <value>AI 服务暂时不可用，请稍后重试</value>
+  </data>
+  <data name="llm_provider_timeout" xml:space="preserve">
+    <value>AI 服务响应超时，请稍后重试</value>
+  </data>
+  <data name="llm_authentication_failed" xml:space="preserve">
+    <value>AI 服务拒绝了服务端密钥，请检查服务端配置</value>
+  </data>
+  <data name="llm_model_unavailable" xml:space="preserve">
+    <value>AI 模型不可用或无权访问，请检查服务端配置</value>
+  </data>
+  <data name="llm_response_invalid" xml:space="preserve">
+    <value>AI 返回结果无效，已放弃该批译文</value>
+  </data>
+  <data name="placeholder_integrity_violation" xml:space="preserve">
+    <value>AI 译文破坏了占位符标记，未保存</value>
+  </data>
+  <data name="translation_interrupted" xml:space="preserve">
+    <value>翻译运行被中断，已成功译文已保留</value>
+  </data>
 </root>

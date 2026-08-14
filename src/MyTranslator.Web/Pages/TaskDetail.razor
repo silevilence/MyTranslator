@@ -96,6 +96,14 @@ else
     </MudPaper>
 
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+        <TranslationRunPanel @key="_summary.ExtractionRevision"
+                             TaskId="TaskId"
+                             ExtractionRevision="_summary.ExtractionRevision"
+                             OnTranslationsCommitted="OnTranslationsCommittedAsync"
+                             OnTaskStateChanged="OnRunTaskStateChangedAsync" />
+    </MudPaper>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
         <MudText Typo="Typo.h2">@Localizer["SegmentsTitle"]</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["SegmentsHint"]</MudText>
 
@@ -181,6 +189,20 @@ else
         // 重新提取后：分段 ID 全部更换、extractionRevision 递增，旧列表与游标失效，从第一页重新加载
         _summary = summary;
         _segmentsKey++;
+    }
+
+    private Task OnTranslationsCommittedAsync()
+    {
+        // 翻译运行成功分段数增加：重新读取分段以逐步展示新译文（AI 翻译约定 §11.1 第 4 步）
+        _segmentsKey++;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnRunTaskStateChangedAsync()
+    {
+        // 运行进入终态或创建被互斥/配置阻断：刷新任务摘要（状态/canExport）与分段
+        _segmentsKey++;
+        await LoadAsync();
     }
 
     private async Task OnSegmentsRevisionChanged()

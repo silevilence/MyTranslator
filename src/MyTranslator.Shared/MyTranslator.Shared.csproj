@@ -27,6 +27,9 @@
     <EmbeddedResource Update="Resources\ReextractionPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.ReextractionPanel.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TranslationRunPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.TranslationRunPanel.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

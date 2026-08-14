@@ -1,0 +1,67 @@
+/* AI 翻译运行面板布局（色值/字号一律经主题 token，禁止硬编码） */
+.mt-translation-run-form {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.mt-translation-run-field {
+    width: 220px;
+}
+
+.mt-translation-run-start {
+    margin-top: 8px;
+}
+
+.mt-translation-run-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mt-translation-run-progress {
+    width: 100%;
+}
+
+.mt-translation-run-progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.mt-translation-run-percent {
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-translation-run-failures {
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.mt-translation-run-failure-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mud-palette-divider-light);
+}
+
+.mt-translation-run-failure-row:last-child {
+    border-bottom: none;
+}
+
+.mt-translation-run-failure-order {
+    color: var(--mud-palette-text-secondary);
+    flex-shrink: 0;
+    min-width: 36px;
+}
+
+.mt-translation-run-failure-info {
+    flex: 1;
+    min-width: 0;
+}

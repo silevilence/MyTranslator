@@ -52,6 +52,24 @@ public class ApiErrorMessageProvider
         return For(status);
     }
 
+    /// <summary>
+    /// 按运行/分段级失败码返回文案（§10.2 异步失败码）；失败码不绑定 HTTP 状态，
+    /// 未知失败码降级为通用失败文案而非网络错误文案。
+    /// </summary>
+    public string ForFailureCode(string? code)
+    {
+        if (!string.IsNullOrEmpty(code))
+        {
+            var localized = _localizer[code];
+            if (!localized.ResourceNotFound)
+            {
+                return localized.Value;
+            }
+        }
+
+        return _localizer["Unknown"];
+    }
+
     /// <summary>按 <see cref="ApiErrorException"/> 的 code/状态码返回映射文案。</summary>
     public string ForError(ApiErrorException exception)
     {

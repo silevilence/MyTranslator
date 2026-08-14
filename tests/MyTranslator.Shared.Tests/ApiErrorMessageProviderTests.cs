@@ -57,6 +57,25 @@ public class ApiErrorMessageProviderTests
         Assert.Equal(provider.For(null), provider.ForError(null, "future_unknown_code"));
     }
 
+    [Theory]
+    [InlineData("segment_translation_failed", "部分分段翻译失败，详情见失败列表")]
+    [InlineData("llm_provider_unavailable", "AI 服务暂时不可用，请稍后重试")]
+    [InlineData("llm_authentication_failed", "AI 服务拒绝了服务端密钥，请检查服务端配置")]
+    [InlineData("placeholder_integrity_violation", "AI 译文破坏了占位符标记，未保存")]
+    [InlineData("translation_interrupted", "翻译运行被中断，已成功译文已保留")]
+    public void ForFailureCode_已知失败码映射文案(string code, string expected)
+    {
+        Assert.Equal(expected, Create().ForFailureCode(code));
+    }
+
+    [Fact]
+    public void ForFailureCode_未知失败码_降级为通用失败文案()
+    {
+        var provider = Create();
+        Assert.Equal("请求失败，请稍后重试", provider.ForFailureCode("future_failure_code"));
+        Assert.Equal("请求失败，请稍后重试", provider.ForFailureCode(null));
+    }
+
     [Fact]
     public void ForError_ApiErrorException_按code映射()
     {
