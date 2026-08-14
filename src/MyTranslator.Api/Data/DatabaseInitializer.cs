@@ -14,6 +14,7 @@ public sealed class DatabaseInitializer(
         await using var scope = scopeFactory.CreateAsyncScope();
         var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await database.Database.MigrateAsync(cancellationToken);
+        await database.Database.ExecuteSqlRawAsync("PRAGMA journal_mode = 'wal'", cancellationToken);
 
         var initialToken = configuration["INITIAL_TOKEN"];
         if (string.IsNullOrWhiteSpace(initialToken) && environment.IsDevelopment())

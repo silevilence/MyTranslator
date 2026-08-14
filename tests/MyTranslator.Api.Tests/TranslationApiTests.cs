@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Collections.Concurrent;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MyTranslator.Api.Data;
@@ -317,6 +318,26 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
+    public async Task ConfirmedSegmentWithoutTargetReturnsInvalidSegmentState()
+    {
+        using var configuredFactory = new ApiFactory(
+            "Development",
+            null,
+            translationProvider: new EchoTranslationProvider());
+        using var client = CreateClient(configuredFactory);
+        var taskId = await ImportTextAsync(client, "Hello");
+        await UpdateSingleSegmentAsync(configuredFactory, taskId, null, SegmentConfirmationStatus.Confirmed);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "zh-CN" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("invalid_segment_state", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task NoSegmentsToTranslateReturnsConflictAndCompletesTask()
     {
         using var configuredFactory = new ApiFactory(
@@ -505,6 +526,36 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
                     "translation_interrupted",
                     Assert.Single(failures.GetProperty("items").EnumerateArray()).GetProperty("code").GetString());
             }
+        }
+        finally
+        {
+            File.Delete(databasePath);
+            File.Delete($"{databasePath}-shm");
+            File.Delete($"{databasePath}-wal");
+        }
+    }
+
+    [Fact]
+    public async Task FileBackedDatabaseUsesWriteAheadLogging()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"mytranslator-wal-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={databasePath};Pooling=False";
+        try
+        {
+            using var configuredFactory = new ApiFactory(
+                "Development",
+                null,
+                translationProvider: new EchoTranslationProvider(),
+                connectionString: connectionString);
+            using var client = CreateClient(configuredFactory);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/health")).StatusCode);
+
+            await using var connection = new SqliteConnection(connectionString);
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode";
+
+            Assert.Equal("wal", Assert.IsType<string>(await command.ExecuteScalarAsync()));
         }
         finally
         {

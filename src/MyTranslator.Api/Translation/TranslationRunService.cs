@@ -35,7 +35,6 @@ public sealed class TranslationRunService(
         await using var transaction = await database.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);
-        await AcquireDatabaseWriteLockAsync(taskId, cancellationToken);
         var task = await database.TranslationTasks
             .Include(entity => entity.Segments)
             .SingleOrDefaultAsync(entity => entity.Id == taskId, cancellationToken);
@@ -329,17 +328,6 @@ public sealed class TranslationRunService(
                     "The pagination cursor is invalid.",
                     StatusCodes.Status400BadRequest);
         }
-    }
-
-    private Task<int> AcquireDatabaseWriteLockAsync(Guid taskId, CancellationToken cancellationToken)
-    {
-        // SQLite serializable transactions start deferred. This no-op UPDATE acquires the writer lock
-        // before the extraction revision and active-run checks, closing the re-extraction race window.
-        return database.TranslationTasks
-            .Where(entity => entity.Id == taskId)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(entity => entity.Status, entity => entity.Status),
-                cancellationToken);
     }
 
     private static bool IsActiveRunConflict(DbUpdateException exception) =>
