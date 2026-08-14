@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MyTranslator.Api.Data;
 
 namespace MyTranslator.Api.Translation;
@@ -6,6 +7,7 @@ namespace MyTranslator.Api.Translation;
 public sealed class TranslationRunWorker(
     IServiceScopeFactory scopeFactory,
     TranslationRunQueue queue,
+    IOptions<TranslationOptions> options,
     ILogger<TranslationRunWorker> logger) : BackgroundService
 {
     public override async Task StartAsync(CancellationToken cancellationToken)
@@ -15,6 +17,13 @@ public sealed class TranslationRunWorker(
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var consumers = Enumerable.Range(0, options.Value.EffectiveMaxConcurrentRuns)
+            .Select(_ => ConsumeAsync(stoppingToken));
+        await Task.WhenAll(consumers);
+    }
+
+    private async Task ConsumeAsync(CancellationToken stoppingToken)
     {
         await foreach (var runId in queue.ReadAllAsync(stoppingToken))
         {
@@ -94,10 +103,10 @@ public sealed class TranslationRunWorker(
         run.Status = TranslationRunStatus.Failed;
         run.FailureCode = "translation_interrupted";
         run.FailureRetryable = true;
-        run.ActiveTaskId = null;
+        run.ActiveTaskLockId = null;
         run.FinishedAt = DateTimeOffset.UtcNow;
         var task = await database.TranslationTasks.SingleAsync(entity => entity.Id == run.TaskId, cancellationToken);
-        task.Status = "failed";
+        task.Status = TranslationTaskStatus.Failed;
         await database.SaveChangesAsync(cancellationToken);
     }
 }

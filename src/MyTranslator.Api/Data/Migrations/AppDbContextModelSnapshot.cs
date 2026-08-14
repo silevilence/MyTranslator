@@ -148,7 +148,8 @@ namespace MyTranslator.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("ActiveTaskId")
+                    b.Property<Guid?>("ActiveTaskLockId")
+                        .HasColumnName("ActiveTaskId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -207,8 +208,9 @@ namespace MyTranslator.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActiveTaskId")
+                    b.HasIndex("ActiveTaskLockId")
                         .IsUnique()
+                        .HasDatabaseName("IX_TranslationRuns_ActiveTaskId")
                         .HasFilter("\"ActiveTaskId\" IS NOT NULL");
 
                     b.HasIndex("TaskId", "CreatedAt");

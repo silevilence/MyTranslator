@@ -6,7 +6,7 @@ public sealed class TranslationRunQueue
 {
     private readonly Channel<Guid> channel = Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions
     {
-        SingleReader = true,
+        SingleReader = false,
         SingleWriter = false
     });
 

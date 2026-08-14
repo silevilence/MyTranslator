@@ -24,7 +24,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var task = modelBuilder.Entity<TranslationTask>();
         task.ToTable("TranslationTasks");
         task.HasKey(entity => entity.Id);
-        task.Property(entity => entity.Status).HasMaxLength(20).IsRequired();
+        task.Property(entity => entity.Status)
+            .HasConversion(
+                status => status.ToWireValue(),
+                value => TranslationTaskStatusExtensions.ParseWireValue(value))
+            .HasMaxLength(20)
+            .IsRequired();
         task.Property(entity => entity.SourceKind).HasMaxLength(20).IsRequired();
         task.Property(entity => entity.FileName).HasMaxLength(255).IsRequired();
         task.Property(entity => entity.MediaType).HasMaxLength(100).IsRequired();
@@ -37,7 +42,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         segment.ToTable("TranslationSegments");
         segment.HasKey(entity => entity.Id);
         segment.Property(entity => entity.SourceText).IsRequired();
-        segment.Property(entity => entity.ConfirmationStatus).HasMaxLength(20).IsRequired();
+        segment.Property(entity => entity.ConfirmationStatus)
+            .HasConversion(
+                status => status.ToWireValue(),
+                value => SegmentConfirmationStatusExtensions.ParseWireValue(value))
+            .HasMaxLength(20)
+            .IsRequired();
         segment.Property(entity => entity.MarkupTableJson).IsRequired();
         segment.Property(entity => entity.TemplateToken).HasMaxLength(80).IsRequired();
         segment.HasIndex(entity => new { entity.TaskId, entity.Order }).IsUnique();
@@ -70,8 +80,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         run.Property(entity => entity.SourceLanguage).HasMaxLength(50);
         run.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
         run.Property(entity => entity.FailureCode).HasMaxLength(80);
-        run.HasIndex(entity => entity.ActiveTaskId)
+        run.HasIndex(entity => entity.ActiveTaskLockId)
             .IsUnique()
+            .HasDatabaseName("IX_TranslationRuns_ActiveTaskId")
             .HasFilter("\"ActiveTaskId\" IS NOT NULL");
         run.HasIndex(entity => new { entity.TaskId, entity.CreatedAt });
         run.HasOne(entity => entity.Task)

@@ -61,7 +61,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Translation:ApiKey"] = IsTranslationConfigured ? "test-key" : null,
                 ["Translation:Model"] = IsTranslationConfigured ? "test-model" : null,
                 ["Translation:BatchSize"] = "20",
-                ["Translation:MaxAttempts"] = "3"
+                ["Translation:MaxAttempts"] = "3",
+                ["Translation:MaxConcurrentRuns"] = "4"
             });
         });
         builder.ConfigureServices(services =>

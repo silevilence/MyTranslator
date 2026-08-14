@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace MyTranslator.Api.Data;
 
 public sealed class TranslationRun
@@ -5,7 +7,8 @@ public sealed class TranslationRun
     public Guid Id { get; set; }
     public Guid TaskId { get; set; }
     public TranslationTask Task { get; set; } = null!;
-    public Guid? ActiveTaskId { get; set; }
+    [Column("ActiveTaskId")]
+    public Guid? ActiveTaskLockId { get; set; }
     public int ExtractionRevision { get; set; }
     public TranslationRunStatus Status { get; set; } = TranslationRunStatus.Queued;
     public string? SourceLanguage { get; set; }

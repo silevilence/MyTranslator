@@ -3,6 +3,14 @@ using System.Text.Json;
 
 namespace MyTranslator.Api.Pagination;
 
+public static class PaginationLimits
+{
+    public const int Minimum = 1;
+    public const int Maximum = 200;
+
+    public static bool Contains(int limit) => limit is >= Minimum and <= Maximum;
+}
+
 public static class PaginationCursor
 {
     public static string Encode(string resource, int revision, int offset)

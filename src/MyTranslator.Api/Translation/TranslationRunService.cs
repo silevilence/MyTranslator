@@ -1,4 +1,5 @@
 using System.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MyTranslator.Api.Data;
@@ -34,11 +35,7 @@ public sealed class TranslationRunService(
         await using var transaction = await database.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);
-        await database.TranslationTasks
-            .Where(entity => entity.Id == taskId)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(entity => entity.Status, entity => entity.Status),
-                cancellationToken);
+        await AcquireDatabaseWriteLockAsync(taskId, cancellationToken);
         var task = await database.TranslationTasks
             .Include(entity => entity.Segments)
             .SingleOrDefaultAsync(entity => entity.Id == taskId, cancellationToken);
@@ -60,8 +57,8 @@ public sealed class TranslationRunService(
                 });
         }
 
-        if (task.Status == "processing" || await database.TranslationRuns.AnyAsync(
-                run => run.ActiveTaskId == taskId,
+        if (task.Status == TranslationTaskStatus.Processing || await database.TranslationRuns.AnyAsync(
+                run => run.ActiveTaskLockId == taskId,
                 cancellationToken))
         {
             throw Problem("task_busy", "The task is currently processing.", StatusCodes.Status409Conflict);
@@ -69,7 +66,7 @@ public sealed class TranslationRunService(
 
         if (task.Segments.Any(segment =>
                 (segment.TargetText is not null && string.IsNullOrWhiteSpace(segment.TargetText)) ||
-                (segment.TargetText is null && segment.ConfirmationStatus != "pending")))
+                (segment.TargetText is null && segment.ConfirmationStatus != SegmentConfirmationStatus.Pending)))
         {
             throw Problem(
                 "invalid_segment_state",
@@ -79,7 +76,7 @@ public sealed class TranslationRunService(
 
         if (!options.Value.IsConfiguredFor(provider.Name))
         {
-            task.Status = "failed";
+            task.Status = TranslationTaskStatus.Failed;
             await database.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             throw Problem(
@@ -91,7 +88,7 @@ public sealed class TranslationRunService(
         var selectedSegments = task.Segments.Count(segment => segment.TargetText is null);
         if (selectedSegments == 0)
         {
-            task.Status = "completed";
+            task.Status = TranslationTaskStatus.Completed;
             await database.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             throw Problem(
@@ -105,7 +102,7 @@ public sealed class TranslationRunService(
         {
             Id = Guid.NewGuid(),
             TaskId = taskId,
-            ActiveTaskId = taskId,
+            ActiveTaskLockId = taskId,
             ExtractionRevision = task.ExtractionRevision,
             SourceLanguage = sourceLanguage,
             TargetLanguage = targetLanguage,
@@ -114,7 +111,7 @@ public sealed class TranslationRunService(
             SkippedExistingSegments = task.Segments.Count - selectedSegments,
             CreatedAt = now
         };
-        task.Status = "processing";
+        task.Status = TranslationTaskStatus.Processing;
         database.TranslationRuns.Add(run);
         try
         {
@@ -300,7 +297,7 @@ public sealed class TranslationRunService(
 
     private static void ValidatePagination(int limit)
     {
-        if (limit is < 1 or > 200)
+        if (!PaginationLimits.Contains(limit))
         {
             throw Problem(
                 "invalid_pagination",
@@ -334,8 +331,23 @@ public sealed class TranslationRunService(
         }
     }
 
+    private Task<int> AcquireDatabaseWriteLockAsync(Guid taskId, CancellationToken cancellationToken)
+    {
+        // SQLite serializable transactions start deferred. This no-op UPDATE acquires the writer lock
+        // before the extraction revision and active-run checks, closing the re-extraction race window.
+        return database.TranslationTasks
+            .Where(entity => entity.Id == taskId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(entity => entity.Status, entity => entity.Status),
+                cancellationToken);
+    }
+
     private static bool IsActiveRunConflict(DbUpdateException exception) =>
-        exception.InnerException?.Message.Contains("TranslationRuns.ActiveTaskId", StringComparison.Ordinal) == true;
+        exception.InnerException is SqliteException
+        {
+            SqliteErrorCode: 19,
+            SqliteExtendedErrorCode: 2067
+        };
 
     private static TranslationRequestException Problem(
         string code,

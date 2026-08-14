@@ -81,7 +81,7 @@ public sealed class OpenAiCompatibleTranslationProvider(
         {
             if (!response.IsSuccessStatusCode)
             {
-                throw MapFailure(response.StatusCode);
+                throw await MapFailureAsync(response, timeout.Token);
             }
 
             try
@@ -125,7 +125,49 @@ public sealed class OpenAiCompatibleTranslationProvider(
         }
     }
 
-    private static TranslationProviderException MapFailure(HttpStatusCode statusCode) => statusCode switch
+    private static async Task<TranslationProviderException> MapFailureAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity &&
+            await HasErrorCodeAsync(response.Content, "unsupported_language_pair", cancellationToken))
+        {
+            return new TranslationProviderException(
+                "unsupported_language_pair",
+                false,
+                "The LLM provider does not support the requested language pair.");
+        }
+
+        return MapFailureStatus(response.StatusCode);
+    }
+
+    private static async Task<bool> HasErrorCodeAsync(
+        HttpContent content,
+        string expectedCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = await JsonDocument.ParseAsync(
+                await content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+            var root = document.RootElement;
+            var codeElement = root.TryGetProperty("error", out var error) &&
+                              error.ValueKind == JsonValueKind.Object &&
+                              error.TryGetProperty("code", out var nestedCode)
+                ? nestedCode.GetString()
+                : root.TryGetProperty("code", out var topLevelCode)
+                    ? topLevelCode.GetString()
+                    : null;
+            return string.Equals(codeElement, expectedCode, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static TranslationProviderException MapFailureStatus(HttpStatusCode statusCode) => statusCode switch
     {
         HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new TranslationProviderException(
             "llm_authentication_failed",

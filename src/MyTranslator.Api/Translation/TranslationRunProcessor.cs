@@ -34,10 +34,10 @@ public sealed class TranslationRunProcessor(
                 .Where(segment =>
                     segment.TaskId == run.TaskId &&
                     segment.TargetText == null &&
-                    segment.ConfirmationStatus == "pending" &&
+                    segment.ConfirmationStatus == SegmentConfirmationStatus.Pending &&
                     !failedIds.Contains(segment.Id))
                 .OrderBy(segment => segment.Order)
-                .Take(Math.Clamp(options.Value.BatchSize, 1, 200))
+                .Take(options.Value.EffectiveBatchSize)
                 .Select(segment => new SegmentWork(
                     segment.Id,
                     segment.Order,
@@ -64,7 +64,7 @@ public sealed class TranslationRunProcessor(
         var lastFailures = pending.Keys.ToDictionary(
             id => id,
             _ => new FailureCause("llm_response_invalid", true));
-        var maxAttempts = Math.Clamp(options.Value.MaxAttempts, 1, 10);
+        var maxAttempts = options.Value.EffectiveMaxAttempts;
 
         for (var attempt = 1; attempt <= maxAttempts && pending.Count > 0; attempt++)
         {
@@ -180,10 +180,10 @@ public sealed class TranslationRunProcessor(
             .ToListAsync(cancellationToken);
         var saved = 0;
         foreach (var segment in segments.Where(segment =>
-                     segment.TargetText is null && segment.ConfirmationStatus == "pending"))
+                     segment.TargetText is null && segment.ConfirmationStatus == SegmentConfirmationStatus.Pending))
         {
             segment.TargetText = translations[segment.Id];
-            segment.ConfirmationStatus = "translated";
+            segment.ConfirmationStatus = SegmentConfirmationStatus.Translated;
             segment.Version++;
             saved++;
         }
@@ -234,21 +234,21 @@ public sealed class TranslationRunProcessor(
         if (run.FailedSegments == 0)
         {
             run.Status = TranslationRunStatus.Completed;
-            task.Status = "completed";
+            task.Status = TranslationTaskStatus.Completed;
         }
         else
         {
             run.Status = run.SucceededSegments > 0
                 ? TranslationRunStatus.PartialFailed
                 : TranslationRunStatus.Failed;
-            task.Status = "failed";
+            task.Status = TranslationTaskStatus.Failed;
             var codes = run.Failures.Select(failure => failure.Code).Distinct(StringComparer.Ordinal).ToArray();
             run.FailureCode = codes.Length == 1 ? codes[0] : "segment_translation_failed";
             run.FailureRetryable = run.Failures.Any(failure => failure.Retryable);
         }
 
         run.ProcessedSegments = run.SelectedSegments;
-        run.ActiveTaskId = null;
+        run.ActiveTaskLockId = null;
         run.FinishedAt = DateTimeOffset.UtcNow;
         await database.SaveChangesAsync(cancellationToken);
     }

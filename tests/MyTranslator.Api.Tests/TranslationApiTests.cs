@@ -4,6 +4,9 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Collections.Concurrent;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MyTranslator.Api.Data;
 using MyTranslator.Api.Translation;
 
 namespace MyTranslator.Api.Tests;
@@ -205,6 +208,55 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
+    public async Task ActiveRunGetIncludesRetryAfterHeader()
+    {
+        var provider = new BlockingTranslationProvider();
+        using var configuredFactory = new ApiFactory("Development", null, translationProvider: provider);
+        using var client = CreateClient(configuredFactory);
+        var taskId = await ImportTextAsync(client, "Hello");
+
+        var created = await CreateRunAsync(client, taskId);
+        var runId = created.GetProperty("runId").GetGuid();
+        var response = await client.GetAsync($"/api/tasks/{taskId}/translation-runs/{runId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(1), response.Headers.RetryAfter?.Delta);
+
+        provider.Release();
+        await WaitForTerminalRunAsync(client, taskId, runId);
+    }
+
+    [Fact]
+    public async Task DifferentTasksCanTranslateConcurrently()
+    {
+        var provider = new ConcurrentBlockingTranslationProvider();
+        using var configuredFactory = new ApiFactory("Development", null, translationProvider: provider);
+        using var client = CreateClient(configuredFactory);
+        var firstTaskId = await ImportTextAsync(client, "One");
+        var secondTaskId = await ImportTextAsync(client, "Two");
+        var firstRun = await CreateRunAsync(client, firstTaskId);
+        var secondRun = await CreateRunAsync(client, secondTaskId);
+
+        try
+        {
+            await provider.WaitForConcurrentCallsAsync(TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            provider.Release();
+        }
+
+        Assert.Equal(
+            "completed",
+            (await WaitForTerminalRunAsync(client, firstTaskId, firstRun.GetProperty("runId").GetGuid()))
+            .GetProperty("status").GetString());
+        Assert.Equal(
+            "completed",
+            (await WaitForTerminalRunAsync(client, secondTaskId, secondRun.GetProperty("runId").GetGuid()))
+            .GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task StaleExtractionRevisionReturnsConflictWithoutCreatingRun()
     {
         using var configuredFactory = new ApiFactory(
@@ -242,6 +294,80 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("invalid_extraction_revision", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task InvalidSegmentStateReturnsStableProblemCode()
+    {
+        using var configuredFactory = new ApiFactory(
+            "Development",
+            null,
+            translationProvider: new EchoTranslationProvider());
+        using var client = CreateClient(configuredFactory);
+        var taskId = await ImportTextAsync(client, "Hello");
+        await UpdateSingleSegmentAsync(configuredFactory, taskId, "   ", SegmentConfirmationStatus.Pending);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "zh-CN" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("invalid_segment_state", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task NoSegmentsToTranslateReturnsConflictAndCompletesTask()
+    {
+        using var configuredFactory = new ApiFactory(
+            "Development",
+            null,
+            translationProvider: new EchoTranslationProvider());
+        using var client = CreateClient(configuredFactory);
+        var taskId = await ImportTextAsync(client, "Hello");
+        await UpdateSingleSegmentAsync(configuredFactory, taskId, "你好", SegmentConfirmationStatus.Translated);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "zh-CN" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var task = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("no_segments_to_translate", problem.GetProperty("code").GetString());
+        Assert.Equal("completed", task.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task SameNormalizedLanguagePairReturnsUnprocessableEntity()
+    {
+        using var client = CreateClient(factory);
+        var taskId = await ImportTextAsync(client, "Hello");
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new { extractionRevision = 1, sourceLanguage = "ZH-cn", targetLanguage = "zh-CN" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("unsupported_language_pair", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task TranslationRunListsRejectInvalidPaginationAndCursor()
+    {
+        using var client = CreateClient(factory);
+        var taskId = await ImportTextAsync(client, "Hello");
+
+        var paginationResponse = await client.GetAsync($"/api/tasks/{taskId}/translation-runs?limit=0");
+        var paginationProblem = await paginationResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var cursorResponse = await client.GetAsync($"/api/tasks/{taskId}/translation-runs?cursor=not-a-cursor");
+        var cursorProblem = await cursorResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, paginationResponse.StatusCode);
+        Assert.Equal("invalid_pagination", paginationProblem.GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, cursorResponse.StatusCode);
+        Assert.Equal("invalid_cursor", cursorProblem.GetProperty("code").GetString());
     }
 
     [Theory]
@@ -432,6 +558,29 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(3, failure.GetProperty("attempts").GetInt32());
     }
 
+    [Fact]
+    public async Task ExplicitProviderLanguagePairRejectionUsesContractFailureCode()
+    {
+        using var configuredFactory = new ApiFactory(
+            "Development",
+            null,
+            translationHandler: new UnsupportedLanguagePairHandler());
+        using var client = CreateClient(configuredFactory);
+        var taskId = await ImportTextAsync(client, "Hello");
+
+        var created = await CreateRunAsync(client, taskId);
+        var runId = created.GetProperty("runId").GetGuid();
+        var run = await WaitForTerminalRunAsync(client, taskId, runId);
+        var failures = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/tasks/{taskId}/translation-runs/{runId}/failures");
+        var failure = Assert.Single(failures.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("unsupported_language_pair", run.GetProperty("failure").GetProperty("code").GetString());
+        Assert.False(run.GetProperty("failure").GetProperty("retryable").GetBoolean());
+        Assert.Equal("unsupported_language_pair", failure.GetProperty("code").GetString());
+        Assert.Equal(1, failure.GetProperty("attempts").GetInt32());
+    }
+
     private static HttpClient CreateClient(ApiFactory apiFactory)
     {
         var client = apiFactory.CreateClient();
@@ -494,6 +643,20 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
         var run = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         return run;
+    }
+
+    private static async Task UpdateSingleSegmentAsync(
+        ApiFactory apiFactory,
+        Guid taskId,
+        string? targetText,
+        SegmentConfirmationStatus confirmationStatus)
+    {
+        await using var scope = apiFactory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var segment = await database.TranslationSegments.SingleAsync(item => item.TaskId == taskId);
+        segment.TargetText = targetText;
+        segment.ConfirmationStatus = confirmationStatus;
+        await database.SaveChangesAsync();
     }
 
     private static async Task<JsonElement> WaitForTerminalRunAsync(
@@ -586,6 +749,34 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
         public void Release() => released.TrySetResult();
     }
 
+    private sealed class ConcurrentBlockingTranslationProvider : ITranslationProvider
+    {
+        private readonly TaskCompletionSource concurrentCalls = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int calls;
+
+        public string Name => "test";
+
+        public async Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
+            TranslationProviderRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref calls) >= 2)
+            {
+                concurrentCalls.TrySetResult();
+            }
+
+            await released.Task.WaitAsync(cancellationToken);
+            return request.Segments
+                .Select(segment => new TranslationProviderOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
+                .ToArray();
+        }
+
+        public Task WaitForConcurrentCallsAsync(TimeSpan timeout) => concurrentCalls.Task.WaitAsync(timeout);
+
+        public void Release() => released.TrySetResult();
+    }
+
     private sealed class EchoTranslationProvider : ITranslationProvider
     {
         public string Name => "test";
@@ -635,6 +826,19 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
             CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new { choices = Array.Empty<object>() })
+            });
+    }
+
+    private sealed class UnsupportedLanguagePairHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new
+                {
+                    error = new { code = "unsupported_language_pair" }
+                })
             });
     }
 }

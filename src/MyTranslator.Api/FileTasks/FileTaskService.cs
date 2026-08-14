@@ -150,7 +150,7 @@ public sealed class FileTaskService(
         string? cursor,
         CancellationToken cancellationToken)
     {
-        if (limit is < 1 or > 200)
+        if (!PaginationLimits.Contains(limit))
         {
             throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
@@ -193,7 +193,7 @@ public sealed class FileTaskService(
         string? cursor,
         CancellationToken cancellationToken)
     {
-        if (limit is < 1 or > 200)
+        if (!PaginationLimits.Contains(limit))
         {
             throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
@@ -298,7 +298,8 @@ public sealed class FileTaskService(
             }
         }
         var translatedCount = task.Segments.Count(segment => !string.IsNullOrWhiteSpace(segment.TargetText));
-        var confirmedCount = task.Segments.Count(segment => segment.ConfirmationStatus == "confirmed");
+        var confirmedCount = task.Segments.Count(
+            segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed);
         var preview = new ExtractionPreviewData(
             Guid.NewGuid(),
             task.Id,
@@ -329,7 +330,7 @@ public sealed class FileTaskService(
         int limit,
         string? cursor)
     {
-        if (limit is < 1 or > 200)
+        if (!PaginationLimits.Contains(limit))
         {
             throw new InvalidFileTaskRequestException("invalid_pagination", "The page limit must be between 1 and 200.");
         }
@@ -384,7 +385,7 @@ public sealed class FileTaskService(
                 "The extraction preview is stale.");
         }
 
-        if (task.Status == "processing")
+        if (task.Status == TranslationTaskStatus.Processing)
         {
             throw new InvalidFileTaskRequestException("task_busy", "The task is currently processing.");
         }
@@ -395,7 +396,8 @@ public sealed class FileTaskService(
                        segment.TargetText.Trim() != string.Empty,
             cancellationToken);
         var confirmedCount = await database.TranslationSegments.CountAsync(
-            segment => segment.TaskId == taskId && segment.ConfirmationStatus == "confirmed",
+            segment => segment.TaskId == taskId &&
+                       segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed,
             cancellationToken);
         if ((translatedCount > 0 || confirmedCount > 0) && !request.ConfirmTranslationLoss)
         {
@@ -451,7 +453,7 @@ public sealed class FileTaskService(
         task.ProtectedBlockCount = task.ProtectedBlocks.Count;
         task.ChapterCount = preview.Documents.Count(document => document.ChapterJson is not null);
         task.ExtractionRevision++;
-        task.Status = "created";
+        task.Status = TranslationTaskStatus.Created;
         await database.SaveChangesAsync(cancellationToken);
         previewStore.Remove(previewId);
         return ToSummary(task);
@@ -470,7 +472,7 @@ public sealed class FileTaskService(
         }
 
 
-        if (task.Status == "processing")
+        if (task.Status == TranslationTaskStatus.Processing)
         {
             throw new InvalidFileTaskRequestException("task_busy", "The task is currently processing.");
         }
@@ -966,7 +968,7 @@ public sealed class FileTaskService(
 
     private static FileTaskSummary ToSummary(TranslationTask task) => new(
         task.Id,
-        task.Status,
+        task.Status.ToWireValue(),
         new FileTaskSource(
             task.SourceKind,
             task.FileName,
@@ -1005,7 +1007,7 @@ public sealed class FileTaskService(
             segment.Order,
             segment.SourceText,
             segment.TargetText,
-            segment.ConfirmationStatus,
+            segment.ConfirmationStatus.ToWireValue(),
             segment.Version,
             markup.RootElement.Clone(),
             chapter);
@@ -1044,7 +1046,7 @@ public sealed class FileTaskService(
             segment.Order,
             segment.SourceText,
             null,
-            "pending",
+            SegmentConfirmationStatus.Pending.ToWireValue(),
             1,
             markup.RootElement.Clone(),
             chapter);
