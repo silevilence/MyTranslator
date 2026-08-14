@@ -60,8 +60,9 @@
 - [ ] **后端：Docker 容器化**（后端镜像 + compose 编排）
   - [ ] 后端多阶段构建 Dockerfile；docker-compose 编排（后端 + 前端镜像服务 + SQLite 数据卷）
   - [ ] `INITIAL_TOKEN` 通过环境变量注入容器
+  - [ ] AI 提供商/模型配置经配置管理 API 写入（ADR-0003：密钥存 SQLite，不再经环境变量注入；容器部署后经 API 配置，或提供可选首启种子机制）
   - 任务描述：本机无 Docker 环境，不做本地测试；镜像正确性由后续 GitHub Actions 云端构建验证
-  - 验收：Dockerfile/compose 文件齐全且可被 GHA 云端成功构建后端镜像；compose 含 SQLite 持久化卷与初始 Token 环境变量
+  - 验收：Dockerfile/compose 文件齐全且可被 GHA 云端成功构建后端镜像；compose 含 SQLite 持久化卷与初始 Token 环境变量；容器内可经配置管理 API 配置 AI 提供商/模型并触发翻译
 
 - [ ] **前端：前端容器镜像**（nginx 托管 WASM）
   - [ ] 前端 nginx Dockerfile：构建 WASM 产物并托管静态资源，SPA 路由配置
