@@ -97,7 +97,8 @@ public class TranslationRunServiceTests
             },
             out _);
 
-        var run = await service.CreateRunAsync(TaskId, 1, "en", "zh-CN");
+        var poll = await service.CreateRunAsync(TaskId, 1, "en", "zh-CN");
+        var run = poll.Run;
 
         Assert.Equal(RunId, run.RunId);
         Assert.Equal(TaskId, run.TaskId);
@@ -114,6 +115,25 @@ public class TranslationRunServiceTests
         Assert.Null(run.StartedAt);
         Assert.Null(run.FinishedAt);
         Assert.Equal(DateTimeOffset.Parse("2026-08-14T08:30:00Z"), run.CreatedAt);
+        Assert.Null(poll.RetryAfterSeconds);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_解析202RetryAfter头()
+    {
+        var service = Create(
+            _ =>
+            {
+                var response = JsonResponse(HttpStatusCode.Accepted, CreateRun());
+                response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(2));
+                return response;
+            },
+            out _);
+
+        var poll = await service.CreateRunAsync(TaskId, 1, "en", "zh-CN");
+
+        Assert.Equal(2, poll.RetryAfterSeconds);
+        Assert.Equal(RunId, poll.Run.RunId);
     }
 
     [Fact]

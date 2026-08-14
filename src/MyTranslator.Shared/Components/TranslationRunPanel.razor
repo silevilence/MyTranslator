@@ -39,10 +39,7 @@
                        Class="mt-translation-run-start"
                        Disabled="_creating || HasActiveRun || string.IsNullOrWhiteSpace(_targetLanguage)"
                        OnClick="CreateRunAsync">
-                @if (_creating)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                }
+                @CreateSpinner
                 @Localizer["StartTranslation"]
             </MudButton>
         </div>
@@ -65,17 +62,27 @@
             {
                 <div class="mt-4" aria-live="polite">
                     <MudProgressLinear Value="@progress.Percent"
-                                       Color="@ProgressColor(_run.Status)"
+                                       Color="@ProgressColor(_run)"
                                        Size="Size.Small"
                                        Rounded="true"
                                        Class="mt-translation-run-progress" />
                     <div class="mt-translation-run-progress-text">
                         <MudText Typo="Typo.body2">
-                            @Localizer["ProgressText",
-                                progress.ProcessedSegments,
-                                _run.Selection?.SelectedSegments ?? 0,
-                                progress.SucceededSegments,
-                                progress.FailedSegments]
+                            @if (_run.Selection is { } selection)
+                            {
+                                @Localizer["ProgressText",
+                                    progress.ProcessedSegments,
+                                    selection.SelectedSegments,
+                                    progress.SucceededSegments,
+                                    progress.FailedSegments]
+                            }
+                            else
+                            {
+                                @Localizer["ProgressTextNoTotal",
+                                    progress.ProcessedSegments,
+                                    progress.SucceededSegments,
+                                    progress.FailedSegments]
+                            }
                         </MudText>
                         <MudText Typo="Typo.body2" Class="mt-translation-run-percent">
                             @Localizer["Percent", progress.Percent.ToString("0.#")]
@@ -131,10 +138,7 @@
                                    StartIcon="@Icons.Material.Filled.Refresh"
                                    Disabled="_creating"
                                    OnClick="CreateRunAsync">
-                            @if (_creating)
-                            {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                            }
+                            @CreateSpinner
                             @Localizer["RetryTranslation"]
                         </MudButton>
                     }
@@ -151,6 +155,15 @@
 @code {
     private const int FailurePageSize = 200;
 
+    /// <summary>失败明细读取上限（§7 要求终态后读取完整列表；防御极端规模保护渲染）。</summary>
+    private const int MaxFailureItems = 5000;
+
+    /// <summary>轮询连续瞬态失败次数上限：达到后停止轮询并展示错误横幅。</summary>
+    private const int MaxPollRetries = 5;
+
+    /// <summary>轮询瞬态失败指数退避上限（毫秒）。</summary>
+    private const int MaxPollBackoffMs = 30000;
+
     private string _targetLanguage = "zh-CN";
     private string _sourceLanguage = string.Empty;
     private string? _targetError;
@@ -162,6 +175,15 @@
     private int _lastSucceeded;
     private int _pollIntervalMs = 1000;
     private CancellationTokenSource? _pollCts;
+
+    /// <summary>按钮提交中 spinner（§3 反馈分级：提交期间按钮 loading）。</summary>
+    private RenderFragment CreateSpinner => __builder =>
+    {
+        if (_creating)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+        }
+    };
 
     /// <summary>任务 ID。</summary>
     [Parameter, EditorRequired]
@@ -183,7 +205,7 @@
     public EventCallback OnTaskStateChanged { get; set; }
 
     /// <summary>存在未进入终态的运行；活动运行期间禁止再次创建（§2.4 互斥）。</summary>
-    private bool HasActiveRun => _run is not null && !IsTerminal(_run.Status);
+    private bool HasActiveRun => _run is not null && !IsTerminal(_run);
 
     protected override async Task OnInitializedAsync()
     {
@@ -207,7 +229,7 @@
 
             _run = run;
             _lastSucceeded = run.Progress?.SucceededSegments ?? 0;
-            if (IsTerminal(run.Status))
+            if (IsTerminal(run))
             {
                 if (run.Status is "partial_failed" or "failed")
                 {
@@ -218,10 +240,6 @@
             {
                 StartPolling(run);
             }
-        }
-        catch (ApiErrorException ex) when (ex.Code == "extraction_revision_changed")
-        {
-            // 列表游标绑定旧修订：页面按新修订重建本组件，视为无运行
         }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
@@ -250,16 +268,17 @@
         _pollError = null;
         try
         {
-            var run = await Runs.CreateRunAsync(
+            var poll = await Runs.CreateRunAsync(
                 TaskId,
                 ExtractionRevision,
                 string.IsNullOrWhiteSpace(_sourceLanguage) ? null : _sourceLanguage.Trim(),
                 target);
+            var run = poll.Run;
             _run = run;
             _failures = [];
             _failuresTruncated = false;
             _lastSucceeded = 0;
-            _pollIntervalMs = 1000;
+            _pollIntervalMs = Math.Max(poll.RetryAfterSeconds ?? 1, 1) * 1000;
             Snackbar.Add(Localizer["RunStarted"], Severity.Info);
             StartPolling(run);
         }
@@ -316,61 +335,70 @@
     }
 
     /// <summary>
-    /// 按 Retry-After 轮询运行详情（§5）：间隔不得短于 1 秒；
-    /// 进度与阶段文案一律取服务端快照，不按本地计时猜测。
+    /// 按 Retry-After 轮询运行详情（§5）：间隔不得短于 1 秒；进度与阶段文案一律取服务端快照。
+    /// 运行失效（404/409）立即停止并通知页面；瞬态错误（5xx/网络）指数退避续轮，
+    /// 连续失败达到上限后停止并展示错误横幅，避免后端持续异常时空转请求。
     /// </summary>
     private async Task PollLoopAsync(CancellationToken cancellationToken)
     {
+        var pollErrors = 0;
         try
         {
-            while (!cancellationToken.IsCancellationRequested && _run is not null && !IsTerminal(_run.Status))
+            while (!cancellationToken.IsCancellationRequested && _run is not null && !IsTerminal(_run))
             {
                 await Task.Delay(_pollIntervalMs, cancellationToken);
-                var poll = await Runs.GetRunAsync(TaskId, _run.RunId, cancellationToken);
-                _pollIntervalMs = Math.Max(poll.RetryAfterSeconds ?? 1, 1) * 1000;
-                _pollError = null;
-                _run = poll.Run;
-
-                if (_run.Progress is { SucceededSegments: > 0 } progress && progress.SucceededSegments > _lastSucceeded)
+                try
                 {
-                    _lastSucceeded = progress.SucceededSegments;
-                    await OnTranslationsCommitted.InvokeAsync();
+                    var poll = await Runs.GetRunAsync(TaskId, _run.RunId, cancellationToken);
+                    pollErrors = 0;
+                    _pollIntervalMs = Math.Max(poll.RetryAfterSeconds ?? 1, 1) * 1000;
+                    _pollError = null;
+                    _run = poll.Run;
+
+                    if (_run.Progress is { SucceededSegments: > 0 } progress && progress.SucceededSegments > _lastSucceeded)
+                    {
+                        _lastSucceeded = progress.SucceededSegments;
+                        await OnTranslationsCommitted.InvokeAsync();
+                    }
+
+                    StateHasChanged();
+
+                    if (IsTerminal(_run))
+                    {
+                        await OnRunTerminalAsync();
+                        return;
+                    }
                 }
-
-                StateHasChanged();
-
-                if (IsTerminal(_run.Status))
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await OnRunTerminalAsync();
                     return;
+                }
+                catch (ApiErrorException ex) when (IsRunInvalidated(ex.Code))
+                {
+                    // 运行随重新提取失效（§2.4）：本地状态重置，由页面按新修订重建
+                    ResetRunState();
+                    Snackbar.Add(ErrorProvider.ForError(ex), Severity.Warning);
+                    await OnTaskStateChanged.InvokeAsync();
+                    return;
+                }
+                catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+                {
+                    // 瞬态错误：指数退避后重试
+                    pollErrors++;
+                    if (pollErrors >= MaxPollRetries)
+                    {
+                        _pollError = ErrorProvider.ForException(ex);
+                        StateHasChanged();
+                        return;
+                    }
+
+                    _pollIntervalMs = Math.Min(_pollIntervalMs * 2, MaxPollBackoffMs);
                 }
             }
         }
         catch (OperationCanceledException)
         {
             // 组件销毁或重启轮询：静默退出
-        }
-        catch (ApiErrorException ex)
-        {
-            if (ex.Code is "translation_run_not_found" or "extraction_revision_changed")
-            {
-                // 运行随重新提取失效（§2.4）：本地状态重置，由页面按新修订重建
-                _run = null;
-                _failures = [];
-                _failuresTruncated = false;
-                Snackbar.Add(ErrorProvider.ForError(ex), Severity.Warning);
-                await OnTaskStateChanged.InvokeAsync();
-            }
-            else
-            {
-                _pollError = ErrorProvider.ForError(ex);
-                StateHasChanged();
-            }
-        }
-        catch (HttpRequestException)
-        {
-            _pollError = ErrorProvider.For(null);
-            StateHasChanged();
         }
     }
 
@@ -390,7 +418,10 @@
         await OnTaskStateChanged.InvokeAsync();
     }
 
-    /// <summary>读取已确定的分段级失败（§7），展示第一页（上限 200）；总数以运行失败摘要为准。</summary>
+    /// <summary>
+    /// 读取已确定的分段级失败（§7）：终态后沿游标读取完整列表；
+    /// 超过 <see cref="MaxFailureItems"/> 时截断并提示（极端规模防御）。
+    /// </summary>
     private async Task LoadFailuresAsync()
     {
         if (_run is not { } run)
@@ -400,15 +431,22 @@
 
         try
         {
-            var page = await Runs.GetFailuresAsync(TaskId, run.RunId, FailurePageSize, null);
-            _failures = page.Items;
-            _failuresTruncated = page.NextCursor is not null;
+            var items = new List<SegmentTranslationFailure>();
+            string? cursor = null;
+            do
+            {
+                var page = await Runs.GetFailuresAsync(TaskId, run.RunId, FailurePageSize, cursor);
+                items.AddRange(page.Items);
+                cursor = page.NextCursor;
+            }
+            while (cursor is not null && items.Count < MaxFailureItems);
+
+            _failures = items;
+            _failuresTruncated = cursor is not null;
         }
-        catch (ApiErrorException ex) when (ex.Code is "translation_run_not_found" or "extraction_revision_changed")
+        catch (ApiErrorException ex) when (IsRunInvalidated(ex.Code))
         {
-            _run = null;
-            _failures = [];
-            _failuresTruncated = false;
+            ResetRunState();
             Snackbar.Add(ErrorProvider.ForError(ex), Severity.Warning);
             await OnTaskStateChanged.InvokeAsync();
         }
@@ -427,7 +465,7 @@
         {
             await RestoreLatestRunAsync();
         }
-        else if (IsTerminal(_run.Status))
+        else if (IsTerminal(_run))
         {
             await LoadFailuresAsync();
         }
@@ -437,18 +475,37 @@
         }
     }
 
-    /// <summary>终态：`completed` / `partial_failed` / `failed`；未知枚举值视为活动状态继续轮询。</summary>
-    private static bool IsTerminal(string? status)
+    /// <summary>
+    /// 运行是否进入终态：以服务端 <c>finishedAt</c> 为准（§9 终态时 finishedAt 非空）。
+    /// 未知枚举值若已带 finishedAt 视为终态，避免对新增终态永久轮询（§2.1 容忍未知值）。
+    /// </summary>
+    private static bool IsTerminal(TranslationRun run)
     {
-        return status is "completed" or "partial_failed" or "failed";
+        return run.FinishedAt is not null || run.Status is "completed" or "partial_failed" or "failed";
     }
 
-    private static Color ProgressColor(string? status)
+    /// <summary>运行是否已因重新提取失效（§2.4）：本地状态需重置并由页面按新修订重建。</summary>
+    private static bool IsRunInvalidated(string? code)
     {
-        return status switch
+        return code is "translation_run_not_found" or "extraction_revision_changed";
+    }
+
+    /// <summary>重置当前运行及其派生状态（运行失效时使用）。</summary>
+    private void ResetRunState()
+    {
+        _run = null;
+        _failures = [];
+        _failuresTruncated = false;
+    }
+
+    private static Color ProgressColor(TranslationRun run)
+    {
+        return run.Status switch
         {
             "completed" => Color.Success,
             "partial_failed" or "failed" => Color.Error,
+            // 未知状态但已终态（finishedAt 非空）：中性色，不再表现为活动中的蓝色
+            _ when run.FinishedAt is not null => Color.Default,
             _ => Color.Info,
         };
     }

@@ -8,7 +8,7 @@
     {
         <ErrorBanner Message="@_loadError" RetryText="@Localizer["SegmentList.Retry"]" OnRetry="RetryAsync" />
     }
-    <Virtualize ItemsProvider="LoadItemsAsync" OverscanCount="6" Context="segment">
+    <Virtualize @ref="_virtualize" ItemsProvider="LoadItemsAsync" OverscanCount="6" Context="segment">
         <ItemContent>
             @RowTemplate(segment)
         </ItemContent>
@@ -36,6 +36,9 @@
     private int _totalCount;
     private bool _hasLoaded;
     private string? _loadError;
+
+    /// <summary>Virtualize 实例引用：清空本地缓存后需显式重新查询（内部缓存不会因父组件重渲染失效）。</summary>
+    private Virtualize<Segment>? _virtualize;
 
     /// <summary>游标分页加载器：入参为不透明游标（首页为 null），返回一页分段。</summary>
     [Parameter, EditorRequired]
@@ -114,7 +117,39 @@
         }
     }
 
-    private void RetryAsync()
+    /// <summary>
+    /// 清空已加载分段并从第一页重新加载；保留容器与滚动位置，不重建组件。
+    /// 用于同提取修订内的数据刷新（如 AI 翻译运行逐批提交新译文后逐步展示）。
+    /// Virtualize 内部缓存不会因重渲染失效，必须显式 RefreshDataAsync 重新查询。
+    /// </summary>
+    public async Task RefreshAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            _loadError = null;
+            _items.Clear();
+            _nextCursor = null;
+            _noMorePages = false;
+            _totalCount = 0;
+            _hasLoaded = false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        if (_virtualize is not null)
+        {
+            await _virtualize.RefreshDataAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task RetryAsync()
     {
         _loadError = null;
         _items.Clear();
@@ -122,6 +157,14 @@
         _noMorePages = false;
         _totalCount = 0;
         _hasLoaded = false;
-        StateHasChanged();
+
+        if (_virtualize is not null)
+        {
+            await _virtualize.RefreshDataAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
     }
 }

@@ -69,6 +69,9 @@
   <data name="ProgressText" xml:space="preserve">
     <value>已处理 {0}/{1} 段（成功 {2} · 失败 {3}）</value>
   </data>
+  <data name="ProgressTextNoTotal" xml:space="preserve">
+    <value>已处理 {0} 段（成功 {1} · 失败 {2}）</value>
+  </data>
   <data name="Percent" xml:space="preserve">
     <value>{0}%</value>
   </data>

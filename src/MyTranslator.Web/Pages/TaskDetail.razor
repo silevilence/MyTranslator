@@ -108,7 +108,8 @@ else
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["SegmentsHint"]</MudText>
 
         <div class="mt-task-segments">
-            <SegmentCursorList @key="_segmentsKey"
+            <SegmentCursorList @ref="_segmentList"
+                               @key="_segmentsKey"
                                LoadPage="LoadSegmentsAsync"
                                OnRevisionChanged="OnSegmentsRevisionChanged">
                 <RowTemplate>
@@ -154,6 +155,7 @@ else
     private string? _loadError;
     private bool _exporting;
     private int _segmentsKey;
+    private SegmentCursorList? _segmentList;
 
     /// <summary>任务摘要声明的公开导出条件（§4.3 capabilities.canExport）。</summary>
     private bool CanExport => _summary?.Capabilities?.CanExport == true;
@@ -191,18 +193,23 @@ else
         _segmentsKey++;
     }
 
-    private Task OnTranslationsCommittedAsync()
+    private async Task OnTranslationsCommittedAsync()
     {
-        // 翻译运行成功分段数增加：重新读取分段以逐步展示新译文（AI 翻译约定 §11.1 第 4 步）
-        _segmentsKey++;
-        return Task.CompletedTask;
+        // 翻译运行成功分段数增加：同修订内就地刷新分段，保留滚动位置（AI 翻译约定 §11.1 第 4 步）
+        if (_segmentList is not null)
+        {
+            await _segmentList.RefreshAsync();
+        }
     }
 
     private async Task OnRunTaskStateChangedAsync()
     {
         // 运行进入终态或创建被互斥/配置阻断：刷新任务摘要（状态/canExport）与分段
-        _segmentsKey++;
         await LoadAsync();
+        if (_segmentList is not null)
+        {
+            await _segmentList.RefreshAsync();
+        }
     }
 
     private async Task OnSegmentsRevisionChanged()

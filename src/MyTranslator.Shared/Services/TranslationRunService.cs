@@ -36,9 +36,10 @@ public class TranslationRunService
 
     /// <summary>
     /// 创建翻译运行（§4）。<paramref name="sourceLanguage"/> 为 null 或空白表示由 LLM 自动识别；
-    /// 成功后任务进入 <c>processing</c>，返回的运行状态为 <c>queued</c>。
+    /// 成功后任务进入 <c>processing</c>，返回的运行状态为 <c>queued</c>，
+    /// 并附创建响应 Retry-After 作为首轮询间隔参考。
     /// </summary>
-    public async Task<TranslationRun> CreateRunAsync(
+    public async Task<TranslationRunPoll> CreateRunAsync(
         Guid taskId,
         int extractionRevision,
         string? sourceLanguage,
@@ -58,7 +59,8 @@ public class TranslationRunService
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
         using var response = await _api.SendAsync(request, cancellationToken);
-        return await ReadResultAsync<TranslationRun>(response, cancellationToken);
+        var run = await ReadResultAsync<TranslationRun>(response, cancellationToken);
+        return new TranslationRunPoll(run, ParseRetryAfter(response.Headers.RetryAfter));
     }
 
     /// <summary>查询翻译运行（§5）。活动运行响应携带 Retry-After，调用方据此安排轮询。</summary>
@@ -81,11 +83,8 @@ public class TranslationRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        var query = cursor is null
-            ? $"?limit={limit}"
-            : $"?limit={limit}&cursor={Uri.EscapeDataString(cursor)}";
         using var response = await _api.GetAsync(
-            $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs{query}",
+            $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<TranslationRunPage>(response, cancellationToken);
     }
@@ -98,13 +97,18 @@ public class TranslationRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        var query = cursor is null
-            ? $"?limit={limit}"
-            : $"?limit={limit}&cursor={Uri.EscapeDataString(cursor)}";
         using var response = await _api.GetAsync(
-            $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs/{runId}/failures{query}",
+            $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs/{runId}/failures{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<TranslationFailurePage>(response, cancellationToken);
+    }
+
+    /// <summary>游标分页查询串：首页只带 limit，翻页附加转义后的不透明游标（§2.5）。</summary>
+    private static string PageQuery(int limit, string? cursor)
+    {
+        return cursor is null
+            ? $"?limit={limit}"
+            : $"?limit={limit}&cursor={Uri.EscapeDataString(cursor)}";
     }
 
     private static async Task<T> ReadResultAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
