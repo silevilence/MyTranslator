@@ -4,13 +4,16 @@ using System.IO.Compression;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MyTranslator.Api.Data;
+using MyTranslator.Api.TaskOperations;
+using MyTranslator.Api.Pagination;
 
 namespace MyTranslator.Api.FileTasks;
 
 public sealed class FileTaskService(
     AppDbContext database,
     UrlImportClient urlImportClient,
-    ExtractionPreviewStore previewStore)
+    ExtractionPreviewStore previewStore,
+    TaskOperationLock taskOperationLock)
 {
     private const long MaximumUploadBytes = 10L * 1024 * 1024;
 
@@ -181,7 +184,7 @@ public sealed class FileTaskService(
             task.ExtractionRevision,
             totalCount,
             segments.Select(ToResponse).ToList(),
-            hasNextPage ? EncodeCursor(cursorResource, task.ExtractionRevision, offset + limit) : null);
+            hasNextPage ? PaginationCursor.Encode(cursorResource, task.ExtractionRevision, offset + limit) : null);
     }
 
     public async Task<SourceUnitPage?> GetSourceUnitsAsync(
@@ -236,7 +239,7 @@ public sealed class FileTaskService(
         return new SourceUnitPage(
             task.ExtractionRevision,
             page,
-            hasNextPage ? EncodeCursor(cursorResource, task.ExtractionRevision, offset + limit) : null);
+            hasNextPage ? PaginationCursor.Encode(cursorResource, task.ExtractionRevision, offset + limit) : null);
     }
 
     public async Task<ExtractionPreviewSummary?> CreateExtractionPreviewAsync(
@@ -351,7 +354,7 @@ public sealed class FileTaskService(
             preview.BaseExtractionRevision,
             preview.Segments.Count,
             items,
-            hasNextPage ? EncodeCursor(cursorResource, preview.BaseExtractionRevision, offset + limit) : null));
+            hasNextPage ? PaginationCursor.Encode(cursorResource, preview.BaseExtractionRevision, offset + limit) : null));
     }
 
     public async Task<FileTaskSummary?> ApplyExtractionPreviewAsync(
@@ -360,6 +363,7 @@ public sealed class FileTaskService(
         ApplyExtractionPreviewRequest request,
         CancellationToken cancellationToken)
     {
+        await using var operation = await taskOperationLock.AcquireAsync(taskId, cancellationToken);
         var preview = GetPreview(taskId, previewId);
         if (preview is null)
         {
@@ -405,6 +409,9 @@ public sealed class FileTaskService(
                 });
         }
 
+        await database.TranslationRuns
+            .Where(run => run.TaskId == taskId)
+            .ExecuteDeleteAsync(cancellationToken);
         await database.TranslationSegments
             .Where(segment => segment.TaskId == taskId)
             .ExecuteDeleteAsync(cancellationToken);
@@ -452,6 +459,7 @@ public sealed class FileTaskService(
 
     public async Task<ExportedFile?> ExportTaskAsync(Guid taskId, CancellationToken cancellationToken)
     {
+        await using var operation = await taskOperationLock.AcquireAsync(taskId, cancellationToken);
         var task = await database.TranslationTasks
             .AsNoTracking()
             .Include(entity => entity.Segments)
@@ -495,13 +503,6 @@ public sealed class FileTaskService(
             _ => "application/octet-stream"
         };
         return new ExportedFile(content, contentType, BuildExportFileName(task.FileName, task.FileType));
-    }
-
-    private static string EncodeCursor(string resource, int revision, int offset)
-    {
-        var payload = JsonSerializer.Serialize(new CursorPayload(resource, revision, offset));
-        var value = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
-        return value.TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
     private static byte[] ExportEpub(TranslationTask task)
@@ -759,35 +760,21 @@ public sealed class FileTaskService(
 
         try
         {
-            var base64 = cursor.Replace('-', '+').Replace('_', '/');
-            base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
-            var payload = JsonSerializer.Deserialize<CursorPayload>(
-                Encoding.UTF8.GetString(Convert.FromBase64String(base64)));
-            if (payload is null || payload.Resource != currentResource || payload.Offset < 0)
-            {
-                throw new FormatException();
-            }
-
-            if (payload.Revision != currentRevision)
-            {
-                throw new InvalidFileTaskRequestException(
+            return PaginationCursor.Decode(cursor, currentResource, currentRevision);
+        }
+        catch (PaginationCursorException exception)
+        {
+            throw exception.Error == PaginationCursorError.RevisionChanged
+                ? new InvalidFileTaskRequestException(
                     "extraction_revision_changed",
-                    "The extraction revision changed while paging.");
-            }
-
-            return payload.Offset;
-        }
-        catch (InvalidFileTaskRequestException)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is FormatException or ArgumentException)
-        {
-            throw new InvalidFileTaskRequestException("invalid_cursor", "The pagination cursor is invalid.", exception);
+                    "The extraction revision changed while paging.",
+                    exception)
+                : new InvalidFileTaskRequestException(
+                    "invalid_cursor",
+                    "The pagination cursor is invalid.",
+                    exception);
         }
     }
-
-    private sealed record CursorPayload(string Resource, int Revision, int Offset);
 
     private static TranslationTask BuildTextTask(
         string sourceKind,

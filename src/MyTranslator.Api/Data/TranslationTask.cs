@@ -24,4 +24,5 @@ public sealed class TranslationTask
     public DateTimeOffset CreatedAt { get; set; }
     public List<TranslationSegment> Segments { get; set; } = [];
     public List<ProtectedBlock> ProtectedBlocks { get; set; } = [];
+    public List<TranslationRun> TranslationRuns { get; set; } = [];
 }

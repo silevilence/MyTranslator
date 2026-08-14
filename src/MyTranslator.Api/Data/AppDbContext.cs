@@ -8,6 +8,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<TranslationTask> TranslationTasks => Set<TranslationTask>();
     public DbSet<TranslationSegment> TranslationSegments => Set<TranslationSegment>();
     public DbSet<ProtectedBlock> ProtectedBlocks => Set<ProtectedBlock>();
+    public DbSet<TranslationRun> TranslationRuns => Set<TranslationRun>();
+    public DbSet<TranslationRunFailure> TranslationRunFailures => Set<TranslationRunFailure>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +56,37 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         protectedBlock.HasOne(entity => entity.Task)
             .WithMany(entity => entity.ProtectedBlocks)
             .HasForeignKey(entity => entity.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var run = modelBuilder.Entity<TranslationRun>();
+        run.ToTable("TranslationRuns");
+        run.HasKey(entity => entity.Id);
+        run.Property(entity => entity.Status)
+            .HasConversion(
+                status => status.ToWireValue(),
+                value => TranslationRunStatusExtensions.ParseWireValue(value))
+            .HasMaxLength(20)
+            .IsRequired();
+        run.Property(entity => entity.SourceLanguage).HasMaxLength(50);
+        run.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
+        run.Property(entity => entity.FailureCode).HasMaxLength(80);
+        run.HasIndex(entity => entity.ActiveTaskId)
+            .IsUnique()
+            .HasFilter("\"ActiveTaskId\" IS NOT NULL");
+        run.HasIndex(entity => new { entity.TaskId, entity.CreatedAt });
+        run.HasOne(entity => entity.Task)
+            .WithMany(entity => entity.TranslationRuns)
+            .HasForeignKey(entity => entity.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var failure = modelBuilder.Entity<TranslationRunFailure>();
+        failure.ToTable("TranslationRunFailures");
+        failure.HasKey(entity => entity.Id);
+        failure.Property(entity => entity.Code).HasMaxLength(80).IsRequired();
+        failure.HasIndex(entity => new { entity.RunId, entity.SegmentOrder }).IsUnique();
+        failure.HasOne(entity => entity.Run)
+            .WithMany(entity => entity.Failures)
+            .HasForeignKey(entity => entity.RunId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

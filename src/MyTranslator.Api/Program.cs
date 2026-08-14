@@ -8,6 +8,9 @@ using MyTranslator.Api.Authentication;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.FileTasks;
 using MyTranslator.Api.Tokens;
+using MyTranslator.Api.Translation;
+using MyTranslator.Api.TaskOperations;
+using MyTranslator.Api.Rules;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -26,11 +29,19 @@ var connectionString = ResolveSqliteConnectionString(
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<FileTaskService>();
+builder.Services.AddSingleton<TaskOperationLock>();
+builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
+builder.Services.AddSingleton<TranslationRunQueue>();
+builder.Services.AddScoped<TranslationRunService>();
+builder.Services.AddScoped<TranslationRunProcessor>();
+builder.Services.AddSingleton<ITranslationRule, PlaceholderIntegrityRule>();
+builder.Services.AddHttpClient<ITranslationProvider, OpenAiCompatibleTranslationProvider>();
 builder.Services.AddSingleton<ExtractionPreviewStore>();
 builder.Services.AddHttpClient<UrlImportClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(30))
     .ConfigurePrimaryHttpMessageHandler(PublicAddressHttpHandler.Create);
 builder.Services.AddHostedService<DatabaseInitializer>();
+builder.Services.AddHostedService<TranslationRunWorker>();
 builder.Services
     .AddAuthentication(TokenAuthenticationDefaults.Scheme)
     .AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(
@@ -127,6 +138,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }))
     .WithTags("System");
 app.MapTokenEndpoints();
 app.MapFileTaskEndpoints();
+app.MapTranslationEndpoints();
 
 app.Run();
 

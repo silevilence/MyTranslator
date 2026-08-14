@@ -142,6 +142,114 @@ namespace MyTranslator.Api.Data.Migrations
                     b.ToTable("TranslationSegments", (string)null);
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActiveTaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ExtractionRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FailedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("FailureRetryable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProcessedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SelectedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SkippedExistingSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SucceededSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TotalSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveTaskId")
+                        .IsUnique()
+                        .HasFilter("\"ActiveTaskId\" IS NOT NULL");
+
+                    b.HasIndex("TaskId", "CreatedAt");
+
+                    b.ToTable("TranslationRuns", (string)null);
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationRunFailure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Retryable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SegmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SegmentOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId", "SegmentOrder")
+                        .IsUnique();
+
+                    b.ToTable("TranslationRunFailures", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -245,11 +353,40 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.TranslationTask", "Task")
+                        .WithMany("TranslationRuns")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationRunFailure", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.TranslationRun", "Run")
+                        .WithMany("Failures")
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Run");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
+                {
+                    b.Navigation("Failures");
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationTask", b =>
                 {
                     b.Navigation("ProtectedBlocks");
 
                     b.Navigation("Segments");
+
+                    b.Navigation("TranslationRuns");
                 });
 #pragma warning restore 612, 618
         }
