@@ -126,7 +126,7 @@
                     @if (_failuresTruncated)
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                            @Localizer["FailuresTruncated", FailurePageSize]
+                            @Localizer["FailuresTruncated", MaxFailureItems]
                         </MudText>
                     }
                 }
@@ -337,7 +337,8 @@
     /// <summary>
     /// 按 Retry-After 轮询运行详情（§5）：间隔不得短于 1 秒；进度与阶段文案一律取服务端快照。
     /// 运行失效（404/409）立即停止并通知页面；瞬态错误（5xx/网络）指数退避续轮，
-    /// 连续失败达到上限后停止并展示错误横幅，避免后端持续异常时空转请求。
+    /// 连续失败达到上限后停止并展示错误横幅，避免后端持续异常时空转请求；
+    /// 其余契约错误（4xx）立即停止，不做退避重试。
     /// </summary>
     private async Task PollLoopAsync(CancellationToken cancellationToken)
     {
@@ -381,18 +382,27 @@
                     await OnTaskStateChanged.InvokeAsync();
                     return;
                 }
-                catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+                catch (Exception ex) when (ex is HttpRequestException or ApiErrorException { StatusCode: >= 500 })
                 {
-                    // 瞬态错误：指数退避后重试
+                    // 瞬态错误（5xx/网络）：指数退避后重试
                     pollErrors++;
                     if (pollErrors >= MaxPollRetries)
                     {
+                        _pollIntervalMs = 1000;
                         _pollError = ErrorProvider.ForException(ex);
                         StateHasChanged();
                         return;
                     }
 
                     _pollIntervalMs = Math.Min(_pollIntervalMs * 2, MaxPollBackoffMs);
+                }
+                catch (ApiErrorException ex)
+                {
+                    // 其余契约错误（4xx）：非瞬态，立即停止并展示错误横幅
+                    _pollIntervalMs = 1000;
+                    _pollError = ErrorProvider.ForError(ex);
+                    StateHasChanged();
+                    return;
                 }
             }
         }

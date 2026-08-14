@@ -151,12 +151,21 @@
 
     private async Task RetryAsync()
     {
-        _loadError = null;
-        _items.Clear();
-        _nextCursor = null;
-        _noMorePages = false;
-        _totalCount = 0;
-        _hasLoaded = false;
+        // 与 RefreshAsync 一致持 _gate，避免与在途 LoadItemsAsync 并发时旧游标页写回
+        await _gate.WaitAsync();
+        try
+        {
+            _loadError = null;
+            _items.Clear();
+            _nextCursor = null;
+            _noMorePages = false;
+            _totalCount = 0;
+            _hasLoaded = false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
 
         if (_virtualize is not null)
         {
