@@ -123,14 +123,9 @@ else
         }
         @if (_moreError is not null)
         {
-            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-tasklist-more-error">
-                <div class="mt-error-banner-row">
-                    <MudText Typo="Typo.body1" Class="mt-error-banner-message">@_moreError</MudText>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="_loadingMore" OnClick="LoadMoreAsync">
-                        @Localizer["Retry"]
-                    </MudButton>
-                </div>
-            </MudAlert>
+            <div class="mt-tasklist-more-error">
+                <ErrorBanner Message="@_moreError" RetryText="@Localizer["Retry"]" OnRetry="LoadMoreAsync" />
+            </div>
         }
         else if (_loadingMore)
         {
