@@ -22,18 +22,21 @@ public sealed class TaskListService(AppDbContext database)
                 StatusCodes.Status400BadRequest);
         }
 
-        var statusFilter = status switch
+        TranslationTaskStatus? statusFilter = null;
+        if (status is not null)
         {
-            null => (TranslationTaskStatus?)null,
-            "created" => TranslationTaskStatus.Created,
-            "processing" => TranslationTaskStatus.Processing,
-            "completed" => TranslationTaskStatus.Completed,
-            "failed" => TranslationTaskStatus.Failed,
-            _ => throw new TaskListRequestException(
+            if (!TranslationTaskStatusExtensions.TryParseWireValue(status, out var parsedStatus))
+            {
+                throw new TaskListRequestException(
                 "invalid_task_status",
                 "The task status is invalid.",
-                StatusCodes.Status400BadRequest)
-        };
+                StatusCodes.Status400BadRequest);
+            }
+
+            statusFilter = parsedStatus;
+        }
+
+        var statusWireValue = statusFilter?.ToWireValue();
         await using var transaction = await database.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);
@@ -61,7 +64,7 @@ public sealed class TaskListService(AppDbContext database)
                 task.CreatedAt
             })
             .ToListAsync(cancellationToken);
-        var position = cursor is null ? null : TaskListCursor.Decode(cursor, status);
+        var position = cursor is null ? null : TaskListCursor.Decode(cursor, statusWireValue);
         var orderedRows = rows
             .OrderByDescending(task => task.CreatedAt)
             .ThenByDescending(task => task.Id);
@@ -107,27 +110,21 @@ public sealed class TaskListService(AppDbContext database)
                 task.ExtractionRevision,
                 new TaskProgressResponse(task.CompletedSegments, task.TotalSegments),
                 latestRuns.GetValueOrDefault(task.Id) is { } latestRun
-                    ? ToLatestRunResponse(latestRun)
+                    ? new LatestTranslationRunResponse(
+                        latestRun.Id,
+                        latestRun.Status.ToWireValue(),
+                        TranslationRunService.ToProgress(latestRun),
+                        TranslationRunService.ToFailure(latestRun),
+                        latestRun.CreatedAt,
+                        latestRun.FinishedAt)
                     : null,
                 task.CreatedAt))
             .ToArray();
 
         var nextCursor = hasNextPage
-            ? TaskListCursor.Encode(status, items[^1].CreatedAt, items[^1].TaskId)
+            ? TaskListCursor.Encode(statusWireValue, items[^1].CreatedAt, items[^1].TaskId)
             : null;
         await transaction.CommitAsync(cancellationToken);
         return new TaskListPage(items, nextCursor);
-    }
-
-    private static LatestTranslationRunResponse ToLatestRunResponse(TranslationRun run)
-    {
-        var response = TranslationRunService.ToResponse(run);
-        return new LatestTranslationRunResponse(
-            response.RunId,
-            response.Status,
-            response.Progress,
-            response.Failure,
-            response.CreatedAt,
-            response.FinishedAt);
     }
 }

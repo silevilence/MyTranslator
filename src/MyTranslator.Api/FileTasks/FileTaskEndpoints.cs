@@ -252,14 +252,15 @@ public static class FileTaskEndpoints
 
 internal static class FileTaskProblem
 {
-    public static IResult NotFound(string code) => Results.Problem(
-        statusCode: 404,
-        title: code == "task_not_found" ? "Task not found" : "Extraction preview not found",
-        type: $"urn:mytranslator:problem:{code.Replace('_', '-')}",
-        extensions: new Dictionary<string, object?> { ["code"] = code });
+    public static IResult NotFound(string code) => ApiProblem.Create(
+        code,
+        code == "task_not_found" ? "Task not found" : "Extraction preview not found",
+        StatusCodes.Status404NotFound);
 
-    public static IResult FromException(InvalidFileTaskRequestException exception) => Results.Problem(
-        statusCode: exception.Code switch
+    public static IResult FromException(InvalidFileTaskRequestException exception) => ApiProblem.Create(
+        exception.Code,
+        exception.Message,
+        exception.Code switch
         {
             "import_parse_failed" or
             "dynamic_page_not_supported" or
@@ -276,13 +277,5 @@ internal static class FileTaskProblem
             "extraction_preview_expired" => 410,
             _ => 400
         },
-        title: exception.Message,
-        type: $"urn:mytranslator:problem:{exception.Code.Replace('_', '-')}",
-        extensions: exception.Errors is null
-            ? new Dictionary<string, object?> { ["code"] = exception.Code }
-            : new Dictionary<string, object?>
-            {
-                ["code"] = exception.Code,
-                ["errors"] = exception.Errors
-            });
+        exception.Errors);
 }

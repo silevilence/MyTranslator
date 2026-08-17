@@ -218,9 +218,6 @@ public sealed class TranslationRunService(
 
     internal static TranslationRunResponse ToResponse(TranslationRun run)
     {
-        var percent = run.SelectedSegments == 0
-            ? 0
-            : Math.Round(run.ProcessedSegments * 100.0 / run.SelectedSegments, 1);
         return new TranslationRunResponse(
             run.Id,
             run.TaskId,
@@ -232,21 +229,32 @@ public sealed class TranslationRunService(
                 run.TotalSegments,
                 run.SelectedSegments,
                 run.SkippedExistingSegments),
-            new TranslationRunProgress(
-                run.ProcessedSegments,
-                run.SucceededSegments,
-                run.FailedSegments,
-                percent),
-            run.FailureCode is null
-                ? null
-                : new TranslationRunFailureSummary(
-                    run.FailureCode,
-                    run.FailureRetryable ?? false,
-                    run.FailedSegments),
+            ToProgress(run),
+            ToFailure(run),
             run.CreatedAt,
             run.StartedAt,
             run.FinishedAt);
     }
+
+    internal static TranslationRunProgress ToProgress(TranslationRun run)
+    {
+        var percent = run.SelectedSegments == 0
+            ? 0
+            : Math.Round(run.ProcessedSegments * 100.0 / run.SelectedSegments, 1);
+        return new TranslationRunProgress(
+            run.ProcessedSegments,
+            run.SucceededSegments,
+            run.FailedSegments,
+            percent);
+    }
+
+    internal static TranslationRunFailureSummary? ToFailure(TranslationRun run) =>
+        run.FailureCode is null
+            ? null
+            : new TranslationRunFailureSummary(
+                run.FailureCode,
+                run.FailureRetryable ?? false,
+                run.FailedSegments);
 
     private static void ValidateRevision(int revision)
     {

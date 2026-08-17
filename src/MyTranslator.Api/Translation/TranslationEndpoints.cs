@@ -153,15 +153,9 @@ public static class TranslationEndpoints
         "The language tag is invalid.",
         StatusCodes.Status400BadRequest);
 
-    private static IResult Problem(TranslationRequestException exception) => Results.Problem(
-        statusCode: exception.StatusCode,
-        title: exception.Message,
-        type: $"urn:mytranslator:problem:{exception.Code.Replace('_', '-')}",
-        extensions: exception.Errors is null
-            ? new Dictionary<string, object?> { ["code"] = exception.Code }
-            : new Dictionary<string, object?>
-            {
-                ["code"] = exception.Code,
-                ["errors"] = exception.Errors
-            });
+    private static IResult Problem(TranslationRequestException exception) => ApiProblem.Create(
+        exception.Code,
+        exception.Message,
+        exception.StatusCode,
+        exception.Errors);
 }

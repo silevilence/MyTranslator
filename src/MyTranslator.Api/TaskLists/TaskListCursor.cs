@@ -27,14 +27,14 @@ internal static class TaskListCursor
         {
             throw;
         }
-        catch (OpaqueCursorCodecException exception)
+        catch (OpaqueCursorCodecException)
         {
-            throw InvalidCursor(exception);
+            throw InvalidCursor();
         }
     }
 
-    private static TaskListRequestException InvalidCursor(Exception? innerException = null) =>
-        new("invalid_cursor", "The pagination cursor is invalid.", StatusCodes.Status400BadRequest, innerException);
+    private static TaskListRequestException InvalidCursor() =>
+        new("invalid_cursor", "The pagination cursor is invalid.", StatusCodes.Status400BadRequest);
 
     private sealed record CursorPayload(
         string Resource,

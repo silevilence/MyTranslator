@@ -46,12 +46,21 @@ public static class TranslationTaskStatusExtensions
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown translation task status.")
     };
 
-    public static TranslationTaskStatus ParseWireValue(string value) => value switch
+    public static bool TryParseWireValue(string value, out TranslationTaskStatus status)
     {
-        "created" => TranslationTaskStatus.Created,
-        "processing" => TranslationTaskStatus.Processing,
-        "completed" => TranslationTaskStatus.Completed,
-        "failed" => TranslationTaskStatus.Failed,
-        _ => throw new InvalidOperationException($"Unknown translation task status '{value}'.")
-    };
+        status = value switch
+        {
+            "created" => TranslationTaskStatus.Created,
+            "processing" => TranslationTaskStatus.Processing,
+            "completed" => TranslationTaskStatus.Completed,
+            "failed" => TranslationTaskStatus.Failed,
+            _ => default
+        };
+        return value is "created" or "processing" or "completed" or "failed";
+    }
+
+    public static TranslationTaskStatus ParseWireValue(string value) =>
+        TryParseWireValue(value, out var status)
+            ? status
+            : throw new InvalidOperationException($"Unknown translation task status '{value}'.");
 }

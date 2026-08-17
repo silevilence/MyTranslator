@@ -23,11 +23,10 @@ public static class TaskListEndpoints
                     }
                     catch (TaskListRequestException exception)
                     {
-                        return Results.Problem(
-                            statusCode: exception.StatusCode,
-                            title: exception.Message,
-                            type: $"urn:mytranslator:problem:{exception.Code.Replace('_', '-')}",
-                            extensions: new Dictionary<string, object?> { ["code"] = exception.Code });
+                        return ApiProblem.Create(
+                            exception.Code,
+                            exception.Message,
+                            exception.StatusCode);
                     }
                 })
             .WithName("ListTasks")
