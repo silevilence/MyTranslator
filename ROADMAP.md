@@ -105,7 +105,7 @@
   - [ ] 执行层迁移 Microsoft.Extensions.AI：移除 `ITranslationProvider`，翻译处理器直接消费 `IChatClient`（按 kind 工厂构造；批量提示词、JSON 解析、超时/鉴权错误码映射迁入处理器）；新增 NuGet：`Microsoft.Extensions.AI`、`Microsoft.Extensions.AI.OpenAI`、`Microsoft.Extensions.AI.Ollama`
   - [ ] 翻译运行请求新增可选 `providerId`/`modelId`（三档解析：都缺省→默认对；只传 providerId→该提供商默认模型；都传→精确指定）；运行资源回显所选提供商/模型
   - [ ] 新增错误码：404 `provider_not_found`、422 `model_not_found`；503 语义收窄为「选中的提供商/模型未配置完整」
-  - [ ] 更新 `docs/back` AI 翻译接口约定 §3（配置模型与配置管理接口）、§4（请求/响应字段）、§10.1（错误码）
+  - [x] 更新 `docs/back` AI 翻译接口约定 §3（配置模型与配置管理接口）、§4（请求/响应字段）、§10.1（错误码）
   - 验收：通过 API 配置多个提供商与模型并设默认对；创建翻译运行可显式选择提供商/模型或走默认对；不同提供商/模型可实际翻译；密钥不泄露；无效选择返回对应错误码
 
 - [ ] **前端：AI 模型配置界面**（提供商/模型两级管理 + 翻译面板选择器）

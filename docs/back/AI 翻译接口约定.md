@@ -1,6 +1,6 @@
 # AI 翻译接口约定
 
-本文定义 AI 全自动翻译模块对 Web、桌面端和第三方系统公开的 REST 接口。接口覆盖触发分段批量翻译、查询运行进度、读取历史运行与分段级失败，并固化 LLM 配置、占位符保护、失败重试和部分失败后的状态语义。
+本文定义 AI 全自动翻译模块对 Web、桌面端和第三方系统公开的 REST 接口。接口覆盖触发分段批量翻译、查询运行进度、读取历史运行与分段级失败，并固化 AI 配置解析（提供商/模型三档选择）、占位符保护、失败重试和部分失败后的状态语义。AI 提供商/模型配置管理接口由《AI 配置管理接口约定》定义，本文只规定配置与运行创建的关系。
 
 鉴权、基础地址和通用 Problem Details 格式以[《鉴权与基础接口约定》](鉴权与基础接口约定.md)为准。本文所有接口均要求 Bearer Token。分段、提取修订、占位符和只读标记表的字段语义以[《文件导入拆解与导出接口约定》](文件导入拆解与导出接口约定.md)及 [ADR-0002](../adr/0002-标记提取模型.md)为准。
 
@@ -12,7 +12,7 @@
 - 分段成功获得 AI 译文后，`targetText` 写入非空白译文，`confirmationStatus` 自动变为 `translated`，`version` 递增。
 - 成功分段逐批持久化并可通过既有分段接口读取。部分失败不回滚已经成功的译文。
 - 同一任务同一时刻只允许一个活动翻译运行，且翻译与重新提取、导出及其他会改变提取修订或译文的操作互斥；读取任务、运行和分段不受影响。
-- 本文不定义人工译文保存、任务列表或 LLM 配置管理 API；相关接口由后续文档补充，且不得改变本文的运行、进度和写入语义。
+- 本文不定义人工译文保存与任务列表接口；AI 提供商/模型配置管理接口由《AI 配置管理接口约定》定义，本文只规定配置与翻译运行创建的关系。后续文档不得改变本文的运行、进度和写入语义。
 
 ## 2. 通用约定
 
@@ -70,26 +70,28 @@
 - 游标只对产生它的任务、运行和提取修订有效；无法解析或不属于当前资源时返回 `400 invalid_cursor`。
 - 重新提取后使用旧游标返回 `409 extraction_revision_changed`，调用方应从第一页重新加载。
 
-## 3. 服务端 LLM 配置约定
+## 3. AI 配置模型与配置管理接口
 
-部署方必须为 AI 翻译配置一个可插拔 LLM 提供程序，并至少提供：
+AI 提供商（Provider）与 AI 模型（Model）为二级配置：提供商挂载多个模型，`Provider.isDefault` 全局唯一、`Model.isDefault` 提供商内唯一，二者合成**默认对**。完整数据模型、管理接口、密钥掩码与删除语义见《AI 配置管理接口约定》；appsettings 的 `Translation` 节退役，配置管理接口是配置的唯一写入途径。
 
-| 配置项 | 必填 | 说明 |
-|---|---|---|
-| `Provider` | 是 | 服务端注册的提供程序适配器名称；不得由请求临时覆盖 |
-| `BaseUrl` | 是 | LLM API 基础地址 |
-| `ApiKey` | 是 | LLM API 密钥；只能从服务端配置或密钥存储读取 |
-| `Model` | 是 | 翻译使用的模型名称 |
-| `BatchSize` | 否 | 每批分段数，由服务端按模型限制配置 |
-| `RequestTimeout` | 否 | 单次 LLM 请求超时 |
-| `MaxAttempts` | 否 | 每批最大尝试次数，默认 `3`，包含首次请求 |
+### 3.1 运行选择的解析
 
-约束：
+创建翻译运行请求可选携带 `providerId`/`modelId`，按三档解析：
 
-- 配置未完成或无法通过本地格式校验时，应用其他功能仍可使用；通过任务、修订和语言参数校验后的创建请求返回 `503 llm_not_configured`，不创建运行，并把任务标记为 `failed`。修复配置后可对该失败任务重新触发。
-- `ApiKey` 不得写入日志、Problem Details、运行资源或分段级失败详情。
-- 提供程序适配器负责把统一的批量翻译输入转换为供应商协议。新增供应商不得改变本文公开 REST 契约。
-- 本任务不提供远程读取或修改 LLM 配置的 API；配置变更的加载方式由部署实现决定。
+| 请求 | 解析结果 |
+|---|---|
+| 都缺省 | 默认对（默认提供商 + 其默认模型） |
+| 只传 `providerId` | 该提供商默认模型 |
+| 都传 | 精确指定（`modelId` 必须是该提供商的模型条目） |
+
+解析在创建请求的事务内完成：解析成功才创建运行，运行资源回显解析后的 `providerId`/`modelId`（恒非空）；运行内失败重试沿用同一选择。
+
+### 3.2 配置可用性校验
+
+- 配置允许不完整（草稿），完整可用性在创建运行时校验。选中的提供商/模型未配置完整（无默认对、`openai` kind 缺密钥、`baseUrl` 为空、默认提供商被停用等）→ `503 llm_not_configured`，不创建运行，任务标记为 `failed`；修复配置后可重新触发。
+- 显式 `providerId` 不存在 → `404 provider_not_found`；显式 `modelId` 不存在、不属于该提供商，或只传 `providerId` 而该提供商无默认模型 → `422 model_not_found`；显式选择已停用提供商 → `422 provider_disabled`。上述错误均不创建运行、不改任务状态。
+- 运行期间删除/停用所选提供商或模型：后续批构造客户端失败 → 分段失败码 `llm_model_unavailable`，运行按既有部分失败语义结束。
+- `ApiKey` 不得写入日志、Problem Details、运行资源或分段级失败详情；运行资源不暴露密钥，配置侧只回显掩码。
 
 ## 4. 创建翻译运行
 
@@ -102,6 +104,8 @@
 | `extractionRevision` | integer | 是 | 调用方当前看到的提取修订，必须大于等于 `1` |
 | `sourceLanguage` | string/null | 否 | BCP 47；缺省或 `null` 表示自动识别 |
 | `targetLanguage` | string | 是 | 目标语言 BCP 47 标签 |
+| `providerId` | UUID/null | 否 | 指定 AI 提供商；缺省或 `null` 走默认对（§3.1 三档解析） |
+| `modelId` | UUID/null | 否 | 指定 AI 模型条目；只传 `providerId` 时表示该提供商默认模型（§3.1） |
 
 请求体：
 
@@ -109,7 +113,9 @@
 {
   "extractionRevision": 1,
   "sourceLanguage": "en",
-  "targetLanguage": "zh-CN"
+  "targetLanguage": "zh-CN",
+  "providerId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "modelId": "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b"
 }
 ```
 
@@ -137,6 +143,8 @@ Retry-After: 1
   "status": "queued",
   "sourceLanguage": "en",
   "targetLanguage": "zh-CN",
+  "providerId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "modelId": "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b",
   "selection": {
     "totalSegments": 42,
     "selectedSegments": 40,
@@ -159,6 +167,8 @@ Retry-After: 1
 
 | 字段 | 约束 |
 |---|---|
+| `providerId` | 解析后实际使用的提供商 ID；运行创建成功后恒非空 |
+| `modelId` | 解析后实际使用的模型条目 ID；运行创建成功后恒非空 |
 | `selection.totalSegments` | 当前提取修订内全部可译分段数 |
 | `selection.selectedSegments` | 创建时 `targetText = null` 的分段数；本次运行的固定工作量 |
 | `selection.skippedExistingSegments` | 创建时已有非空白译文的分段数，包括 `translated` 和 `confirmed` |
@@ -202,6 +212,8 @@ Retry-After: 1
   "status": "processing",
   "sourceLanguage": "en",
   "targetLanguage": "zh-CN",
+  "providerId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "modelId": "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b",
   "selection": {
     "totalSegments": 42,
     "selectedSegments": 40,
@@ -253,6 +265,8 @@ curl "http://localhost:5199/api/tasks/4d898d78-1f24-47e9-8e30-adcee716c13d/trans
       "status": "partial_failed",
       "sourceLanguage": "en",
       "targetLanguage": "zh-CN",
+      "providerId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "modelId": "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b",
       "selection": {
         "totalSegments": 42,
         "selectedSegments": 40,
@@ -412,12 +426,15 @@ LLM 返回的批次结构整体可解析且分段 ID 集合匹配后，后端按
 | 400 | `invalid_pagination` | `limit` 不在 `1..200` 范围内 |
 | 404 | `task_not_found` | 任务不存在 |
 | 404 | `translation_run_not_found` | 运行不存在、不属于该任务或已因重新提取失效 |
+| 404 | `provider_not_found` | 显式 `providerId` 不存在 |
 | 409 | `task_busy` | 任务存在活动翻译或其他互斥操作 |
 | 409 | `extraction_revision_changed` | 请求或游标绑定的提取修订不是当前修订 |
 | 409 | `no_segments_to_translate` | 当前修订没有 `targetText = null` 的分段 |
+| 422 | `model_not_found` | 显式 `modelId` 不存在、不属于该提供商，或只传 `providerId` 时该提供商无默认模型 |
+| 422 | `provider_disabled` | 显式选择的提供商 `enabled = false` |
 | 422 | `invalid_segment_state` | 已有分段违反 `targetText = null` 表示未翻译等公共契约 |
 | 422 | `unsupported_language_pair` | 源/目标语言相同，或已配置提供程序明确不支持该组合 |
-| 503 | `llm_not_configured` | Provider、BaseUrl、ApiKey 或 Model 未配置/格式无效；不创建运行，任务标记为 `failed` |
+| 503 | `llm_not_configured` | 选中的提供商/模型未配置完整（无默认对、`openai` kind 缺密钥、`baseUrl` 为空或默认提供商被停用）；不创建运行，任务标记为 `failed` |
 
 Token 问题仍按基础文档返回 `401`；已认证无权时返回 `403`。服务端不得把供应商网络故障转换为创建请求的长时间同步等待：运行已成功创建后发生的故障必须记录在运行资源中。
 
@@ -454,10 +471,10 @@ Token 问题仍按基础文档返回 `401`；已认证无权时返回 `403`。�
 ### 11.1 Web/桌面端
 
 1. 读取 `GET /api/tasks/{taskId}`，取得当前 `extractionRevision` 和任务状态。
-2. 用户触发翻译后调用 `POST /api/tasks/{taskId}/translation-runs`；按钮进入 loading 并防重复提交。
+2. 面板展示提供商/模型选择器（缺省显示默认对，未配置默认对时提示影响翻译）；用户触发翻译后按选择携带 `providerId`/`modelId` 调用 `POST /api/tasks/{taskId}/translation-runs`；按钮进入 loading 并防重复提交。
 3. 保存响应中的 `runId`，按 `Retry-After` 轮询运行详情。
 4. 每次 `progress.succeededSegments` 增加后重新读取分段，逐步展示新译文；运行期间显示进度条、百分比和阶段文案。
-5. `completed` 时停止轮询并刷新任务与分段；`partial_failed` / `failed` 时读取失败列表，按 `code` 显示明确提示和重试入口。
+5. `completed` 时停止轮询并刷新任务与分段；`partial_failed` / `failed` 时读取失败列表，按 `code` 显示明确提示和重试入口。创建被 `503 llm_not_configured`/`404 provider_not_found`/`422 model_not_found`/`422 provider_disabled` 拒绝时，提示配置状态并给出配置入口。
 6. 页面刷新后调用运行列表并取第一项恢复最新运行；不得依赖仅存在于内存中的前端状态。
 
 ### 11.2 第三方系统
@@ -474,7 +491,8 @@ Token 问题仍按基础文档返回 `401`；已认证无权时返回 `403`。�
 |---|---|
 | 文件导入拆解与导出 | 复用 `taskId`、`extractionRevision`、分段字段、游标、占位符和只读 `markupTable`；不改变受保护块语义 |
 | ADR-0002 | 原始标记留在标记表；LLM 只接触 `sourceText` 中的透明引用，导出仍按引用回填 |
-| AI 翻译操作界面 | 以运行状态和进度计数展示长任务；以稳定失败码映射错误提示；通过既有分段接口逐步刷新译文 |
+| AI 翻译操作界面 | 以运行状态和进度计数展示长任务；以稳定失败码映射错误提示；通过既有分段接口逐步刷新译文；提供商/模型选择器缺省显示默认对，随创建请求携带 `providerId`/`modelId`，配置状态异常时提示并给出配置入口 |
+| AI 配置管理接口约定 | AI 提供商/模型配置的唯一来源；本文 §3 三档解析与 §10.1 错误码以其定义为准 |
 | 任务管理与开放 REST | 后续可在任务摘要增加最新翻译运行和进度字段，但必须与本文状态、计数和 `runId` 一致 |
 | 翻译编辑器基础 | 后续人工保存接口必须尊重活动运行互斥、分段 `version` 与已确认不被 AI 覆盖的语义 |
 | 术语表/TM | 本次接口不接收术语或 TM 参数；后续可在服务端构造 LLM 上下文，不得改变请求字段和运行资源语义 |
