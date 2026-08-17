@@ -5,7 +5,6 @@
 @inject ImportExportService Import
 @inject ApiErrorMessageProvider ErrorProvider
 @inject NavigationManager Nav
-@inject ISnackbar Snackbar
 @inject IStringLocalizer<Home> Localizer
 
 <PageTitle>@Localizer["Title"]</PageTitle>
@@ -96,7 +95,7 @@ else
                     {
                         <div class="mt-task-row-progress">
                             <MudProgressLinear Value="@progress.Percent"
-                                               Color="@ProgressColor(item.Status)"
+                                               Color="@(TaskStatusBadge.SemanticColor(item.Status))"
                                                Size="Size.Small"
                                                Rounded="true"
                                                Class="mt-task-row-progress-bar" />
@@ -112,11 +111,28 @@ else
                             @FormatRunSummary(run)
                         </MudText>
                     }
+                    @if (item.Status == "failed")
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-task-row-run">
+                            @Localizer["FailedTaskHint"]
+                        </MudText>
+                    }
                 </div>
                 <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Medium" Color="Color.Default" Class="mt-task-row-chevron" />
             </a>
         }
-        @if (_loadingMore)
+        @if (_moreError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-tasklist-more-error">
+                <div class="mt-error-banner-row">
+                    <MudText Typo="Typo.body1" Class="mt-error-banner-message">@_moreError</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="_loadingMore" OnClick="LoadMoreAsync">
+                        @Localizer["Retry"]
+                    </MudButton>
+                </div>
+            </MudAlert>
+        }
+        else if (_loadingMore)
         {
             @for (var i = 0; i < 2; i++)
             {
@@ -127,6 +143,12 @@ else
             }
         }
     </div>
+
+    @* 屏幕阅读器状态区：列表加载/追加结果经 aria-live 播报（审查标准 维度四） *@
+    @if (_announceCount is { } announceCount)
+    {
+        <div class="mt-sr-only" aria-live="polite">@Localizer["LoadedAnnouncement", announceCount]</div>
+    }
 
     @if (_cursor is not null)
     {
@@ -146,9 +168,12 @@ else
     private IReadOnlyList<TaskListItem>? _items;
     private string? _cursor;
     private string? _loadError;
+    private string? _moreError;
     private bool _loading;
     private bool _loadingMore;
 
+    /// <summary>最近一次成功加载后的列表总数，供 aria-live 状态区播报。</summary>
+    private int? _announceCount;
     /// <summary>首页加载代次：筛选切换使旧代次分页响应过期，防止旧筛选数据混入新列表。</summary>
     private int _loadGeneration;
 
@@ -184,6 +209,7 @@ else
         _loading = true;
         _loadingMore = false;
         _loadError = null;
+        _moreError = null;
         _items = null;
         _cursor = null;
         var generation = ++_loadGeneration;
@@ -197,6 +223,7 @@ else
 
             _items = page.Items;
             _cursor = page.NextCursor;
+            _announceCount = _items.Count;
         }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
@@ -216,6 +243,7 @@ else
         }
 
         _loadingMore = true;
+        _moreError = null;
         var generation = _loadGeneration;
         try
         {
@@ -227,10 +255,11 @@ else
 
             _items = [.. _items, .. page.Items];
             _cursor = page.NextCursor;
+            _announceCount = _items.Count;
         }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Warning);
+            _moreError = ErrorProvider.ForException(ex);
         }
         finally
         {
@@ -260,18 +289,6 @@ else
     private static string FormatCreatedAt(DateTimeOffset createdAt)
     {
         return createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-    }
-
-    /// <summary>进度条语义色（交互规范 §4：处理中=蓝、完成=绿、失败=红）。</summary>
-    private static Color ProgressColor(string? status)
-    {
-        return status switch
-        {
-            "processing" => Color.Info,
-            "completed" => Color.Success,
-            "failed" => Color.Error,
-            _ => Color.Default,
-        };
     }
 
     /// <summary>最新翻译运行摘要行的语义色（复用 AI 翻译运行状态语义）。</summary>

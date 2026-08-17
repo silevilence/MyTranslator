@@ -87,4 +87,13 @@
   <data name="LoadMore" xml:space="preserve">
     <value>加载更多</value>
   </data>
+  <data name="Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="FailedTaskHint" xml:space="preserve">
+    <value>任务失败：进入任务查看失败原因并重试翻译</value>
+  </data>
+  <data name="LoadedAnnouncement" xml:space="preserve">
+    <value>已加载 {0} 个任务</value>
+  </data>
 </root>

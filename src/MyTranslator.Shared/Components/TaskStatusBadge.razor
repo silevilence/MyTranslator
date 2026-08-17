@@ -2,7 +2,7 @@
 @inject IStringLocalizer<TaskStatusBadge> Localizer
 
 @* 任务公共状态徽标：颜色 + 图标 + 文字三通道（交互规范 §4） *@
-<MudChip T="string" Size="Size.Small" Color="@Color" Variant="Variant.Outlined" Icon="@Icon">@Text</MudChip>
+<MudChip T="string" Size="Size.Small" Color="@StatusColor" Variant="Variant.Outlined" Icon="@Icon">@Text</MudChip>
 
 @code {
     /// <summary>任务公共状态：`created` / `processing` / `completed` / `failed`。</summary>
@@ -18,14 +18,8 @@
         _ => Localizer["StatusUnknown"],
     };
 
-    private Color Color => Status switch
-    {
-        "created" => Color.Default,
-        "processing" => Color.Info,
-        "completed" => Color.Success,
-        "failed" => Color.Error,
-        _ => Color.Default,
-    };
+    /// <summary>语义色取共享映射（<see cref="SemanticColor"/>），避免页面内映射重复。</summary>
+    private Color StatusColor => SemanticColor(Status);
 
     private string? Icon => Status switch
     {
