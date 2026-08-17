@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -22,6 +23,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     private readonly HttpMessageHandler? _urlImportHandler;
     private readonly ITranslationProvider? _translationProvider;
     private readonly HttpMessageHandler? _translationHandler;
+    private readonly IInterceptor? _databaseInterceptor;
 
     public ApiFactory() : this("Development", null)
     {
@@ -33,7 +35,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         HttpMessageHandler? urlImportHandler = null,
         ITranslationProvider? translationProvider = null,
         HttpMessageHandler? translationHandler = null,
-        string? connectionString = null)
+        string? connectionString = null,
+        IInterceptor? databaseInterceptor = null)
     {
         _connectionString = connectionString ??
             $"Data Source=MyTranslatorTests-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
@@ -43,6 +46,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         _urlImportHandler = urlImportHandler;
         _translationProvider = translationProvider;
         _translationHandler = translationHandler;
+        _databaseInterceptor = databaseInterceptor;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -69,7 +73,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             _connection.Open();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
-            services.AddDbContext<AppDbContext>(options => options.UseSqlite(_connectionString));
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseSqlite(_connectionString);
+                if (_databaseInterceptor is not null)
+                {
+                    options.AddInterceptors(_databaseInterceptor);
+                }
+            });
             if (_urlImportHandler is not null)
             {
                 services.RemoveAll<UrlImportClient>();

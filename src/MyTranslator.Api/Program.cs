@@ -10,6 +10,7 @@ using MyTranslator.Api.FileTasks;
 using MyTranslator.Api.Tokens;
 using MyTranslator.Api.Translation;
 using MyTranslator.Api.TaskOperations;
+using MyTranslator.Api.TaskLists;
 using MyTranslator.Api.Rules;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
@@ -29,6 +30,7 @@ var connectionString = ResolveSqliteConnectionString(
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<FileTaskService>();
+builder.Services.AddScoped<TaskListService>();
 builder.Services.AddSingleton<TaskOperationLock>();
 builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
 builder.Services.AddSingleton<TranslationRunQueue>();
@@ -137,6 +139,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }))
     .WithName("GetHealth")
     .WithTags("System");
 app.MapTokenEndpoints();
+app.MapTaskListEndpoints();
 app.MapFileTaskEndpoints();
 app.MapTranslationEndpoints();
 

@@ -1,6 +1,3 @@
-using System.Text;
-using System.Text.Json;
-
 namespace MyTranslator.Api.Pagination;
 
 public static class PaginationLimits
@@ -14,23 +11,14 @@ public static class PaginationLimits
 public static class PaginationCursor
 {
     public static string Encode(string resource, int revision, int offset)
-    {
-        var json = JsonSerializer.Serialize(new CursorPayload(resource, revision, offset));
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-    }
+        => OpaqueCursorCodec.Encode(new CursorPayload(resource, revision, offset));
 
     public static int Decode(string cursor, string resource, int revision)
     {
         try
         {
-            var base64 = cursor.Replace('-', '+').Replace('_', '/');
-            base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
-            var payload = JsonSerializer.Deserialize<CursorPayload>(
-                Encoding.UTF8.GetString(Convert.FromBase64String(base64)));
-            if (payload is null || payload.Resource != resource || payload.Offset < 0)
+            var payload = OpaqueCursorCodec.Decode<CursorPayload>(cursor);
+            if (payload.Resource != resource || payload.Offset < 0)
             {
                 throw new PaginationCursorException(PaginationCursorError.Invalid);
             }
@@ -46,7 +34,7 @@ public static class PaginationCursor
         {
             throw;
         }
-        catch (Exception exception) when (exception is FormatException or ArgumentException or JsonException)
+        catch (OpaqueCursorCodecException exception)
         {
             throw new PaginationCursorException(PaginationCursorError.Invalid, exception);
         }
