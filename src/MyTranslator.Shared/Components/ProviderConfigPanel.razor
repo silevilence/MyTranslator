@@ -1,0 +1,405 @@
+@namespace MyTranslator.Shared.Components
+@inject ProviderConfigService Config
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<ProviderConfigPanel> Localizer
+
+<section class="mt-provider-config" aria-labelledby="mt-provider-config-title">
+    <div class="mt-provider-config-header">
+        <div>
+            <MudText Typo="Typo.h2" id="mt-provider-config-title">@Localizer["Title"]</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["Description"]</MudText>
+        </div>
+        <div class="mt-provider-config-actions">
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                           Color="Color.Default"
+                           Disabled="_reloading || _busyKey is not null"
+                           OnClick="LoadAsync"
+                           aria-label="@Localizer["Refresh"]" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Disabled="_reloading || _busyKey is not null"
+                       OnClick="OpenCreateProviderDialogAsync">
+                @Localizer["AddProvider"]
+            </MudButton>
+        </div>
+    </div>
+
+    @if (_loadError is not null)
+    {
+        <div class="mt-4">
+            <ErrorBanner Message="@_loadError" RetryText="@Localizer["Retry"]" OnRetry="LoadAsync" />
+        </div>
+    }
+    else if (_providers is null)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+            <MudSkeleton Width="40%" Height="24px" />
+            <MudSkeleton Width="70%" Height="16px" Class="mt-2" />
+            <MudSkeleton Width="100%" Height="48px" Class="mt-4" />
+        </MudPaper>
+    }
+    else if (_providers.Count == 0)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-6 mt-4">
+            <EmptyState Icon="@Icons.Material.Filled.Dns"
+                        Title="@Localizer["EmptyTitle"]"
+                        Description="@Localizer["EmptyDescription"]"
+                        ActionText="@Localizer["AddProvider"]"
+                        OnAction="OpenCreateProviderDialogAsync" />
+        </MudPaper>
+    }
+    else
+    {
+        @if (!HasDefaultPair)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4" role="status">
+                @Localizer["NoDefaultPairNotice"]
+            </MudAlert>
+        }
+
+        foreach (var provider in _providers)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4 mt-provider-card">
+                <div class="mt-provider-card-header">
+                    <div class="mt-provider-card-title">
+                        <MudText Typo="Typo.body1">@provider.Name</MudText>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mt-mono">@provider.Kind</MudChip>
+                        @if (provider.IsDefault)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                     Icon="@Icons.Material.Filled.Star">@Localizer["DefaultProviderChip"]</MudChip>
+                        }
+                        @if (!provider.Enabled)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                     Icon="@Icons.Material.Filled.Block">@Localizer["DisabledChip"]</MudChip>
+                        }
+                    </div>
+                    <div class="mt-provider-card-actions">
+                        @if (!provider.IsDefault)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.StarOutline"
+                                       Disabled="IsBusy(provider.Id)"
+                                       OnClick="@(() => SetProviderDefaultAsync(provider))">
+                                @Localizer["SetDefault"]
+                            </MudButton>
+                        }
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   Disabled="IsBusy(provider.Id)"
+                                   OnClick="@(() => OpenEditProviderDialogAsync(provider))">
+                            @Localizer["Edit"]
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Disabled="IsBusy(provider.Id)"
+                                   OnClick="@(() => DeleteProviderAsync(provider))">
+                            @Localizer["Delete"]
+                        </MudButton>
+                    </div>
+                </div>
+
+                <div class="mt-provider-card-meta">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @Localizer["BaseUrlLabel"]：
+                        @if (string.IsNullOrWhiteSpace(provider.BaseUrl))
+                        {
+                            <span class="mt-provider-missing">@Localizer["NotConfigured"]</span>
+                        }
+                        else
+                        {
+                            <code class="mt-mono">@provider.BaseUrl</code>
+                        }
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @Localizer["ApiKeyLabel"]：
+                        @if (string.IsNullOrEmpty(provider.ApiKeyMasked))
+                        {
+                            <span class="mt-provider-missing">@Localizer["NotConfigured"]</span>
+                        }
+                        else
+                        {
+                            <code class="mt-mono">@provider.ApiKeyMasked</code>
+                        }
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @Localizer["RuntimeText", provider.BatchSize ?? 20, provider.RequestTimeout ?? "00:01:00", provider.MaxAttempts ?? 3]
+                    </MudText>
+                </div>
+
+                <MudDivider Class="my-3" />
+
+                <div class="mt-provider-models-header">
+                    <MudText Typo="Typo.body2">@Localizer["ModelsTitle", provider.Models.Count]</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Disabled="IsBusy(provider.Id)"
+                               OnClick="@(() => OpenCreateModelDialogAsync(provider))">
+                        @Localizer["AddModel"]
+                    </MudButton>
+                </div>
+
+                @if (provider.Models.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Localizer["ModelsEmpty"]</MudText>
+                }
+                else
+                {
+                    <div class="mt-provider-model-list">
+                        @foreach (var model in provider.Models)
+                        {
+                            <div class="mt-provider-model-row">
+                                <div class="mt-provider-model-main">
+                                    <div class="mt-provider-model-names">
+                                        <MudText Typo="Typo.body2">@model.DisplayName</MudText>
+                                        <code class="mt-mono mt-provider-model-id">@model.ModelId</code>
+                                    </div>
+                                    <div class="mt-provider-model-chips">
+                                        @if (model.IsDefault)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                     Icon="@Icons.Material.Filled.Star">@Localizer["DefaultModelChip"]</MudChip>
+                                        }
+                                        @if (model.SupportsThinking)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                                     Icon="@Icons.Material.Filled.Psychology">@Localizer["CapabilityThinking"]</MudChip>
+                                        }
+                                        @if (model.SupportsToolUse)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                                     Icon="@Icons.Material.Filled.Construction">@Localizer["CapabilityToolUse"]</MudChip>
+                                        }
+                                        @if (model.SupportsStreaming)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                                     Icon="@Icons.Material.Filled.Bolt">@Localizer["CapabilityStreaming"]</MudChip>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mt-provider-model-actions">
+                                    @if (!model.IsDefault)
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.StarOutline"
+                                                   Disabled="IsBusy(model.Id)"
+                                                   OnClick="@(() => SetModelDefaultAsync(provider, model))">
+                                            @Localizer["SetDefaultModel"]
+                                        </MudButton>
+                                    }
+                                    <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Edit"
+                                               Disabled="IsBusy(model.Id)"
+                                               OnClick="@(() => OpenEditModelDialogAsync(provider, model))">
+                                        @Localizer["Edit"]
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Delete"
+                                               Disabled="IsBusy(model.Id)"
+                                               OnClick="@(() => DeleteModelAsync(provider, model))">
+                                        @Localizer["Delete"]
+                                    </MudButton>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+</section>
+
+@code {
+    private IReadOnlyList<AiProvider>? _providers;
+    private string? _loadError;
+    private bool _reloading;
+    private Guid? _busyKey;
+
+    /// <summary>默认提供商 + 其默认模型合成默认对（§2.2）；缺失时未指定选择的翻译运行无法创建。</summary>
+    private bool HasDefaultPair =>
+        _providers?.Any(p => p.IsDefault && p.Models.Any(m => m.IsDefault)) == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_reloading)
+        {
+            return;
+        }
+
+        _reloading = true;
+        _loadError = null;
+        try
+        {
+            _providers = await Config.GetProvidersAsync();
+        }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            _loadError = ErrorProvider.ForException(ex);
+        }
+        finally
+        {
+            _reloading = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private bool IsBusy(Guid key) => _reloading || _busyKey == key;
+
+    private async Task RunRowActionAsync(Guid key, Func<Task> action)
+    {
+        if (_busyKey is not null)
+        {
+            return;
+        }
+
+        _busyKey = key;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        finally
+        {
+            _busyKey = null;
+        }
+    }
+
+    private async Task OpenCreateProviderDialogAsync() => await ShowProviderDialogAsync(null);
+
+    private async Task OpenEditProviderDialogAsync(AiProvider provider) => await ShowProviderDialogAsync(provider);
+
+    private async Task ShowProviderDialogAsync(AiProvider? provider)
+    {
+        var parameters = new DialogParameters<ProviderEditDialog>
+        {
+            { x => x.Provider, provider },
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await Dialog.ShowAsync<ProviderEditDialog>(
+            provider is null ? Localizer["CreateProviderTitle"] : Localizer["EditProviderTitle"], parameters, options);
+        var result = await dialog.Result;
+        await LoadAsync();
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add(Localizer["Saved"], Severity.Success);
+        }
+    }
+
+    private async Task OpenCreateModelDialogAsync(AiProvider provider) => await ShowModelDialogAsync(provider, null);
+
+    private async Task OpenEditModelDialogAsync(AiProvider provider, AiModel model) =>
+        await ShowModelDialogAsync(provider, model);
+
+    private async Task ShowModelDialogAsync(AiProvider provider, AiModel? model)
+    {
+        var parameters = new DialogParameters<ModelEditDialog>
+        {
+            { x => x.ProviderId, provider.Id },
+            { x => x.Model, model },
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await Dialog.ShowAsync<ModelEditDialog>(
+            model is null ? Localizer["CreateModelTitle"] : Localizer["EditModelTitle"], parameters, options);
+        var result = await dialog.Result;
+        await LoadAsync();
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add(Localizer["Saved"], Severity.Success);
+        }
+    }
+
+    /// <summary>设为默认提供商：全字段替换（§4 PUT），apiKey 传 null 保持原密钥（§2.3）。</summary>
+    private Task SetProviderDefaultAsync(AiProvider provider) =>
+        RunRowActionAsync(provider.Id, async () =>
+        {
+            await Config.UpdateProviderAsync(provider.Id, ProviderUpsertFrom(provider, isDefault: true));
+            Snackbar.Add(Localizer["DefaultProviderSet", provider.Name], Severity.Success);
+        });
+
+    /// <summary>设为提供商内默认模型：全字段替换（§5 PUT）。</summary>
+    private Task SetModelDefaultAsync(AiProvider provider, AiModel model) =>
+        RunRowActionAsync(model.Id, async () =>
+        {
+            await Config.UpdateModelAsync(provider.Id, model.Id, ModelUpsertFrom(model, isDefault: true));
+            Snackbar.Add(Localizer["DefaultModelSet", model.DisplayName], Severity.Success);
+        });
+
+    private async Task DeleteProviderAsync(AiProvider provider)
+    {
+        var confirmed = await ShowConfirmAsync(
+            Localizer["DeleteProviderTitle"],
+            Localizer["DeleteProviderMessage", provider.Name, provider.Models.Count]);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await RunRowActionAsync(provider.Id, async () =>
+        {
+            await Config.DeleteProviderAsync(provider.Id);
+            Snackbar.Add(Localizer["Deleted"], Severity.Success);
+        });
+    }
+
+    private async Task DeleteModelAsync(AiProvider provider, AiModel model)
+    {
+        var confirmed = await ShowConfirmAsync(
+            Localizer["DeleteModelTitle"],
+            Localizer["DeleteModelMessage", model.DisplayName]);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await RunRowActionAsync(model.Id, async () =>
+        {
+            await Config.DeleteModelAsync(provider.Id, model.Id);
+            Snackbar.Add(Localizer["Deleted"], Severity.Success);
+        });
+    }
+
+    private async Task<bool> ShowConfirmAsync(string title, string message)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, message },
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, BackdropClick = false, MaxWidth = MaxWidth.Small };
+        var dialog = await Dialog.ShowAsync<ConfirmDialog>(title, parameters, options);
+        var result = await dialog.Result;
+        return result is { Canceled: false } && result.Data is true;
+    }
+
+    private static AiProviderUpsert ProviderUpsertFrom(AiProvider provider, bool isDefault) => new()
+    {
+        Name = provider.Name,
+        Kind = provider.Kind,
+        BaseUrl = provider.BaseUrl,
+        // null = 保持原密钥（§2.3：掩码格式值与 null 同义，明文不可得）
+        ApiKey = null,
+        Enabled = provider.Enabled,
+        IsDefault = isDefault,
+        BatchSize = provider.BatchSize,
+        RequestTimeout = provider.RequestTimeout,
+        MaxAttempts = provider.MaxAttempts,
+    };
+
+    private static AiModelUpsert ModelUpsertFrom(AiModel model, bool isDefault) => new()
+    {
+        ModelId = model.ModelId,
+        DisplayName = model.DisplayName,
+        SupportsThinking = model.SupportsThinking,
+        SupportsToolUse = model.SupportsToolUse,
+        SupportsStreaming = model.SupportsStreaming,
+        IsDefault = isDefault,
+    };
+}

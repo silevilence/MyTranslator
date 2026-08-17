@@ -1,0 +1,153 @@
+@namespace MyTranslator.Shared.Components
+@inject ProviderConfigService Config
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<ModelEditDialog> Localizer
+
+<MudDialog>
+    <DialogContent>
+        <div class="mt-model-form">
+            <MudTextField T="string"
+                          Label="@Localizer["ModelIdLabel"]"
+                          HelperText="@Localizer["ModelIdHelper"]"
+                          Variant="Variant.Outlined"
+                          Class="mt-mono"
+                          @bind-Value="_modelId"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_modelIdError is not null"
+                          ErrorText="_modelIdError" />
+            <MudTextField T="string"
+                          Label="@Localizer["DisplayNameLabel"]"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_displayName"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_displayNameError is not null"
+                          ErrorText="_displayNameError" />
+            <MudText Typo="Typo.body2" Class="mt-model-form-capability-title">@Localizer["CapabilityTitle"]</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Localizer["CapabilityHelper"]</MudText>
+            <div class="mt-model-form-switches">
+                <MudSwitch @bind-Value="_supportsThinking" Label="@Localizer["CapabilityThinking"]" Disabled="_saving" />
+                <MudSwitch @bind-Value="_supportsToolUse" Label="@Localizer["CapabilityToolUse"]" Disabled="_saving" />
+                <MudSwitch @bind-Value="_supportsStreaming" Label="@Localizer["CapabilityStreaming"]" Disabled="_saving" />
+            </div>
+            <MudSwitch @bind-Value="_isDefault" Label="@Localizer["DefaultLabel"]" Disabled="_saving" />
+            @if (_formError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-model-form-error">
+                    @_formError
+                </MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_saving" OnClick="Cancel">@Localizer["Cancel"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+            }
+            @Localizer["Save"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string _modelId = string.Empty;
+    private string _displayName = string.Empty;
+    private bool _supportsThinking;
+    private bool _supportsToolUse;
+    private bool _supportsStreaming;
+    private bool _isDefault;
+    private string? _modelIdError;
+    private string? _displayNameError;
+    private string? _formError;
+    private bool _saving;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>所属提供商 ID。</summary>
+    [Parameter, EditorRequired]
+    public required Guid ProviderId { get; set; }
+
+    /// <summary>待编辑的模型条目；null 表示新建。</summary>
+    [Parameter]
+    public AiModel? Model { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Model is { } model)
+        {
+            _modelId = model.ModelId;
+            _displayName = model.DisplayName;
+            _supportsThinking = model.SupportsThinking;
+            _supportsToolUse = model.SupportsToolUse;
+            _supportsStreaming = model.SupportsStreaming;
+            _isDefault = model.IsDefault;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _modelIdError = string.IsNullOrWhiteSpace(_modelId) ? Localizer["ModelIdRequired"].Value : null;
+        _displayNameError = string.IsNullOrWhiteSpace(_displayName) ? Localizer["DisplayNameRequired"].Value : null;
+        if (_modelIdError is not null || _displayNameError is not null)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var request = new AiModelUpsert
+            {
+                ModelId = _modelId.Trim(),
+                DisplayName = _displayName.Trim(),
+                SupportsThinking = _supportsThinking,
+                SupportsToolUse = _supportsToolUse,
+                SupportsStreaming = _supportsStreaming,
+                IsDefault = _isDefault,
+            };
+
+            if (Model is { } editing)
+            {
+                await Config.UpdateModelAsync(ProviderId, editing.Id, request);
+            }
+            else
+            {
+                await Config.CreateModelAsync(ProviderId, request);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiErrorException ex)
+        {
+            // 错误码只用于定位展示字段；文案一律取自错误码映射
+            if (ex.Code == "model_id_conflict")
+            {
+                _modelIdError = ErrorProvider.ForError(ex);
+            }
+            else
+            {
+                _formError = ErrorProvider.ForError(ex);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _formError = ErrorProvider.For(null);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

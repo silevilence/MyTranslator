@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NameLabel" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="NameRequired" xml:space="preserve">
+    <value>名称不能为空</value>
+  </data>
+  <data name="KindLabel" xml:space="preserve">
+    <value>连接器类型</value>
+  </data>
+  <data name="KindHelper" xml:space="preserve">
+    <value>openai 兼容端点可覆盖 BaseUrl 对接 DeepSeek 等服务</value>
+  </data>
+  <data name="KindOpenai" xml:space="preserve">
+    <value>openai 兼容</value>
+  </data>
+  <data name="KindOllama" xml:space="preserve">
+    <value>ollama</value>
+  </data>
+  <data name="BaseUrlLabel" xml:space="preserve">
+    <value>BaseUrl</value>
+  </data>
+  <data name="BaseUrlHelper" xml:space="preserve">
+    <value>绝对 http(s) 地址；留空表示未配置（发起翻译时将提示未配置完整）</value>
+  </data>
+  <data name="ApiKeyLabel" xml:space="preserve">
+    <value>密钥</value>
+  </data>
+  <data name="ApiKeyCreateHelper" xml:space="preserve">
+    <value>可留空；留空表示不设置密钥</value>
+  </data>
+  <data name="ApiKeyKeepHelper" xml:space="preserve">
+    <value>当前：{0}；留空保持不变，输入新值则替换</value>
+  </data>
+  <data name="EnabledLabel" xml:space="preserve">
+    <value>启用</value>
+  </data>
+  <data name="DefaultLabel" xml:space="preserve">
+    <value>设为默认提供商</value>
+  </data>
+  <data name="BatchSizeLabel" xml:space="preserve">
+    <value>批大小</value>
+  </data>
+  <data name="BatchSizeHelper" xml:space="preserve">
+    <value>每批分段数（1–200）</value>
+  </data>
+  <data name="RequestTimeoutLabel" xml:space="preserve">
+    <value>请求超时</value>
+  </data>
+  <data name="RequestTimeoutHelper" xml:space="preserve">
+    <value>格式 小时:分钟:秒，如 00:01:00</value>
+  </data>
+  <data name="RequestTimeoutInvalid" xml:space="preserve">
+    <value>超时格式无效，须为大于 0 的小时:分钟:秒</value>
+  </data>
+  <data name="MaxAttemptsLabel" xml:space="preserve">
+    <value>最大尝试次数</value>
+  </data>
+  <data name="MaxAttemptsHelper" xml:space="preserve">
+    <value>每批最大尝试次数（1–10，含首次）</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+</root>

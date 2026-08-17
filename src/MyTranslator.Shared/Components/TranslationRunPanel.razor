@@ -1,4 +1,6 @@
 @namespace MyTranslator.Shared.Components
+@inject ProviderConfigService Config
+@inject Microsoft.JSInterop.IJSRuntime Js
 @implements IDisposable
 @inject TranslationRunService Runs
 @inject ApiErrorMessageProvider ErrorProvider
@@ -27,13 +29,38 @@
                           Disabled="_creating || HasActiveRun"
                           Error="_targetError is not null"
                           ErrorText="_targetError" />
-            <MudTextField T="string"
-                          Label="@Localizer["SourceLanguageLabel"]"
-                          HelperText="@Localizer["SourceLanguageHelper"]"
-                          Variant="Variant.Outlined"
-                          Class="mt-translation-run-field"
-                          @bind-Value="_sourceLanguage"
-                          Disabled="_creating || HasActiveRun" />
+            <MudSelect T="string"
+                       Label="@Localizer["ProviderLabel"]"
+                       HelperText="@Localizer["ProviderHelper"]"
+                       Variant="Variant.Outlined"
+                       Value="@(_selectedProviderId?.ToString() ?? string.Empty)"
+                       ValueChanged="OnProviderChangedAsync"
+                       Disabled="_creating || HasActiveRun || _configDisabled"
+                       Clearable="true">
+                @if (_providers is not null)
+                {
+                    foreach (var provider in _providers)
+                    {
+                        <MudSelectItem Value="@provider.Id.ToString()">@ProviderOptionLabel(provider)</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            <MudSelect T="string"
+                       Label="@Localizer["ModelLabel"]"
+                       HelperText="@Localizer["ModelHelper"]"
+                       Variant="Variant.Outlined"
+                       Value="@(_selectedModelId?.ToString() ?? string.Empty)"
+                       ValueChanged="OnModelChangedAsync"
+                       Disabled="_creating || HasActiveRun || _configDisabled || _selectedProviderId is null"
+                       Clearable="true">
+                @if (SelectedProvider is { } selected)
+                {
+                    foreach (var model in selected.Models)
+                    {
+                        <MudSelectItem Value="@model.Id.ToString()">@ModelOptionLabel(model)</MudSelectItem>
+                    }
+                }
+            </MudSelect>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.AutoAwesome"
                        Class="mt-translation-run-start"
@@ -43,6 +70,31 @@
                 @Localizer["StartTranslation"]
             </MudButton>
         </div>
+        @if (_createConfigError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-3" role="alert">
+                <div class="mt-translation-run-config-notice">
+                    <span>@_createConfigError</span>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               Href="/settings" Class="mt-translation-run-config-link">
+                        @Localizer["GoSettings"]
+                    </MudButton>
+                </div>
+            </MudAlert>
+        }
+        @if (ConfigNotice is { } notice)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-3" role="status">
+                <div class="mt-translation-run-config-notice">
+                    <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Class="mt-translation-run-config-icon" />
+                    <span>@notice</span>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               Href="/settings" Class="mt-translation-run-config-link">
+                        @Localizer["GoSettings"]
+                    </MudButton>
+                </div>
+            </MudAlert>
+        }
     </MudPaper>
 
     @if (_run is not null)
@@ -54,6 +106,12 @@
                 {
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ms-2">
                         @Localizer["SelectionText", selection.SelectedSegments, selection.SkippedExistingSegments]
+                    </MudText>
+                }
+                @if (RunPairDisplay is { } pair)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ms-2">
+                        @Localizer["RunSelection", pair.Provider, pair.Model]
                     </MudText>
                 }
             </div>
@@ -175,6 +233,13 @@
     private int _lastSucceeded;
     private int _pollIntervalMs = 1000;
     private CancellationTokenSource? _pollCts;
+    // —— 提供商/模型选择（§11.1 第 2 步：选择器缺省显示默认对，选择随创建请求携带）——
+    private IReadOnlyList<AiProvider>? _providers;
+    private string? _configError;
+    private bool _configDisabled;
+    private Guid? _selectedProviderId;
+    private Guid? _selectedModelId;
+    private string? _createConfigError;
 
     /// <summary>按钮提交中 spinner（§3 反馈分级：提交期间按钮 loading）。</summary>
     private RenderFragment CreateSpinner => __builder =>
@@ -207,10 +272,149 @@
     /// <summary>存在未进入终态的运行；活动运行期间禁止再次创建（§2.4 互斥）。</summary>
     private bool HasActiveRun => _run is not null && !IsTerminal(_run);
 
+    /// <summary>当前选中的提供商（按 ID 从已加载配置解析）。</summary>
+    private AiProvider? SelectedProvider =>
+        _providers?.FirstOrDefault(p => p.Id == _selectedProviderId);
+
+    /// <summary>
+    /// 配置状态提示（§11.1 第 2 步）：未配置默认对/未配置任何提供商时提示将影响翻译；
+    /// 加载失败时提示配置状态未知。null 表示无需提示。
+    /// </summary>
+    private string? ConfigNotice
+    {
+        get
+        {
+            if (_configError is not null)
+            {
+                return Localizer["ConfigLoadFailed"].Value;
+            }
+
+            if (_providers is null)
+            {
+                return null;
+            }
+
+            if (_providers.Count == 0)
+            {
+                return Localizer["ConfigNoProviders"].Value;
+            }
+
+            return HasDefaultPair ? null : Localizer["ConfigNoDefaultPair"].Value;
+        }
+    }
+
+
+    /// <summary>
+    /// 运行回显的提供商/模型名称（§4：运行资源回显解析后的实际选择）；
+    /// 配置未加载或条目已被删除时回退为短 ID。null 表示运行无回显。
+    /// </summary>
+    private (string Provider, string Model)? RunPairDisplay
+    {
+        get
+        {
+            if (_run is not { ProviderId: { } providerId, ModelId: { } modelId })
+            {
+                return null;
+            }
+
+            var provider = _providers?.FirstOrDefault(p => p.Id == providerId);
+            var model = provider?.Models.FirstOrDefault(m => m.Id == modelId);
+            return (
+                provider?.Name ?? ShortId(providerId),
+                model?.DisplayName ?? ShortId(modelId));
+        }
+    }
+
+    private static string ShortId(Guid id) => id.ToString("N")[..8];
+
+    /// <summary>默认提供商 + 其默认模型合成默认对（配置约定 §2.2）。</summary>
+    private bool HasDefaultPair =>
+        _providers?.Any(p => p.IsDefault && p.Models.Any(m => m.IsDefault)) == true;
+
     protected override async Task OnInitializedAsync()
     {
-        await RestoreLatestRunAsync();
+        await Task.WhenAll(RestoreLatestRunAsync(), LoadProviderConfigAsync());
     }
+
+    /// <summary>
+    /// 加载两级配置并恢复上次选择（§11.1 第 2/6 步）：一次 GET 内嵌 models；
+    /// 恢复的选择必须仍存在于当前配置，否则回退到缺省（默认对）。
+    /// </summary>
+    private async Task LoadProviderConfigAsync()
+    {
+        try
+        {
+            _providers = await Config.GetProvidersAsync();
+            _configError = null;
+            _configDisabled = false;
+            await RestoreSelectionAsync();
+        }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            // 配置加载失败不禁用语言表单，仅禁用选择器并提示
+            _configError = ErrorProvider.ForException(ex);
+            _configDisabled = true;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>从 localStorage 恢复持久化的选择；校验引用的提供商/模型仍存在。</summary>
+    private async Task RestoreSelectionAsync()
+    {
+        var (providerId, modelId) = await ProviderSelectionStore.LoadAsync(Js, TaskId);
+        if (_providers is null)
+        {
+            return;
+        }
+
+        var provider = _providers.FirstOrDefault(p => p.Id == providerId);
+        if (provider is null)
+        {
+            return; // 提供商已删除或未选择：保持缺省（默认对）
+        }
+
+        _selectedProviderId = provider.Id;
+        if (modelId is not null && provider.Models.Any(m => m.Id == modelId))
+        {
+            _selectedModelId = modelId;
+        }
+    }
+
+    /// <summary>提供商选择变化：清空模型选择，持久化并按三档解析规则归一。</summary>
+    private async Task OnProviderChangedAsync(string? value)
+    {
+        _selectedProviderId = Guid.TryParse(value, out var id) ? id : null;
+        _selectedModelId = null;
+        await PersistSelectionAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>模型选择变化：持久化；清除模型回到「该提供商默认模型」档。</summary>
+    private async Task OnModelChangedAsync(string? value)
+    {
+        _selectedModelId = Guid.TryParse(value, out var id) ? id : null;
+        await PersistSelectionAsync();
+        StateHasChanged();
+    }
+
+    private async Task PersistSelectionAsync()
+    {
+        await ProviderSelectionStore.SaveAsync(Js, TaskId, _selectedProviderId, _selectedModelId);
+    }
+
+    /// <summary>选项文案：名称 + 默认/停用标记（不引入额外组件）。</summary>
+    private string ProviderOptionLabel(AiProvider provider)
+    {
+        var suffix = provider.IsDefault
+            ? Localizer["OptionDefaultSuffix"].Value
+            : provider.Enabled ? string.Empty : Localizer["OptionDisabledSuffix"].Value;
+        return $"{provider.Name}{suffix}";
+    }
+
+    private string ModelOptionLabel(AiModel model) => model.IsDefault
+        ? $"{model.DisplayName}（{model.ModelId}）{Localizer["OptionDefaultSuffix"].Value}"
+        : $"{model.DisplayName}（{model.ModelId}）";
 
     /// <summary>
     /// 页面刷新后恢复最新运行（§11.1 第 6 步）：读取运行列表第一项，活动运行恢复轮询。
@@ -266,13 +470,16 @@
         _targetError = null;
         _creating = true;
         _pollError = null;
+        _createConfigError = null;
         try
         {
             var poll = await Runs.CreateRunAsync(
                 TaskId,
                 ExtractionRevision,
                 string.IsNullOrWhiteSpace(_sourceLanguage) ? null : _sourceLanguage.Trim(),
-                target);
+                target,
+                _selectedProviderId,
+                _selectedModelId);
             var run = poll.Run;
             _run = run;
             _failures = [];
@@ -311,9 +518,18 @@
                 await OnTaskStateChanged.InvokeAsync();
                 break;
             case "llm_not_configured":
-                // 未创建运行，任务被服务端标记为 failed
-                Snackbar.Add(ErrorProvider.ForError(ex), Severity.Error);
+                // 未创建运行，任务被服务端标记为 failed；提示配置状态并给出设置入口（§11.1 第 5 步）
+                _createConfigError = ErrorProvider.ForError(ex);
+                Snackbar.Add(_createConfigError, Severity.Error);
                 await OnTaskStateChanged.InvokeAsync();
+                break;
+            case "provider_not_found":
+            case "model_not_found":
+            case "provider_disabled":
+                // 显式选择不可解析（404/422）：不创建运行、不改任务状态；提示配置状态并给出设置入口
+                _createConfigError = ErrorProvider.ForError(ex);
+                Snackbar.Add(_createConfigError, Severity.Error);
+                await LoadProviderConfigAsync();
                 break;
             case "task_busy":
                 // 他处存在活动互斥操作（如另一运行）：恢复最新运行以展示其进度

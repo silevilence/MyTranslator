@@ -90,6 +90,39 @@
   <data name="FailureAttempts" xml:space="preserve">
     <value>尝试 {0} 次后失败</value>
   </data>
+  <data name="ProviderLabel" xml:space="preserve">
+    <value>AI 提供商</value>
+  </data>
+  <data name="ProviderHelper" xml:space="preserve">
+    <value>留空使用默认对（默认提供商 + 其默认模型）</value>
+  </data>
+  <data name="ModelLabel" xml:space="preserve">
+    <value>AI 模型</value>
+  </data>
+  <data name="ModelHelper" xml:space="preserve">
+    <value>留空使用所选提供商的默认模型</value>
+  </data>
+  <data name="OptionDefaultSuffix" xml:space="preserve">
+    <value>（默认）</value>
+  </data>
+  <data name="OptionDisabledSuffix" xml:space="preserve">
+    <value>（已停用）</value>
+  </data>
+  <data name="ConfigLoadFailed" xml:space="preserve">
+    <value>AI 配置加载失败，无法选择提供商/模型；可直接开始翻译（将使用服务端默认对）或稍后重试</value>
+  </data>
+  <data name="ConfigNoProviders" xml:space="preserve">
+    <value>尚未配置任何 AI 提供商，未显式选择时无法发起翻译</value>
+  </data>
+  <data name="ConfigNoDefaultPair" xml:space="preserve">
+    <value>未配置默认对：不选择提供商/模型直接翻译将无法发起</value>
+  </data>
+  <data name="GoSettings" xml:space="preserve">
+    <value>前往设置</value>
+  </data>
+  <data name="RunSelection" xml:space="preserve">
+    <value>本次运行：{0} / {1}</value>
+  </data>
   <data name="FailuresTruncated" xml:space="preserve">
     <value>仅显示前 {0} 条失败明细，完整列表可通过接口查询</value>
   </data>

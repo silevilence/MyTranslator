@@ -16,6 +16,15 @@ window.mtStorage = {
     setDarkMode: function (dark) {
         window.localStorage.setItem('mt.darkMode', dark ? '1' : '0');
     },
+    getItem: function (key) {
+        return window.localStorage.getItem(key);
+    },
+    setItem: function (key, value) {
+        window.localStorage.setItem(key, value);
+    },
+    removeItem: function (key) {
+        window.localStorage.removeItem(key);
+    },
     copyText: function (text) {
         if (navigator.clipboard && window.isSecureContext) {
             return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });

@@ -1,0 +1,13 @@
+@page "/settings"
+@attribute [Authorize]
+@using MyTranslator.Shared.Components
+@inject IStringLocalizer<Settings> Localizer
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<MudText Typo="Typo.h1">@Localizer["Title"]</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["Subtitle"]</MudText>
+
+<div class="mt-4">
+    <ProviderConfigPanel />
+</div>

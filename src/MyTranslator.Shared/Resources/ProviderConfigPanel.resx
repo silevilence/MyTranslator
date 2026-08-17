@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>AI 提供商与模型</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>配置多个 AI 提供商与模型；默认提供商 + 其默认模型合成默认对，翻译未显式选择时使用默认对</value>
+  </data>
+  <data name="AddProvider" xml:space="preserve">
+    <value>新增提供商</value>
+  </data>
+  <data name="AddModel" xml:space="preserve">
+    <value>新增模型</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>刷新配置列表</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>尚未配置 AI 提供商</value>
+  </data>
+  <data name="EmptyDescription" xml:space="preserve">
+    <value>添加提供商与模型后即可发起 AI 翻译</value>
+  </data>
+  <data name="NoDefaultPairNotice" xml:space="preserve">
+    <value>未配置默认对（默认提供商 + 其默认模型）：翻译时未显式选择提供商/模型将无法发起，请为任一提供商及其下模型设置默认</value>
+  </data>
+  <data name="DefaultProviderChip" xml:space="preserve">
+    <value>默认提供商</value>
+  </data>
+  <data name="DefaultModelChip" xml:space="preserve">
+    <value>默认模型</value>
+  </data>
+  <data name="DisabledChip" xml:space="preserve">
+    <value>已停用</value>
+  </data>
+  <data name="CapabilityThinking" xml:space="preserve">
+    <value>思考</value>
+  </data>
+  <data name="CapabilityToolUse" xml:space="preserve">
+    <value>工具使用</value>
+  </data>
+  <data name="CapabilityStreaming" xml:space="preserve">
+    <value>流式</value>
+  </data>
+  <data name="SetDefault" xml:space="preserve">
+    <value>设为默认</value>
+  </data>
+  <data name="SetDefaultModel" xml:space="preserve">
+    <value>设为默认模型</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="BaseUrlLabel" xml:space="preserve">
+    <value>BaseUrl</value>
+  </data>
+  <data name="ApiKeyLabel" xml:space="preserve">
+    <value>密钥</value>
+  </data>
+  <data name="NotConfigured" xml:space="preserve">
+    <value>未配置</value>
+  </data>
+  <data name="RuntimeText" xml:space="preserve">
+    <value>批大小 {0} · 超时 {1} · 尝试 {2} 次</value>
+  </data>
+  <data name="ModelsTitle" xml:space="preserve">
+    <value>模型（{0}）</value>
+  </data>
+  <data name="ModelsEmpty" xml:space="preserve">
+    <value>该提供商下暂无模型</value>
+  </data>
+  <data name="CreateProviderTitle" xml:space="preserve">
+    <value>新增 AI 提供商</value>
+  </data>
+  <data name="EditProviderTitle" xml:space="preserve">
+    <value>编辑 AI 提供商</value>
+  </data>
+  <data name="CreateModelTitle" xml:space="preserve">
+    <value>新增 AI 模型</value>
+  </data>
+  <data name="EditModelTitle" xml:space="preserve">
+    <value>编辑 AI 模型</value>
+  </data>
+  <data name="Saved" xml:space="preserve">
+    <value>已保存，配置即时生效</value>
+  </data>
+  <data name="Deleted" xml:space="preserve">
+    <value>已删除，配置即时生效</value>
+  </data>
+  <data name="DefaultProviderSet" xml:space="preserve">
+    <value>已将「{0}」设为默认提供商</value>
+  </data>
+  <data name="DefaultModelSet" xml:space="preserve">
+    <value>已将「{0}」设为其提供商的默认模型</value>
+  </data>
+  <data name="DeleteProviderTitle" xml:space="preserve">
+    <value>删除 AI 提供商</value>
+  </data>
+  <data name="DeleteProviderMessage" xml:space="preserve">
+    <value>将删除提供商「{0}」及其下 {1} 个模型；若其为默认提供商，默认对将被清除。</value>
+  </data>
+  <data name="DeleteModelTitle" xml:space="preserve">
+    <value>删除 AI 模型</value>
+  </data>
+  <data name="DeleteModelMessage" xml:space="preserve">
+    <value>将删除模型「{0}」；若其为默认模型，该提供商的默认模型将被清除。</value>
+  </data>
+</root>

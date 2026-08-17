@@ -60,8 +60,14 @@ public sealed record TranslationRun
 
     /// <summary>null 表示由 LLM 自动识别源语言。</summary>
     public string? SourceLanguage { get; init; }
-
     public string? TargetLanguage { get; init; }
+
+    /// <summary>解析后的实际提供商 ID；运行创建成功后服务端恒非空（前端可显示为回显）。</summary>
+    public Guid? ProviderId { get; init; }
+
+    /// <summary>解析后的实际模型条目 ID；同上。</summary>
+    public Guid? ModelId { get; init; }
+
     public TranslationRunSelection? Selection { get; init; }
     public TranslationRunProgress? Progress { get; init; }
 

@@ -132,8 +132,35 @@
   <data name="unsupported_language_pair" xml:space="preserve">
     <value>不支持的源/目标语言组合</value>
   </data>
+  <data name="provider_not_found" xml:space="preserve">
+    <value>AI 提供商不存在或已被删除，请前往设置检查配置</value>
+  </data>
+  <data name="model_not_found" xml:space="preserve">
+    <value>AI 模型不存在或不属于所选提供商，请前往设置检查配置</value>
+  </data>
+  <data name="provider_disabled" xml:space="preserve">
+    <value>AI 提供商已停用，请前往设置启用后重试</value>
+  </data>
+  <data name="invalid_provider_name" xml:space="preserve">
+    <value>提供商名称不能为空</value>
+  </data>
+  <data name="invalid_provider_kind" xml:space="preserve">
+    <value>连接器类型无效（仅支持 openai / ollama）</value>
+  </data>
+  <data name="invalid_base_url" xml:space="preserve">
+    <value>BaseUrl 须为绝对 http(s) 地址</value>
+  </data>
+  <data name="invalid_runtime_settings" xml:space="preserve">
+    <value>运行参数超出合法范围（批大小 1..200，超时须大于 0，尝试次数 1..10）</value>
+  </data>
+  <data name="invalid_provider_key_field" xml:space="preserve">
+    <value>密钥字段提交无效，请重新输入</value>
+  </data>
+  <data name="model_id_conflict" xml:space="preserve">
+    <value>该厂商模型 ID 在同一提供商下已存在</value>
+  </data>
   <data name="llm_not_configured" xml:space="preserve">
-    <value>服务端 AI 翻译尚未配置，请联系部署方配置后重试</value>
+    <value>尚未配置可用的 AI 提供商/模型，请前往设置完成配置后重试</value>
   </data>
   <data name="segment_translation_failed" xml:space="preserve">
     <value>部分分段翻译失败，详情见失败列表</value>

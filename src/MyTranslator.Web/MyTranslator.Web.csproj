@@ -38,6 +38,9 @@
     <EmbeddedResource Update="Resources\TaskDetail.resx">
       <LogicalName>MyTranslator.Web.Pages.TaskDetail.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Settings.resx">
+      <LogicalName>MyTranslator.Web.Pages.Settings.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

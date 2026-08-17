@@ -12,6 +12,7 @@ using MyTranslator.Api.Translation;
 using MyTranslator.Api.TaskOperations;
 using MyTranslator.Api.TaskLists;
 using MyTranslator.Api.Rules;
+using MyTranslator.Api.AiConfiguration;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -31,13 +32,15 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connect
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<FileTaskService>();
 builder.Services.AddScoped<TaskListService>();
+builder.Services.AddScoped<AiConfigurationService>();
 builder.Services.AddSingleton<TaskOperationLock>();
 builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
 builder.Services.AddSingleton<TranslationRunQueue>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<TranslationRunProcessor>();
+builder.Services.AddSingleton<IAiChatClientFactory, AiChatClientFactory>();
 builder.Services.AddSingleton<ITranslationRule, PlaceholderIntegrityRule>();
-builder.Services.AddHttpClient<ITranslationProvider, OpenAiCompatibleTranslationProvider>();
+builder.Services.AddHttpClient("AiChatClient");
 builder.Services.AddSingleton<ExtractionPreviewStore>();
 builder.Services.AddHttpClient<UrlImportClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(30))
@@ -139,6 +142,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }))
     .WithName("GetHealth")
     .WithTags("System");
 app.MapTokenEndpoints();
+app.MapAiConfigurationEndpoints();
 app.MapTaskListEndpoints();
 app.MapFileTaskEndpoints();
 app.MapTranslationEndpoints();

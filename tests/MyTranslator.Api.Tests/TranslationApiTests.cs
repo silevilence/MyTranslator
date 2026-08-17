@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.AI;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.Translation;
 
@@ -731,33 +732,29 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     private sealed class StaticTranslationProvider(
-        IReadOnlyDictionary<string, string> translations) : ITranslationProvider
+        IReadOnlyDictionary<string, string> translations) : TestTranslationChatClient
     {
-        public string Name => "test";
-
-        public Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
-            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TranslationProviderOutput>>(
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TestTranslationOutput>>(
                 request.Segments
-                    .Select(segment => new TranslationProviderOutput(
+                    .Select(segment => new TestTranslationOutput(
                         segment.SegmentId,
                         translations[segment.SourceText]))
                     .ToArray());
     }
 
-    private sealed class RecoveringTranslationProvider : ITranslationProvider
+    private sealed class RecoveringTranslationProvider : TestTranslationChatClient
     {
         private readonly ConcurrentDictionary<string, int> attempts = new(StringComparer.Ordinal);
 
-        public string Name => "test";
-
-        public Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
-            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TranslationProviderOutput>>(
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TestTranslationOutput>>(
                 request.Segments.Select(segment =>
                 {
                     var attempt = attempts.AddOrUpdate(segment.SourceText, 1, (_, current) => current + 1);
-                    return new TranslationProviderOutput(
+                    return new TestTranslationOutput(
                         segment.SegmentId,
                         segment.SourceText switch
                         {
@@ -769,47 +766,41 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
                 }).ToArray());
     }
 
-    private sealed class FailingTranslationProvider(string code, bool retryable) : ITranslationProvider
+    private sealed class FailingTranslationProvider(string code, bool retryable) : TestTranslationChatClient
     {
-        public string Name => "test";
-
-        public Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
-            CancellationToken cancellationToken) => throw new TranslationProviderException(
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken) => throw new TranslationExecutionException(
                 code,
                 retryable,
                 "Configured test failure.");
     }
 
-    private sealed class BlockingTranslationProvider : ITranslationProvider
+    private sealed class BlockingTranslationProvider : TestTranslationChatClient
     {
         private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public string Name => "test";
-
-        public async Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
+        protected override async Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
             CancellationToken cancellationToken)
         {
             await released.Task.WaitAsync(cancellationToken);
             return request.Segments
-                .Select(segment => new TranslationProviderOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
+                .Select(segment => new TestTranslationOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
                 .ToArray();
         }
 
         public void Release() => released.TrySetResult();
     }
 
-    private sealed class ConcurrentBlockingTranslationProvider : ITranslationProvider
+    private sealed class ConcurrentBlockingTranslationProvider : TestTranslationChatClient
     {
         private readonly TaskCompletionSource concurrentCalls = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int calls;
 
-        public string Name => "test";
-
-        public async Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
+        protected override async Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
             CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref calls) >= 2)
@@ -819,7 +810,7 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
 
             await released.Task.WaitAsync(cancellationToken);
             return request.Segments
-                .Select(segment => new TranslationProviderOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
+                .Select(segment => new TestTranslationOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
                 .ToArray();
         }
 
@@ -828,17 +819,79 @@ public sealed class TranslationApiTests(ApiFactory factory) : IClassFixture<ApiF
         public void Release() => released.TrySetResult();
     }
 
-    private sealed class EchoTranslationProvider : ITranslationProvider
+    private sealed class EchoTranslationProvider : TestTranslationChatClient
     {
-        public string Name => "test";
-
-        public Task<IReadOnlyList<TranslationProviderOutput>> TranslateAsync(
-            TranslationProviderRequest request,
-            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TranslationProviderOutput>>(
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TestTranslationOutput>>(
                 request.Segments
-                    .Select(segment => new TranslationProviderOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
+                    .Select(segment => new TestTranslationOutput(segment.SegmentId, $"译文：{segment.SourceText}"))
                     .ToArray());
     }
+
+    private abstract class TestTranslationChatClient : IChatClient
+    {
+        public async Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            var userMessage = messages.Last(message => message.Role == ChatRole.User).Text;
+            using var document = JsonDocument.Parse(userMessage);
+            var request = new TestTranslationRequest(
+                document.RootElement.TryGetProperty("sourceLanguage", out var source) &&
+                source.ValueKind == JsonValueKind.String
+                    ? source.GetString()
+                    : null,
+                document.RootElement.GetProperty("targetLanguage").GetString()!,
+                document.RootElement.GetProperty("segments").EnumerateArray()
+                    .Select(segment => new TestTranslationSegment(
+                        segment.GetProperty("segmentId").GetGuid(),
+                        segment.GetProperty("sourceText").GetString()!))
+                    .ToArray());
+            var outputs = await TranslateCoreAsync(request, cancellationToken);
+            var content = JsonSerializer.Serialize(new
+            {
+                translations = outputs.Select(output => new
+                {
+                    segmentId = output.SegmentId,
+                    targetText = output.TargetText
+                })
+            });
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, content));
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            throw new NotSupportedException();
+#pragma warning disable CS0162
+            yield break;
+#pragma warning restore CS0162
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+
+        protected abstract Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken);
+    }
+
+    private sealed record TestTranslationRequest(
+        string? SourceLanguage,
+        string TargetLanguage,
+        IReadOnlyList<TestTranslationSegment> Segments);
+
+    private sealed record TestTranslationSegment(Guid SegmentId, string SourceText);
+
+    private sealed record TestTranslationOutput(Guid SegmentId, string TargetText);
 
     private sealed class ChatCompletionHandler : HttpMessageHandler
     {

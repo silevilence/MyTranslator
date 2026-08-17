@@ -1,0 +1,256 @@
+@namespace MyTranslator.Shared.Components
+@inject ProviderConfigService Config
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<ProviderEditDialog> Localizer
+
+<MudDialog>
+    <DialogContent>
+        <div class="mt-provider-form">
+            <MudTextField T="string"
+                          Label="@Localizer["NameLabel"]"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_name"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_nameError is not null"
+                          ErrorText="_nameError" />
+            <MudSelect T="string"
+                       Label="@Localizer["KindLabel"]"
+                       HelperText="@Localizer["KindHelper"]"
+                       Variant="Variant.Outlined"
+                       @bind-Value="_kind"
+                       Disabled="_saving"
+                       Error="_kindError is not null"
+                       ErrorText="_kindError">
+                @foreach (var kind in KindOptions)
+                {
+                    <MudSelectItem Value="@kind">@KindLabel(kind)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField T="string"
+                          Label="@Localizer["BaseUrlLabel"]"
+                          HelperText="@Localizer["BaseUrlHelper"]"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_baseUrl"
+                          Disabled="_saving"
+                          Error="_baseUrlError is not null"
+                          ErrorText="_baseUrlError" />
+            <MudTextField T="string"
+                          Label="@Localizer["ApiKeyLabel"]"
+                          HelperText="@ApiKeyHelper"
+                          InputType="InputType.Password"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_apiKey"
+                          Disabled="_saving"
+                          Error="_apiKeyError is not null"
+                          ErrorText="_apiKeyError" />
+            <div class="mt-provider-form-switches">
+                <MudSwitch @bind-Value="_enabled" Label="@Localizer["EnabledLabel"]" Disabled="_saving" />
+                <MudSwitch @bind-Value="_isDefault" Label="@Localizer["DefaultLabel"]" Disabled="_saving" />
+            </div>
+            <div class="mt-provider-form-runtime">
+                <MudNumericField T="int"
+                                 Label="@Localizer["BatchSizeLabel"]"
+                                 HelperText="@Localizer["BatchSizeHelper"]"
+                                 Variant="Variant.Outlined"
+                                 Min="1" Max="200"
+                                 @bind-Value="_batchSize"
+                                 Disabled="_saving" />
+                <MudTextField T="string"
+                              Label="@Localizer["RequestTimeoutLabel"]"
+                              HelperText="@Localizer["RequestTimeoutHelper"]"
+                              Variant="Variant.Outlined"
+                              Class="mt-mono"
+                              @bind-Value="_requestTimeout"
+                              Disabled="_saving"
+                              Error="_timeoutError is not null"
+                              ErrorText="_timeoutError" />
+                <MudNumericField T="int"
+                                 Label="@Localizer["MaxAttemptsLabel"]"
+                                 HelperText="@Localizer["MaxAttemptsHelper"]"
+                                 Variant="Variant.Outlined"
+                                 Min="1" Max="10"
+                                 @bind-Value="_maxAttempts"
+                                 Disabled="_saving" />
+            </div>
+            @if (_formError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-provider-form-error">
+                    @_formError
+                </MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_saving" OnClick="Cancel">@Localizer["Cancel"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+            }
+            @Localizer["Save"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>文档默认运行参数（§3.1：batchSize 20 / requestTimeout 00:01:00 / maxAttempts 3）。</summary>
+    private const string DefaultRequestTimeout = "00:01:00";
+
+    private string _name = string.Empty;
+    private string _kind = "openai";
+    private string _baseUrl = string.Empty;
+    private string _apiKey = string.Empty;
+    private bool _enabled = true;
+    private bool _isDefault;
+    private int _batchSize = 20;
+    private string _requestTimeout = DefaultRequestTimeout;
+    private int _maxAttempts = 3;
+    private string? _nameError;
+    private string? _kindError;
+    private string? _baseUrlError;
+    private string? _apiKeyError;
+    private string? _timeoutError;
+    private string? _formError;
+    private bool _saving;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>待编辑的提供商；null 表示新建。</summary>
+    [Parameter]
+    public AiProvider? Provider { get; set; }
+
+    /// <summary>连接器可选项：文档 v1 枚举 + 编辑对象携带的未知值（调用方须容忍未来新增）。</summary>
+    private IReadOnlyList<string> KindOptions
+    {
+        get
+        {
+            var kinds = new List<string> { "openai", "ollama" };
+            if (Provider is { } provider && !kinds.Contains(provider.Kind, StringComparer.Ordinal))
+            {
+                kinds.Add(provider.Kind);
+            }
+
+            return kinds;
+        }
+    }
+
+    /// <summary>密钥输入提示：编辑时展示掩码并说明留空保持；创建时说明可留空（§2.3 回写语义）。</summary>
+    private string ApiKeyHelper => Provider is { } provider
+        ? string.IsNullOrEmpty(provider.ApiKeyMasked)
+            ? Localizer["ApiKeyCreateHelper"].Value
+            : Localizer["ApiKeyKeepHelper", provider.ApiKeyMasked].Value
+        : Localizer["ApiKeyCreateHelper"].Value;
+
+    protected override void OnInitialized()
+    {
+        if (Provider is { } provider)
+        {
+            _name = provider.Name;
+            _kind = provider.Kind;
+            _baseUrl = provider.BaseUrl ?? string.Empty;
+            _enabled = provider.Enabled;
+            _isDefault = provider.IsDefault;
+            _batchSize = provider.BatchSize ?? 20;
+            _requestTimeout = provider.RequestTimeout ?? DefaultRequestTimeout;
+            _maxAttempts = provider.MaxAttempts ?? 3;
+        }
+    }
+
+    private string KindLabel(string kind) => kind switch
+    {
+        "openai" => Localizer["KindOpenai"],
+        "ollama" => Localizer["KindOllama"],
+        _ => kind,
+    };
+
+    private async Task SaveAsync()
+    {
+        if (_saving || !Validate())
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var request = new AiProviderUpsert
+            {
+                Name = _name.Trim(),
+                Kind = _kind,
+                BaseUrl = string.IsNullOrWhiteSpace(_baseUrl) ? null : _baseUrl.Trim(),
+                // §2.3：null/空白 = 保持原密钥；明文只在用户输入时提交，掩码永不回传
+                ApiKey = string.IsNullOrWhiteSpace(_apiKey) ? null : _apiKey.Trim(),
+                Enabled = _enabled,
+                IsDefault = _isDefault,
+                BatchSize = _batchSize,
+                RequestTimeout = _requestTimeout.Trim(),
+                MaxAttempts = _maxAttempts,
+            };
+
+            if (Provider is { } editing)
+            {
+                await Config.UpdateProviderAsync(editing.Id, request);
+            }
+            else
+            {
+                await Config.CreateProviderAsync(request);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiErrorException ex)
+        {
+            ApplyErrorPlacement(ex);
+        }
+        catch (HttpRequestException)
+        {
+            _formError = ErrorProvider.For(null);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>基础客户端校验：必填与超时格式；其余格式校验以服务端错误码为准。</summary>
+    private bool Validate()
+    {
+        _nameError = string.IsNullOrWhiteSpace(_name) ? Localizer["NameRequired"].Value : null;
+        _timeoutError = TimeSpan.TryParseExact(
+            _requestTimeout.Trim(),
+            ["c", @"hh\:mm\:ss", @"hh\:mm"],
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var timeout) && timeout > TimeSpan.Zero
+            ? null
+            : Localizer["RequestTimeoutInvalid"].Value;
+        StateHasChanged();
+        return _nameError is null && _timeoutError is null;
+    }
+
+    /// <summary>错误码只用于定位展示字段；文案一律取自错误码映射（禁止页面自行解释）。</summary>
+    private void ApplyErrorPlacement(ApiErrorException ex)
+    {
+        switch (ex.Code)
+        {
+            case "invalid_provider_name":
+                _nameError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_provider_kind":
+                _kindError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_base_url":
+                _baseUrlError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_provider_key_field":
+                _apiKeyError = ErrorProvider.ForError(ex);
+                break;
+            default:
+                _formError = ErrorProvider.ForError(ex);
+                break;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

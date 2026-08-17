@@ -137,6 +137,98 @@ public class TranslationRunServiceTests
     }
 
     [Fact]
+    public async Task CreateRunAsync_未选择时请求携带双null_走默认对()
+    {
+        string? capturedBody = null;
+        var service = Create(
+            request =>
+            {
+                capturedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return JsonResponse(HttpStatusCode.Accepted, CreateRun());
+            },
+            out _);
+
+        await service.CreateRunAsync(TaskId, 1, null, "zh-CN");
+
+        Assert.Contains("\"providerId\":null", capturedBody);
+        Assert.Contains("\"modelId\":null", capturedBody);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_携带providerId与modelId_精确指定()
+    {
+        var providerId = Guid.Parse("7c9e6679-7425-40de-944b-e07fc1f90ae7");
+        var modelId = Guid.Parse("f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b");
+        string? capturedBody = null;
+        var service = Create(
+            request =>
+            {
+                capturedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return JsonResponse(HttpStatusCode.Accepted, CreateRun());
+            },
+            out _);
+
+        await service.CreateRunAsync(TaskId, 1, null, "zh-CN", providerId, modelId);
+
+        Assert.Contains($"\"providerId\":\"{providerId}\"", capturedBody);
+        Assert.Contains($"\"modelId\":\"{modelId}\"", capturedBody);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_只传providerId_用该提供商默认模型()
+    {
+        var providerId = Guid.Parse("7c9e6679-7425-40de-944b-e07fc1f90ae7");
+        string? capturedBody = null;
+        var service = Create(
+            request =>
+            {
+                capturedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return JsonResponse(HttpStatusCode.Accepted, CreateRun());
+            },
+            out _);
+
+        await service.CreateRunAsync(TaskId, 1, null, "zh-CN", providerId);
+
+        Assert.Contains($"\"providerId\":\"{providerId}\"", capturedBody);
+        Assert.Contains("\"modelId\":null", capturedBody);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_解析运行资源回显的providerId与modelId()
+    {
+        var providerId = Guid.Parse("7c9e6679-7425-40de-944b-e07fc1f90ae7");
+        var modelId = Guid.Parse("f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b");
+        var json = JsonSerializer.Serialize(new
+        {
+            runId = RunId,
+            taskId = TaskId,
+            extractionRevision = 1,
+            status = "queued",
+            sourceLanguage = "en",
+            targetLanguage = "zh-CN",
+            providerId = providerId.ToString(),
+            modelId = modelId.ToString(),
+            selection = new { totalSegments = 42, selectedSegments = 40, skippedExistingSegments = 2 },
+            progress = new { processedSegments = 0, succeededSegments = 0, failedSegments = 0, percent = 0.0 },
+            failure = (string?)null,
+            createdAt = "2026-08-14T08:30:00Z",
+            startedAt = (string?)null,
+            finishedAt = (string?)null,
+        });
+        var service = Create(
+            _ => new HttpResponseMessage(HttpStatusCode.Accepted)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            },
+            out _);
+
+        var poll = await service.CreateRunAsync(TaskId, 1, "en", "zh-CN", providerId, modelId);
+
+        Assert.Equal(providerId, poll.Run.ProviderId);
+        Assert.Equal(modelId, poll.Run.ModelId);
+    }
+
+    [Fact]
     public async Task GetRunAsync_解析RetryAfter秒数()
     {
         var service = Create(

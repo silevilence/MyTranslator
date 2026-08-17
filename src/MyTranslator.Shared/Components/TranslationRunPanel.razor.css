@@ -65,3 +65,17 @@
     flex: 1;
     min-width: 0;
 }
+.mt-translation-run-config-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-translation-run-config-icon {
+    flex-shrink: 0;
+}
+
+.mt-translation-run-config-link {
+    flex-shrink: 0;
+}

@@ -3,7 +3,9 @@ namespace MyTranslator.Api.Translation;
 public sealed record CreateTranslationRunRequest(
     int ExtractionRevision,
     string? SourceLanguage,
-    string? TargetLanguage);
+    string? TargetLanguage,
+    Guid? ProviderId,
+    Guid? ModelId);
 
 public sealed record TranslationRunSelection(
     int TotalSegments,
@@ -28,6 +30,8 @@ public sealed record TranslationRunResponse(
     string Status,
     string? SourceLanguage,
     string TargetLanguage,
+    Guid? ProviderId,
+    Guid? ModelId,
     TranslationRunSelection Selection,
     TranslationRunProgress Progress,
     TranslationRunFailureSummary? Failure,

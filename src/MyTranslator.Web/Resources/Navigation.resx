@@ -30,6 +30,9 @@
   <data name="NavTokens" xml:space="preserve">
     <value>Token 管理</value>
   </data>
+  <data name="NavSettings" xml:space="preserve">
+    <value>设置</value>
+  </data>
   <data name="DarkMode" xml:space="preserve">
     <value>切换到深色模式</value>
   </data>

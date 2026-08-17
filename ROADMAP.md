@@ -100,19 +100,19 @@
 ## 🚧 开发中 (In Progress)
 
 - [ ] **后端：AI 提供商与模型配置管理 API**（二级配置 + Microsoft.Extensions.AI 执行层迁移，见 ADR-0003）
-  - [ ] 二级配置模型：Provider（kind/baseUrl/apiKey/enabled，v1 支持 `openai` 与 `ollama` 连接器）→ Model（厂商模型 ID/展示名/能力元数据 supportsThinking/supportsToolUse/supportsStreaming）；Provider.isDefault 全局唯一、Model.isDefault 提供商内唯一合成默认对
-  - [ ] 配置 CRUD API：提供商与模型增删改查、默认对设置；ApiKey 明文存 SQLite、响应一律掩码（`sk-***abcd`）且不写日志；无默认对时创建翻译运行返回 503 `llm_not_configured`
-  - [ ] 执行层迁移 Microsoft.Extensions.AI：移除 `ITranslationProvider`，翻译处理器直接消费 `IChatClient`（按 kind 工厂构造；批量提示词、JSON 解析、超时/鉴权错误码映射迁入处理器）；新增 NuGet：`Microsoft.Extensions.AI`、`Microsoft.Extensions.AI.OpenAI`、`Microsoft.Extensions.AI.Ollama`
-  - [ ] 翻译运行请求新增可选 `providerId`/`modelId`（三档解析：都缺省→默认对；只传 providerId→该提供商默认模型；都传→精确指定）；运行资源回显所选提供商/模型
-  - [ ] 新增错误码：404 `provider_not_found`、422 `model_not_found`；503 语义收窄为「选中的提供商/模型未配置完整」
+  - [x] 二级配置模型：Provider（kind/baseUrl/apiKey/enabled，v1 支持 `openai` 与 `ollama` 连接器）→ Model（厂商模型 ID/展示名/能力元数据 supportsThinking/supportsToolUse/supportsStreaming）；Provider.isDefault 全局唯一、Model.isDefault 提供商内唯一合成默认对
+  - [x] 配置 CRUD API：提供商与模型增删改查、默认对设置；ApiKey 明文存 SQLite、响应一律掩码（`sk-***abcd`）且不写日志；无默认对时创建翻译运行返回 503 `llm_not_configured`
+  - [x] 执行层迁移 Microsoft.Extensions.AI：移除 `ITranslationProvider`，翻译处理器直接消费 `IChatClient`（按 kind 工厂构造；批量提示词、JSON 解析、超时/鉴权错误码映射迁入处理器）；新增 NuGet：`Microsoft.Extensions.AI`、`Microsoft.Extensions.AI.OpenAI`、`Microsoft.Extensions.AI.Ollama`
+  - [x] 翻译运行请求新增可选 `providerId`/`modelId`（三档解析：都缺省→默认对；只传 providerId→该提供商默认模型；都传→精确指定）；运行资源回显所选提供商/模型
+  - [x] 新增错误码：404 `provider_not_found`、422 `model_not_found`；503 语义收窄为「选中的提供商/模型未配置完整」
   - [x] 更新 `docs/back` AI 翻译接口约定 §3（配置模型与配置管理接口）、§4（请求/响应字段）、§10.1（错误码）
   - 验收：通过 API 配置多个提供商与模型并设默认对；创建翻译运行可显式选择提供商/模型或走默认对；不同提供商/模型可实际翻译；密钥不泄露；无效选择返回对应错误码
 
-- [ ] **前端：AI 模型配置界面**（提供商/模型两级管理 + 翻译面板选择器）
-  - [ ] 提供商/模型两级管理界面：提供商 CRUD（kind/BaseUrl/Key，密钥不回显明文、enabled/默认对设置）+ 模型 CRUD（厂商模型 ID/展示名/能力标注）
-  - [ ] 翻译操作面板新增提供商/模型选择器（缺省显示默认对），提交翻译时随请求携带（ADR-0003 三档解析）
-  - [ ] 保存生效提示与配置状态展示（未配置默认对时提示将影响翻译功能）
-  - 验收：界面可配置多个提供商与模型、设默认对并保存；翻译面板可选择提供商/模型发起翻译；刷新后配置与选择一致
+- [x] **前端：AI 模型配置界面**（提供商/模型两级管理 + 翻译面板选择器）
+  - [x] 提供商/模型两级管理界面：提供商 CRUD（kind/BaseUrl/Key，密钥不回显明文、enabled/默认对设置）+ 模型 CRUD（厂商模型 ID/展示名/能力标注）
+  - [x] 翻译操作面板新增提供商/模型选择器（缺省显示默认对），提交翻译时随请求携带（ADR-0003 三档解析）
+  - [x] 保存生效提示与配置状态展示（未配置默认对时提示将影响翻译功能）
+  - [x] 验收：界面可配置多个提供商与模型、设默认对并保存；翻译面板可选择提供商/模型发起翻译；刷新后配置与选择一致
 
 - [ ] **后端：术语表管理 API 与术语对齐检查**（术语 CRUD + 对齐校验接口）
   - [ ] 术语条目增删改查与模糊匹配查询接口（供翻译/规则引擎复用）

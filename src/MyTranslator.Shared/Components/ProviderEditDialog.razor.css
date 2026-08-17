@@ -1,0 +1,23 @@
+/* 提供商编辑弹窗表单布局（色值/字号一律经主题 token，禁止硬编码） */
+.mt-provider-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 8px;
+}
+
+.mt-provider-form-switches {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-form-runtime {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.mt-provider-form-error {
+    margin-top: 4px;
+}

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ModelIdLabel" xml:space="preserve">
+    <value>厂商模型 ID</value>
+  </data>
+  <data name="ModelIdHelper" xml:space="preserve">
+    <value>对接提供商 API 的模型名，如 deepseek-chat；同一提供商内唯一</value>
+  </data>
+  <data name="ModelIdRequired" xml:space="preserve">
+    <value>厂商模型 ID 不能为空</value>
+  </data>
+  <data name="DisplayNameLabel" xml:space="preserve">
+    <value>展示名</value>
+  </data>
+  <data name="DisplayNameRequired" xml:space="preserve">
+    <value>展示名不能为空</value>
+  </data>
+  <data name="CapabilityTitle" xml:space="preserve">
+    <value>能力标注</value>
+  </data>
+  <data name="CapabilityHelper" xml:space="preserve">
+    <value>仅作声明与展示，不影响翻译运行</value>
+  </data>
+  <data name="CapabilityThinking" xml:space="preserve">
+    <value>思考</value>
+  </data>
+  <data name="CapabilityToolUse" xml:space="preserve">
+    <value>工具使用</value>
+  </data>
+  <data name="CapabilityStreaming" xml:space="preserve">
+    <value>流式</value>
+  </data>
+  <data name="DefaultLabel" xml:space="preserve">
+    <value>设为该提供商的默认模型</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+</root>

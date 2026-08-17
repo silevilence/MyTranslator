@@ -10,6 +10,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ProtectedBlock> ProtectedBlocks => Set<ProtectedBlock>();
     public DbSet<TranslationRun> TranslationRuns => Set<TranslationRun>();
     public DbSet<TranslationRunFailure> TranslationRunFailures => Set<TranslationRunFailure>();
+    public DbSet<AiProvider> Providers => Set<AiProvider>();
+    public DbSet<AiModel> Models => Set<AiModel>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +100,33 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         failure.HasOne(entity => entity.Run)
             .WithMany(entity => entity.Failures)
             .HasForeignKey(entity => entity.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var provider = modelBuilder.Entity<AiProvider>();
+        provider.ToTable("Providers");
+        provider.HasKey(entity => entity.Id);
+        provider.Property(entity => entity.Name).HasMaxLength(200).IsRequired();
+        provider.Property(entity => entity.Kind).HasMaxLength(30).IsRequired();
+        provider.Property(entity => entity.BaseUrl).HasMaxLength(2000);
+        provider.Property(entity => entity.ApiKey);
+        provider.HasIndex(entity => entity.IsDefault)
+            .IsUnique()
+            .HasFilter("\"IsDefault\" = 1");
+        provider.HasIndex(entity => entity.CreatedAt);
+
+        var model = modelBuilder.Entity<AiModel>();
+        model.ToTable("Models");
+        model.HasKey(entity => entity.Id);
+        model.Property(entity => entity.ModelId).HasMaxLength(500).IsRequired();
+        model.Property(entity => entity.DisplayName).HasMaxLength(200).IsRequired();
+        model.HasIndex(entity => new { entity.ProviderId, entity.ModelId }).IsUnique();
+        model.HasIndex(entity => entity.ProviderId)
+            .IsUnique()
+            .HasFilter("\"IsDefault\" = 1");
+        model.HasIndex(entity => entity.CreatedAt);
+        model.HasOne(entity => entity.Provider)
+            .WithMany(entity => entity.Models)
+            .HasForeignKey(entity => entity.ProviderId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

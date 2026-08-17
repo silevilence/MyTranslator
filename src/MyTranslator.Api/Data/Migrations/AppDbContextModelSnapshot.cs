@@ -52,6 +52,106 @@ namespace MyTranslator.Api.Data.Migrations
                     b.ToTable("ApiTokens", (string)null);
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.AiModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SupportsStreaming")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SupportsThinking")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SupportsToolUse")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ProviderId")
+                        .IsUnique()
+                        .HasFilter("\"IsDefault\" = 1");
+
+                    b.HasIndex("ProviderId", "ModelId")
+                        .IsUnique();
+
+                    b.ToTable("Models", (string)null);
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.AiProvider", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApiKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BaseUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BatchSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MaxAttempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan>("RequestTimeout")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsDefault")
+                        .IsUnique()
+                        .HasFilter("\"IsDefault\" = 1");
+
+                    b.ToTable("Providers", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.ProtectedBlock", b =>
                 {
                     b.Property<Guid>("Id")
@@ -171,8 +271,14 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ProcessedSegments")
                         .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ProviderId")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("SelectedSegments")
                         .HasColumnType("INTEGER");
@@ -355,6 +461,17 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.AiModel", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.AiProvider", "Provider")
+                        .WithMany("Models")
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
                 {
                     b.HasOne("MyTranslator.Api.Data.TranslationTask", "Task")
@@ -364,6 +481,11 @@ namespace MyTranslator.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.AiProvider", b =>
+                {
+                    b.Navigation("Models");
                 });
 
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationRunFailure", b =>

@@ -1,7 +1,6 @@
 using System.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.TaskOperations;
 using MyTranslator.Api.Pagination;
@@ -10,8 +9,6 @@ namespace MyTranslator.Api.Translation;
 
 public sealed class TranslationRunService(
     AppDbContext database,
-    IOptions<TranslationOptions> options,
-    ITranslationProvider provider,
     TranslationRunQueue queue,
     TaskOperationLock taskOperationLock)
 {
@@ -73,15 +70,21 @@ public sealed class TranslationRunService(
                 StatusCodes.Status422UnprocessableEntity);
         }
 
-        if (!options.Value.IsConfiguredFor(provider.Name))
+        AiSelection selection;
+        try
         {
-            task.Status = TranslationTaskStatus.Failed;
-            await database.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            throw Problem(
-                "llm_not_configured",
-                "The LLM provider is not configured.",
-                StatusCodes.Status503ServiceUnavailable);
+            selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, cancellationToken);
+        }
+        catch (TranslationRequestException exception)
+        {
+            if (exception.Code == "llm_not_configured")
+            {
+                task.Status = TranslationTaskStatus.Failed;
+                await database.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            throw;
         }
 
         var selectedSegments = task.Segments.Count(segment => segment.TargetText is null);
@@ -105,6 +108,8 @@ public sealed class TranslationRunService(
             ExtractionRevision = task.ExtractionRevision,
             SourceLanguage = sourceLanguage,
             TargetLanguage = targetLanguage,
+            ProviderId = selection.ProviderId,
+            ModelId = selection.ModelId,
             TotalSegments = task.Segments.Count,
             SelectedSegments = selectedSegments,
             SkippedExistingSegments = task.Segments.Count - selectedSegments,
@@ -225,6 +230,8 @@ public sealed class TranslationRunService(
             run.Status.ToWireValue(),
             run.SourceLanguage,
             run.TargetLanguage,
+            run.ProviderId,
+            run.ModelId,
             new TranslationRunSelection(
                 run.TotalSegments,
                 run.SelectedSegments,
@@ -255,6 +262,119 @@ public sealed class TranslationRunService(
                 run.FailureCode,
                 run.FailureRetryable ?? false,
                 run.FailedSegments);
+
+    private async Task<AiSelection> ResolveSelectionAsync(
+        Guid? requestedProviderId,
+        Guid? requestedModelId,
+        CancellationToken cancellationToken)
+    {
+        var explicitProvider = requestedProviderId.HasValue;
+        if (!explicitProvider && requestedModelId.HasValue)
+        {
+            throw Problem(
+                "model_not_found",
+                "A model cannot be selected without its provider.",
+                StatusCodes.Status422UnprocessableEntity);
+        }
+
+        AiProvider? provider;
+        if (explicitProvider)
+        {
+            provider = await database.Providers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item => item.Id == requestedProviderId, cancellationToken);
+            if (provider is null)
+            {
+                throw Problem(
+                    "provider_not_found",
+                    "Provider not found.",
+                    StatusCodes.Status404NotFound);
+            }
+        }
+        else
+        {
+            provider = await database.Providers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item => item.IsDefault, cancellationToken);
+            if (provider is null)
+            {
+                throw NotConfigured(["defaultProvider"]);
+            }
+        }
+
+        if (!provider.Enabled)
+        {
+            throw explicitProvider
+                ? Problem(
+                    "provider_disabled",
+                    "The selected provider is disabled.",
+                    StatusCodes.Status422UnprocessableEntity)
+                : NotConfigured(["providerEnabled"]);
+        }
+
+        AiModel? model;
+        if (requestedModelId.HasValue)
+        {
+            model = await database.Models
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item => item.Id == requestedModelId && item.ProviderId == provider.Id,
+                    cancellationToken);
+            if (model is null)
+            {
+                throw Problem(
+                    "model_not_found",
+                    "Model not found for the selected provider.",
+                    StatusCodes.Status422UnprocessableEntity);
+            }
+        }
+        else
+        {
+            model = await database.Models
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item => item.ProviderId == provider.Id && item.IsDefault,
+                    cancellationToken);
+            if (model is null)
+            {
+                throw explicitProvider
+                    ? Problem(
+                        "model_not_found",
+                        "The selected provider has no default model.",
+                        StatusCodes.Status422UnprocessableEntity)
+                    : NotConfigured(["defaultModel"]);
+            }
+        }
+
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(provider.BaseUrl))
+        {
+            missing.Add("baseUrl");
+        }
+
+        if (provider.Kind == "openai" && string.IsNullOrWhiteSpace(provider.ApiKey))
+        {
+            missing.Add("apiKey");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.ModelId))
+        {
+            missing.Add("modelId");
+        }
+
+        if (missing.Count > 0)
+        {
+            throw NotConfigured(missing);
+        }
+
+        return new AiSelection(provider.Id, model.Id);
+    }
+
+    private static TranslationRequestException NotConfigured(IReadOnlyList<string> missing) => Problem(
+        "llm_not_configured",
+        "The selected AI provider and model are not configured completely.",
+        StatusCodes.Status503ServiceUnavailable,
+        new Dictionary<string, object?> { ["missing"] = missing });
 
     private static void ValidateRevision(int revision)
     {
@@ -351,4 +471,6 @@ public sealed class TranslationRunService(
         int statusCode,
         IReadOnlyDictionary<string, object?>? errors = null) =>
         new(code, message, statusCode, errors);
+
+    private sealed record AiSelection(Guid ProviderId, Guid ModelId);
 }

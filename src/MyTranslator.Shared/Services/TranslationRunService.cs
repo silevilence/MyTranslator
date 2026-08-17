@@ -36,6 +36,8 @@ public class TranslationRunService
 
     /// <summary>
     /// 创建翻译运行（§4）。<paramref name="sourceLanguage"/> 为 null 或空白表示由 LLM 自动识别；
+    /// <paramref name="providerId"/>/<paramref name="modelId"/> 按三档解析（§3.1）：
+    /// 都为 null 走默认对，只传 providerId 用该提供商默认模型，都传为精确指定。
     /// 成功后任务进入 <c>processing</c>，返回的运行状态为 <c>queued</c>，
     /// 并附创建响应 Retry-After 作为首轮询间隔参考。
     /// </summary>
@@ -44,6 +46,8 @@ public class TranslationRunService
         int extractionRevision,
         string? sourceLanguage,
         string targetLanguage,
+        Guid? providerId = null,
+        Guid? modelId = null,
         CancellationToken cancellationToken = default)
     {
         var body = JsonSerializer.Serialize(
@@ -52,6 +56,8 @@ public class TranslationRunService
                 extractionRevision,
                 sourceLanguage = string.IsNullOrWhiteSpace(sourceLanguage) ? null : sourceLanguage,
                 targetLanguage,
+                providerId,
+                modelId,
             },
             ImportJson.Options);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs")

@@ -1,0 +1,106 @@
+/* AI 提供商/模型配置面板布局（色值/字号一律经主题 token，禁止硬编码） */
+.mt-provider-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-config-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mt-provider-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+/* 草稿态的「未配置」项以次要色强调缺失，不占用语义状态色 */
+.mt-provider-missing {
+    font-style: italic;
+}
+
+.mt-provider-models-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.mt-provider-model-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+}
+
+.mt-provider-model-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.mt-provider-model-names {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-model-id {
+    color: var(--mud-palette-text-secondary);
+}
+
+.mt-provider-model-chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.mt-provider-model-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}

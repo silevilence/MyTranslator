@@ -145,7 +145,29 @@ public static class TranslationEndpoints
             throw InvalidLanguageTag();
         }
 
-        return new CreateTranslationRunRequest(revisionValue, sourceLanguage, target.GetString());
+        var providerId = ParseOptionalId(body, "providerId", "provider_not_found", StatusCodes.Status404NotFound);
+        var modelId = ParseOptionalId(body, "modelId", "model_not_found", StatusCodes.Status422UnprocessableEntity);
+        return new CreateTranslationRunRequest(
+            revisionValue,
+            sourceLanguage,
+            target.GetString(),
+            providerId,
+            modelId);
+    }
+
+    private static Guid? ParseOptionalId(JsonElement body, string property, string code, int statusCode)
+    {
+        if (!body.TryGetProperty(property, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var id))
+        {
+            throw new TranslationRequestException(code, $"The {property} is invalid.", statusCode);
+        }
+
+        return id;
     }
 
     private static TranslationRequestException InvalidLanguageTag() => new(
