@@ -171,3 +171,61 @@ public sealed record ReextractionPreview
 /// <param name="FileName">服务端建议的下载文件名（含 .translated 后缀）。</param>
 /// <param name="MediaType">响应 Content-Type。</param>
 public sealed record ExportResult(byte[] Content, string FileName, string MediaType);
+
+/// <summary>任务列表项的译文进度（§4.5）。</summary>
+public sealed record TaskProgress
+{
+    /// <summary>当前提取修订内 targetText != null 的分段数。</summary>
+    public int CompletedSegments { get; init; }
+
+    /// <summary>当前提取修订内全部可译分段数。</summary>
+    public int TotalSegments { get; init; }
+
+    /// <summary>完成度百分比（0–100，保留一位小数）；无分段时为 0。</summary>
+    public double Percent => TotalSegments == 0
+        ? 0
+        : Math.Round(CompletedSegments * 100.0 / TotalSegments, 1);
+}
+
+/// <summary>
+/// 任务列表项的最新翻译运行摘要（§4.5）。
+/// 状态与进度形状复用《AI 翻译接口约定》§2.3 / §4 / §10.2。
+/// </summary>
+public sealed record LatestTranslationRun
+{
+    public Guid RunId { get; init; }
+
+    /// <summary>运行状态：`queued` / `processing` / `completed` / `partial_failed` / `failed`。</summary>
+    public string? Status { get; init; }
+
+    public TranslationRunProgress? Progress { get; init; }
+
+    /// <summary>活动或成功运行为 null；终态失败时为摘要。</summary>
+    public TranslationRunFailure? Failure { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? FinishedAt { get; init; }
+}
+
+/// <summary>任务列表项（§4.5 响应形状）。</summary>
+public sealed record TaskListItem
+{
+    public Guid TaskId { get; init; }
+    public string? Status { get; init; }
+    public TaskSource? Source { get; init; }
+    public string? FileType { get; init; }
+    public int ExtractionRevision { get; init; }
+    public TaskProgress? Progress { get; init; }
+
+    /// <summary>按 createdAt、runId 降序选取的当前提取修订最新运行；无运行时为 null。</summary>
+    public LatestTranslationRun? LatestTranslationRun { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+/// <summary>任务列表分页响应（§4.5）。</summary>
+public sealed record TaskListPage
+{
+    public IReadOnlyList<TaskListItem> Items { get; init; } = [];
+    public string? NextCursor { get; init; }
+}

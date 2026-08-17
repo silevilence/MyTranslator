@@ -5,7 +5,6 @@ using Microsoft.Extensions.Localization;
 using MudBlazor.Services;
 using MyTranslator.Shared.Services;
 using MyTranslator.Web;
-using MyTranslator.Web.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -24,9 +23,6 @@ builder.Services.AddScoped<ApiErrorMessageProvider>();
 builder.Services.AddScoped<ImportExportService>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<ThemeService>();
-
-// Web 端服务
-builder.Services.AddScoped<HealthService>();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 

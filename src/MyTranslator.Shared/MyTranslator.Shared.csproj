@@ -30,6 +30,9 @@
     <EmbeddedResource Update="Resources\TranslationRunPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.TranslationRunPanel.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TaskStatusBadge.resx">
+      <LogicalName>MyTranslator.Shared.Components.TaskStatusBadge.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

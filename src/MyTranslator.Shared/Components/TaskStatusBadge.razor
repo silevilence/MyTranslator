@@ -1,0 +1,38 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<TaskStatusBadge> Localizer
+
+@* 任务公共状态徽标：颜色 + 图标 + 文字三通道（交互规范 §4） *@
+<MudChip T="string" Size="Size.Small" Color="@Color" Variant="Variant.Outlined" Icon="@Icon">@Text</MudChip>
+
+@code {
+    /// <summary>任务公共状态：`created` / `processing` / `completed` / `failed`。</summary>
+    [Parameter, EditorRequired]
+    public required string? Status { get; set; }
+
+    private string Text => Status switch
+    {
+        "created" => Localizer["StatusCreated"],
+        "processing" => Localizer["StatusProcessing"],
+        "completed" => Localizer["StatusCompleted"],
+        "failed" => Localizer["StatusFailed"],
+        _ => Localizer["StatusUnknown"],
+    };
+
+    private Color Color => Status switch
+    {
+        "created" => Color.Default,
+        "processing" => Color.Info,
+        "completed" => Color.Success,
+        "failed" => Color.Error,
+        _ => Color.Default,
+    };
+
+    private string? Icon => Status switch
+    {
+        "created" => Icons.Material.Filled.Schedule,
+        "processing" => Icons.Material.Filled.Sync,
+        "completed" => Icons.Material.Filled.CheckCircle,
+        "failed" => Icons.Material.Filled.ErrorOutline,
+        _ => Icons.Material.Filled.HelpOutline,
+    };
+}

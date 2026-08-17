@@ -190,6 +190,99 @@ public class ImportExportServiceTests
     }
 
     [Fact]
+    public async Task GetTasksAsync_首页不带筛选_筛选与翻页带参数()
+    {
+        var service = Create(
+            _ => JsonResponse(HttpStatusCode.OK, new { items = Array.Empty<object>(), nextCursor = (string?)null }),
+            out var handler);
+
+        await service.GetTasksAsync(null, null);
+        await service.GetTasksAsync("processing", null);
+        await service.GetTasksAsync("processing", "a/b c+=");
+
+        Assert.Equal("/api/tasks?limit=100", handler.Requests[0].RequestUri!.PathAndQuery);
+        Assert.Equal("/api/tasks?limit=100&status=processing", handler.Requests[1].RequestUri!.PathAndQuery);
+        Assert.Equal(
+            "/api/tasks?limit=100&status=processing&cursor=a%2Fb%20c%2B%3D",
+            handler.Requests[2].RequestUri!.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task GetTasksAsync_按契约反序列化列表项与最新运行摘要()
+    {
+        var json = """
+            {
+              "items": [
+                {
+                  "taskId": "4d898d78-1f24-47e9-8e30-adcee716c13d",
+                  "status": "processing",
+                  "source": {
+                    "kind": "file",
+                    "fileName": "manual.txt",
+                    "requestedUrl": null,
+                    "finalUrl": null,
+                    "mediaType": "text/plain",
+                    "byteLength": 18240
+                  },
+                  "fileType": "txt",
+                  "extractionRevision": 1,
+                  "progress": {
+                    "completedSegments": 24,
+                    "totalSegments": 42
+                  },
+                  "latestTranslationRun": {
+                    "runId": "56ccae85-4fea-43d6-a736-644ac9ea2422",
+                    "status": "processing",
+                    "progress": {
+                      "processedSegments": 24,
+                      "succeededSegments": 23,
+                      "failedSegments": 1,
+                      "percent": 60.0
+                    },
+                    "failure": null,
+                    "createdAt": "2026-08-14T08:30:00Z",
+                    "finishedAt": null
+                  },
+                  "createdAt": "2026-08-13T08:30:00Z"
+                }
+              ],
+              "nextCursor": null
+            }
+            """;
+        var service = Create(
+            _ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            },
+            out var handler);
+
+        var page = await service.GetTasksAsync(null, null);
+
+        Assert.Equal("/api/tasks?limit=100", handler.Requests[0].RequestUri!.PathAndQuery);
+        Assert.Null(page.NextCursor);
+        var item = Assert.Single(page.Items);
+        Assert.Equal(TaskId, item.TaskId);
+        Assert.Equal("processing", item.Status);
+        Assert.Equal("file", item.Source!.Kind);
+        Assert.Equal("manual.txt", item.Source.FileName);
+        Assert.Equal(18240, item.Source.ByteLength);
+        Assert.Equal("txt", item.FileType);
+        Assert.Equal(1, item.ExtractionRevision);
+        Assert.Equal(24, item.Progress!.CompletedSegments);
+        Assert.Equal(42, item.Progress.TotalSegments);
+        Assert.Equal(57.1, item.Progress.Percent);
+        var run = item.LatestTranslationRun!;
+        Assert.Equal(Guid.Parse("56ccae85-4fea-43d6-a736-644ac9ea2422"), run.RunId);
+        Assert.Equal("processing", run.Status);
+        Assert.Equal(24, run.Progress!.ProcessedSegments);
+        Assert.Equal(23, run.Progress.SucceededSegments);
+        Assert.Equal(1, run.Progress.FailedSegments);
+        Assert.Equal(60.0, run.Progress.Percent);
+        Assert.Null(run.Failure);
+        Assert.Null(run.FinishedAt);
+    }
+
+    [Fact]
     public async Task GetTaskAsync_按契约反序列化摘要()
     {
         var service = Create(

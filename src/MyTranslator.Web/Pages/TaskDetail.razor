@@ -29,7 +29,7 @@ else
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
         <div class="mt-task-header">
             <div class="mt-task-header-left">
-                @StatusBadge(_summary.Status)
+                <TaskStatusBadge Status="@_summary.Status" />
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ms-2">
                     @Localizer["Revision", _summary.ExtractionRevision]
                 </MudText>
@@ -307,19 +307,6 @@ else
             _ => $"{byteLength / (1024d * 1024):0.#} MB",
         };
     }
-
-    private RenderFragment StatusBadge(string? status) => __builder =>
-    {
-        var (text, color, icon) = status switch
-        {
-            "created" => (Localizer["StatusCreated"], Color.Default, Icons.Material.Filled.Schedule),
-            "processing" => (Localizer["StatusProcessing"], Color.Info, Icons.Material.Filled.Sync),
-            "completed" => (Localizer["StatusCompleted"], Color.Success, Icons.Material.Filled.CheckCircle),
-            "failed" => (Localizer["StatusFailed"], Color.Error, Icons.Material.Filled.ErrorOutline),
-            _ => (Localizer["StatusUnknown"], Color.Default, Icons.Material.Filled.HelpOutline),
-        };
-        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon">@text</MudChip>
-    };
 
     private RenderFragment ConfirmationBadge(string? status) => __builder =>
     {

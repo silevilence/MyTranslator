@@ -1,0 +1,113 @@
+/* 任务列表页布局（色值/字号一律经主题 token，禁止硬编码） */
+.mt-tasklist-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.mt-tasklist-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mt-tasklist-filter {
+    margin-top: 16px;
+    max-width: 320px;
+}
+
+.mt-tasklist {
+    margin-top: 16px;
+}
+
+.mt-task-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mt-task-row:hover {
+    background-color: var(--mud-palette-action-hover);
+}
+
+/* MudBlazor 全局 `a:focus-visible{outline:none}` 会清除链接焦点环；行链接必须保留可见焦点（审查标准 维度四） */
+.mt-task-row:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.mt-task-row-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.mt-task-row-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.mt-task-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mt-task-row-meta {
+    display: block;
+    margin-top: 4px;
+}
+
+.mt-task-row-url {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mt-task-row-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    max-width: 480px;
+}
+
+.mt-task-row-progress-bar {
+    flex: 1;
+}
+
+.mt-task-row-progress-text {
+    flex-shrink: 0;
+}
+
+.mt-task-row-run {
+    display: block;
+    margin-top: 4px;
+}
+
+.mt-task-row-chevron {
+    flex-shrink: 0;
+}
+
+.mt-tasklist-more {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.mt-tasklist-skeleton {
+    padding: 12px 16px;
+    margin-bottom: 8px;
+}

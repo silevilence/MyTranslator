@@ -13,30 +13,78 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Title" xml:space="preserve">
-    <value>主页</value>
+    <value>任务列表</value>
   </data>
-  <data name="ConnectivityTitle" xml:space="preserve">
-    <value>后端连通性</value>
+  <data name="Subtitle" xml:space="preserve">
+    <value>查看全部翻译任务的进度与状态，或创建新的导入任务</value>
   </data>
-  <data name="ConnectivityDescription" xml:space="preserve">
-    <value>调用后端健康检查接口验证前后端连通（路径经配置注入，契约见 docs/back）</value>
+  <data name="NewTask" xml:space="preserve">
+    <value>新建任务</value>
   </data>
-  <data name="ConnectivityOk" xml:space="preserve">
-    <value>后端连通正常</value>
+  <data name="Refresh" xml:space="preserve">
+    <value>刷新列表</value>
   </data>
-  <data name="SharedTitle" xml:space="preserve">
-    <value>共享组件库</value>
+  <data name="FilterLabel" xml:space="preserve">
+    <value>状态筛选</value>
   </data>
-  <data name="SharedDescription" xml:space="preserve">
-    <value>以下为共享组件库（MyTranslator.Shared）渲染示例，Web 与桌面端共用同一套组件与主题</value>
+  <data name="FilterAll" xml:space="preserve">
+    <value>全部状态</value>
   </data>
-  <data name="EmptyDemoTitle" xml:space="preserve">
+  <data name="FilterCreated" xml:space="preserve">
+    <value>创建</value>
+  </data>
+  <data name="FilterProcessing" xml:space="preserve">
+    <value>处理中</value>
+  </data>
+  <data name="FilterCompleted" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="FilterFailed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="SourceUnknown" xml:space="preserve">
+    <value>未知来源</value>
+  </data>
+  <data name="CreatedAt" xml:space="preserve">
+    <value>创建于 {0}</value>
+  </data>
+  <data name="ProgressText" xml:space="preserve">
+    <value>{0}/{1} 分段</value>
+  </data>
+  <data name="Percent" xml:space="preserve">
+    <value>{0}%</value>
+  </data>
+  <data name="RunQueued" xml:space="preserve">
+    <value>翻译排队中</value>
+  </data>
+  <data name="RunProcessing" xml:space="preserve">
+    <value>翻译处理中</value>
+  </data>
+  <data name="RunCompleted" xml:space="preserve">
+    <value>翻译完成</value>
+  </data>
+  <data name="RunPartialFailed" xml:space="preserve">
+    <value>翻译部分失败</value>
+  </data>
+  <data name="RunFailed" xml:space="preserve">
+    <value>翻译失败</value>
+  </data>
+  <data name="RunUnknown" xml:space="preserve">
+    <value>翻译运行状态未知</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
     <value>暂无任务</value>
   </data>
-  <data name="EmptyDemoDescription" xml:space="preserve">
-    <value>创建翻译任务后，将在此处展示任务列表</value>
+  <data name="EmptyDescription" xml:space="preserve">
+    <value>上传文件或输入 URL 创建第一个翻译任务</value>
   </data>
-  <data name="EmptyDemoAction" xml:space="preserve">
+  <data name="EmptyFilteredDescription" xml:space="preserve">
+    <value>当前筛选条件下没有任务，可切换筛选查看全部任务</value>
+  </data>
+  <data name="EmptyAction" xml:space="preserve">
     <value>新建任务</value>
+  </data>
+  <data name="LoadMore" xml:space="preserve">
+    <value>加载更多</value>
   </data>
 </root>

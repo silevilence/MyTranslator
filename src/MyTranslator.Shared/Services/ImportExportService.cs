@@ -91,6 +91,32 @@ public class ImportExportService
         return await ReadResultAsync<TaskSummary>(response, cancellationToken);
     }
 
+    /// <summary>
+    /// 分页列出任务（§4.5）。按 createdAt、taskId 降序返回。
+    /// 游标绑定创建它时的 <paramref name="status"/> 筛选：更换筛选条件后必须从第一页重新加载。
+    /// </summary>
+    /// <param name="status">单值状态筛选：`created` / `processing` / `completed` / `failed`；null 表示全部任务。</param>
+    /// <param name="cursor">上一页返回的不透明游标；首页传 null。</param>
+    public async Task<TaskListPage> GetTasksAsync(
+        string? status,
+        string? cursor,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new StringBuilder($"?limit={SegmentPageSize}");
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query.Append("&status=").Append(Uri.EscapeDataString(status));
+        }
+
+        if (cursor is not null)
+        {
+            query.Append("&cursor=").Append(Uri.EscapeDataString(cursor));
+        }
+
+        using var response = await _api.GetAsync($"{ApiUrl("/api/tasks")}{query}", cancellationToken);
+        return await ReadResultAsync<TaskListPage>(response, cancellationToken);
+    }
+
     /// <summary>分页读取可译分段（§6）。游标不透明，由服务端签发。</summary>
     public async Task<SegmentPage> GetSegmentsAsync(
         Guid taskId,

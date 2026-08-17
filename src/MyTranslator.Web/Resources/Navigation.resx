@@ -22,7 +22,7 @@
     <value>主页</value>
   </data>
   <data name="NavTasks" xml:space="preserve">
-    <value>任务</value>
+    <value>新建任务</value>
   </data>
   <data name="NavTerms" xml:space="preserve">
     <value>术语表</value>
