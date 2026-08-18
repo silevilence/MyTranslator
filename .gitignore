@@ -61,3 +61,6 @@ appsettings.Development.json
 *.db
 *.db-shm
 *.db-wal
+
+## Agent scratch（临时验证脚本/截图，按 docs/agents/issue-tracker 约定不入库）
+.scratch/
