@@ -272,9 +272,9 @@ public sealed class TranslationRunService(
         if (!explicitProvider && requestedModelId.HasValue)
         {
             throw Problem(
-                "model_not_found",
+                null,
                 "A model cannot be selected without its provider.",
-                StatusCodes.Status422UnprocessableEntity);
+                StatusCodes.Status400BadRequest);
         }
 
         AiProvider? provider;
@@ -346,22 +346,7 @@ public sealed class TranslationRunService(
             }
         }
 
-        var missing = new List<string>();
-        if (string.IsNullOrWhiteSpace(provider.BaseUrl))
-        {
-            missing.Add("baseUrl");
-        }
-
-        if (provider.Kind == "openai" && string.IsNullOrWhiteSpace(provider.ApiKey))
-        {
-            missing.Add("apiKey");
-        }
-
-        if (string.IsNullOrWhiteSpace(model.ModelId))
-        {
-            missing.Add("modelId");
-        }
-
+        var missing = AiConfigurationAvailability.GetMissingFields(provider, model);
         if (missing.Count > 0)
         {
             throw NotConfigured(missing);
@@ -466,7 +451,7 @@ public sealed class TranslationRunService(
         };
 
     private static TranslationRequestException Problem(
-        string code,
+        string? code,
         string message,
         int statusCode,
         IReadOnlyDictionary<string, object?>? errors = null) =>

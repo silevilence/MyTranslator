@@ -12,6 +12,21 @@ public sealed class ApiExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
+        if (exception is ApiRequestException requestException)
+        {
+            httpContext.Response.StatusCode = requestException.StatusCode;
+            return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = httpContext,
+                ProblemDetails = ApiProblem.CreateDetails(
+                    httpContext,
+                    requestException.Code,
+                    requestException.Message,
+                    requestException.StatusCode,
+                    requestException.Errors)
+            });
+        }
+
         logger.LogError(exception, "Unhandled API exception for {Path}", httpContext.Request.Path);
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext

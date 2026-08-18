@@ -15,8 +15,8 @@ public sealed class AiChatClientFactory(IHttpClientFactory httpClientFactory) : 
 {
     public IChatClient Create(AiProvider provider, AiModel model) => provider.Kind switch
     {
-        "openai" => CreateOpenAi(provider, model),
-        "ollama" => CreateOllama(provider, model),
+        AiProviderKinds.OpenAi => CreateOpenAi(provider, model),
+        AiProviderKinds.Ollama => CreateOllama(provider, model),
         _ => throw new NotSupportedException($"Unsupported AI provider kind '{provider.Kind}'.")
     };
 

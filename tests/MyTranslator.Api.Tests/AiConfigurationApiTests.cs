@@ -97,6 +97,9 @@ public sealed class AiConfigurationApiTests
             "invalid_provider_key_field",
             (await reservedField.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
 
+        var malformedBody = await client.PostAsJsonAsync("/api/providers", "not-an-object");
+        await AssertGenericBadRequestAsync(malformedBody);
+
         var duplicate = await client.PostAsJsonAsync($"/api/providers/{firstId}/models", new
         {
             modelId = "model-b",
@@ -249,6 +252,151 @@ public sealed class AiConfigurationApiTests
     }
 
     [Fact]
+    public async Task DefaultDisabledAndProviderWithoutDefaultModelUseContractMappings()
+    {
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            chatClientFactory: new SelectionAwareChatClientFactory(),
+            seedTranslationConfiguration: false);
+        using var client = CreateClient(factory);
+        var disabledDefault = await CreateProviderAsync(
+            client,
+            "Disabled Default",
+            "ollama",
+            "http://disabled-default.test",
+            null,
+            isDefault: true,
+            enabled: false);
+        var providerWithoutDefault = await CreateProviderAsync(
+            client,
+            "No Default Model",
+            "openai",
+            "https://no-default.test/v1",
+            "configured-secret",
+            isDefault: false);
+        await CreateModelAsync(
+            client,
+            disabledDefault.GetProperty("id").GetGuid(),
+            "disabled-default-model",
+            "Disabled Default Model",
+            isDefault: true);
+
+        var defaultTask = await ImportTextAsync(client, "Default selection");
+        var disabledResponse = await PostRunAsync(client, defaultTask, null, null);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, disabledResponse.StatusCode);
+        Assert.Equal("llm_not_configured", await ReadCodeAsync(disabledResponse));
+        Assert.Equal(
+            "failed",
+            (await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{defaultTask}"))
+            .GetProperty("status").GetString());
+
+        var explicitTask = await ImportTextAsync(client, "Explicit selection");
+        var noDefaultModelResponse = await PostRunAsync(
+            client,
+            explicitTask,
+            providerWithoutDefault.GetProperty("id").GetGuid(),
+            null);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, noDefaultModelResponse.StatusCode);
+        Assert.Equal("model_not_found", await ReadCodeAsync(noDefaultModelResponse));
+        Assert.Equal(
+            "created",
+            (await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{explicitTask}"))
+            .GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task InvalidSelectionShapesReturnGenericBadRequest()
+    {
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            chatClientFactory: new SelectionAwareChatClientFactory(),
+            seedTranslationConfiguration: false);
+        using var client = CreateClient(factory);
+        var taskId = await ImportTextAsync(client, "Hello");
+
+        var malformedProvider = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new
+            {
+                extractionRevision = 1,
+                targetLanguage = "zh-CN",
+                providerId = "not-a-uuid"
+            });
+        await AssertGenericBadRequestAsync(malformedProvider);
+
+        var modelWithoutProvider = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new
+            {
+                extractionRevision = 1,
+                targetLanguage = "zh-CN",
+                modelId = Guid.NewGuid()
+            });
+        await AssertGenericBadRequestAsync(modelWithoutProvider);
+
+        var malformedModel = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/translation-runs",
+            new
+            {
+                extractionRevision = 1,
+                targetLanguage = "zh-CN",
+                providerId = Guid.NewGuid(),
+                modelId = "not-a-uuid"
+            });
+        await AssertGenericBadRequestAsync(malformedModel);
+        Assert.Equal(
+            "created",
+            (await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}"))
+            .GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task DeletingConfigurationDuringRunFailsRemainingSegmentsAsModelUnavailable()
+    {
+        var chatClientFactory = new BlockingFirstBatchChatClientFactory();
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            chatClientFactory: chatClientFactory,
+            seedTranslationConfiguration: false);
+        using var client = CreateClient(factory);
+        var provider = await CreateProviderAsync(
+            client,
+            "Transient",
+            "openai",
+            "https://transient.test/v1",
+            "transient-secret",
+            isDefault: true,
+            batchSize: 1);
+        var providerId = provider.GetProperty("id").GetGuid();
+        await CreateModelAsync(client, providerId, "transient-model", "Transient Model", isDefault: true);
+        var taskId = await ImportTextAsync(client, "One\n\nTwo");
+        var created = await CreateRunAsync(client, taskId, null, null);
+
+        try
+        {
+            await chatClientFactory.WaitForCallAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/providers/{providerId}")).StatusCode);
+        }
+        finally
+        {
+            chatClientFactory.Release();
+        }
+
+        var runId = created.GetProperty("runId").GetGuid();
+        var run = await WaitForTerminalRunAsync(client, taskId, runId);
+        var failures = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/tasks/{taskId}/translation-runs/{runId}/failures");
+        var failure = Assert.Single(failures.GetProperty("items").EnumerateArray());
+        Assert.Equal("partial_failed", run.GetProperty("status").GetString());
+        Assert.Equal("llm_model_unavailable", failure.GetProperty("code").GetString());
+        Assert.False(failure.GetProperty("retryable").GetBoolean());
+        Assert.Equal(0, failure.GetProperty("attempts").GetInt32());
+    }
+
+    [Fact]
     public async Task ApiKeyIsMaskedAndNeverWrittenToApplicationLogs()
     {
         const string secret = "sk-super-secret-value-abcd";
@@ -289,7 +437,8 @@ public sealed class AiConfigurationApiTests
         string baseUrl,
         string? apiKey,
         bool isDefault,
-        bool enabled = true)
+        bool enabled = true,
+        int batchSize = AiProviderRuntimeSettings.DefaultBatchSize)
     {
         var response = await client.PostAsJsonAsync("/api/providers", new
         {
@@ -299,7 +448,7 @@ public sealed class AiConfigurationApiTests
             apiKey,
             enabled,
             isDefault,
-            batchSize = 20,
+            batchSize,
             requestTimeout = "00:01:00",
             maxAttempts = 3
         });
@@ -388,6 +537,14 @@ public sealed class AiConfigurationApiTests
     private static async Task<string?> ReadCodeAsync(HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString();
 
+    private static async Task AssertGenericBadRequestAsync(HttpResponseMessage response)
+    {
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.False(problem.TryGetProperty("code", out _));
+    }
+
     private sealed class SelectionAwareChatClientFactory : IAiChatClientFactory
     {
         public ConcurrentBag<(Guid ProviderId, Guid ModelId)> Selections { get; } = [];
@@ -399,43 +556,41 @@ public sealed class AiConfigurationApiTests
         }
     }
 
-    private sealed class EchoChatClient(string prefix) : IChatClient
+    private sealed class EchoChatClient(string prefix) : TestTranslationChatClient
     {
-        public Task<ChatResponse> GetResponseAsync(
-            IEnumerable<ChatMessage> messages,
-            ChatOptions? options = null,
-            CancellationToken cancellationToken = default)
-        {
-            using var input = JsonDocument.Parse(messages.Last(message => message.Role == ChatRole.User).Text);
-            var translations = input.RootElement.GetProperty("segments").EnumerateArray()
-                .Select(segment => new
-                {
-                    segmentId = segment.GetProperty("segmentId").GetGuid(),
-                    targetText = $"{prefix}: {segment.GetProperty("sourceText").GetString()}"
-                })
-                .ToArray();
-            var response = new ChatResponse(new ChatMessage(
-                ChatRole.Assistant,
-                JsonSerializer.Serialize(new { translations })));
-            return Task.FromResult(response);
-        }
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+            TestTranslationRequest request,
+            CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TestTranslationOutput>>(
+            request.Segments
+                .Select(segment => new TestTranslationOutput(
+                    segment.SegmentId,
+                    $"{prefix}: {segment.SourceText}"))
+                .ToArray());
+    }
 
-        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
-            IEnumerable<ChatMessage> messages,
-            ChatOptions? options = null,
-            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            await Task.Yield();
-            throw new NotSupportedException();
-#pragma warning disable CS0162
-            yield break;
-#pragma warning restore CS0162
-        }
+    private sealed class BlockingFirstBatchChatClientFactory : IAiChatClientFactory
+    {
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+        public IChatClient Create(AiProvider provider, AiModel model) => new Client(this);
 
-        public void Dispose()
+        public Task WaitForCallAsync(TimeSpan timeout) => _started.Task.WaitAsync(timeout);
+
+        public void Release() => _released.TrySetResult();
+
+        private sealed class Client(BlockingFirstBatchChatClientFactory owner) : TestTranslationChatClient
         {
+            protected override async Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(
+                TestTranslationRequest request,
+                CancellationToken cancellationToken)
+            {
+                owner._started.TrySetResult();
+                await owner._released.Task.WaitAsync(cancellationToken);
+                return request.Segments
+                    .Select(segment => new TestTranslationOutput(segment.SegmentId, $"Translated: {segment.SourceText}"))
+                    .ToArray();
+            }
         }
     }
 

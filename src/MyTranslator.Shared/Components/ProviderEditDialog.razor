@@ -218,9 +218,8 @@
     private bool Validate()
     {
         _nameError = string.IsNullOrWhiteSpace(_name) ? Localizer["NameRequired"].Value : null;
-        _timeoutError = TimeSpan.TryParseExact(
+        _timeoutError = TimeSpan.TryParse(
             _requestTimeout.Trim(),
-            ["c", @"hh\:mm\:ss", @"hh\:mm"],
             System.Globalization.CultureInfo.InvariantCulture,
             out var timeout) && timeout > TimeSpan.Zero
             ? null

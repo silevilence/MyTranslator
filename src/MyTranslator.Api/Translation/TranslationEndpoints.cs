@@ -16,18 +16,11 @@ public static class TranslationEndpoints
                     HttpContext httpContext,
                     CancellationToken cancellationToken) =>
                 {
-                    try
-                    {
-                        var request = ParseCreateRequest(requestBody);
-                        var run = await service.CreateAsync(taskId, request, cancellationToken);
-                        var location = $"/api/tasks/{taskId}/translation-runs/{run.RunId}";
-                        httpContext.Response.Headers.RetryAfter = "1";
-                        return Results.Accepted(location, run);
-                    }
-                    catch (TranslationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
+                    var request = ParseCreateRequest(requestBody);
+                    var run = await service.CreateAsync(taskId, request, cancellationToken);
+                    var location = $"/api/tasks/{taskId}/translation-runs/{run.RunId}";
+                    httpContext.Response.Headers.RetryAfter = "1";
+                    return Results.Accepted(location, run);
                 })
             .WithName("CreateTranslationRun")
             .WithTags("Translation");
@@ -68,20 +61,11 @@ public static class TranslationEndpoints
                     string? cursor,
                     TranslationRunService service,
                     CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        return Results.Ok(await service.ListAsync(
-                            taskId,
-                            limit ?? 100,
-                            cursor,
-                            cancellationToken));
-                    }
-                    catch (TranslationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
-                })
+                    Results.Ok(await service.ListAsync(
+                        taskId,
+                        limit ?? 100,
+                        cursor,
+                        cancellationToken)))
             .WithName("ListTranslationRuns")
             .WithTags("Translation");
 
@@ -94,21 +78,12 @@ public static class TranslationEndpoints
                     string? cursor,
                     TranslationRunService service,
                     CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        return Results.Ok(await service.ListFailuresAsync(
-                            taskId,
-                            runId,
-                            limit ?? 100,
-                            cursor,
-                            cancellationToken));
-                    }
-                    catch (TranslationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
-                })
+                    Results.Ok(await service.ListFailuresAsync(
+                        taskId,
+                        runId,
+                        limit ?? 100,
+                        cursor,
+                        cancellationToken)))
             .WithName("ListTranslationRunFailures")
             .WithTags("Translation");
 
@@ -145,8 +120,8 @@ public static class TranslationEndpoints
             throw InvalidLanguageTag();
         }
 
-        var providerId = ParseOptionalId(body, "providerId", "provider_not_found", StatusCodes.Status404NotFound);
-        var modelId = ParseOptionalId(body, "modelId", "model_not_found", StatusCodes.Status422UnprocessableEntity);
+        var providerId = ParseOptionalId(body, "providerId");
+        var modelId = ParseOptionalId(body, "modelId");
         return new CreateTranslationRunRequest(
             revisionValue,
             sourceLanguage,
@@ -155,7 +130,7 @@ public static class TranslationEndpoints
             modelId);
     }
 
-    private static Guid? ParseOptionalId(JsonElement body, string property, string code, int statusCode)
+    private static Guid? ParseOptionalId(JsonElement body, string property)
     {
         if (!body.TryGetProperty(property, out var value) || value.ValueKind == JsonValueKind.Null)
         {
@@ -164,7 +139,10 @@ public static class TranslationEndpoints
 
         if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var id))
         {
-            throw new TranslationRequestException(code, $"The {property} is invalid.", statusCode);
+            throw new TranslationRequestException(
+                null,
+                $"The {property} must be a UUID or null.",
+                StatusCodes.Status400BadRequest);
         }
 
         return id;

@@ -75,7 +75,7 @@ public sealed class AiConfigurationService(AppDbContext database)
         provider.Name = request.Name;
         provider.Kind = request.Kind;
         provider.BaseUrl = request.BaseUrl;
-        if (!ShouldKeepKey(request.ApiKey))
+        if (IsReplacementKey(request.ApiKey))
         {
             provider.ApiKey = request.ApiKey;
         }
@@ -245,7 +245,7 @@ public sealed class AiConfigurationService(AppDbContext database)
         await database.SaveChangesAsync(cancellationToken);
     }
 
-    public static string? MaskKey(string? key)
+    private static string? MaskKey(string? key)
     {
         if (string.IsNullOrEmpty(key))
         {
@@ -255,14 +255,14 @@ public sealed class AiConfigurationService(AppDbContext database)
         return key.Length <= 8 ? "***" : $"{key[..3]}***{key[^4..]}";
     }
 
-    public static bool ShouldKeepKey(string? key) =>
-        key is null || IsMaskedKey(key);
+    private static bool IsReplacementKey(string? key) =>
+        key is not null && !IsMaskedKey(key);
 
     private static bool IsMaskedKey(string key) =>
         key == "***" ||
         (key.Length == 10 && key.AsSpan(3, 3).SequenceEqual("***"));
 
-    private static string? NormalizeNewKey(string? key) => ShouldKeepKey(key) ? null : key;
+    private static string? NormalizeNewKey(string? key) => IsReplacementKey(key) ? key : null;
 
     private async Task ClearDefaultProvidersAsync(CancellationToken cancellationToken)
     {

@@ -126,4 +126,16 @@
   <data name="FailuresTruncated" xml:space="preserve">
     <value>仅显示前 {0} 条失败明细，完整列表可通过接口查询</value>
   </data>
+  <data name="PlaceholderDefaultPair" xml:space="preserve">
+    <value>默认对：{0} / {1}</value>
+  </data>
+  <data name="PlaceholderNoDefaultPair" xml:space="preserve">
+    <value>未配置默认对</value>
+  </data>
+  <data name="PlaceholderDefaultModel" xml:space="preserve">
+    <value>默认：{0}</value>
+  </data>
+  <data name="PlaceholderNoDefaultModel" xml:space="preserve">
+    <value>无默认模型</value>
+  </data>
 </root>

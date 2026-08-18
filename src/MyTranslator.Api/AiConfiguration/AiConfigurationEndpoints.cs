@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using MyTranslator.Api.Data;
 
 namespace MyTranslator.Api.AiConfiguration;
 
@@ -21,15 +22,8 @@ public static class AiConfigurationEndpoints
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
                 {
-                    try
-                    {
-                        var provider = await service.CreateProviderAsync(ParseProvider(body), cancellationToken);
-                        return Results.Created($"/api/providers/{provider.Id}", provider);
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
+                    var provider = await service.CreateProviderAsync(ParseProvider(body), cancellationToken);
+                    return Results.Created($"/api/providers/{provider.Id}", provider);
                 })
             .WithName("CreateAiProvider")
             .WithTags("AI Configuration");
@@ -41,16 +35,7 @@ public static class AiConfigurationEndpoints
                     JsonElement body,
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        return Results.Ok(await service.UpdateProviderAsync(id, ParseProvider(body), cancellationToken));
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
-                })
+                    Results.Ok(await service.UpdateProviderAsync(id, ParseProvider(body), cancellationToken)))
             .WithName("UpdateAiProvider")
             .WithTags("AI Configuration");
 
@@ -61,15 +46,8 @@ public static class AiConfigurationEndpoints
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
                 {
-                    try
-                    {
-                        await service.DeleteProviderAsync(id, cancellationToken);
-                        return Results.NoContent();
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
+                    await service.DeleteProviderAsync(id, cancellationToken);
+                    return Results.NoContent();
                 })
             .WithName("DeleteAiProvider")
             .WithTags("AI Configuration");
@@ -80,16 +58,7 @@ public static class AiConfigurationEndpoints
                     Guid providerId,
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        return Results.Ok(await service.ListModelsAsync(providerId, cancellationToken));
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
-                })
+                    Results.Ok(await service.ListModelsAsync(providerId, cancellationToken)))
             .WithName("ListAiModels")
             .WithTags("AI Configuration");
 
@@ -101,15 +70,8 @@ public static class AiConfigurationEndpoints
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
                 {
-                    try
-                    {
-                        var model = await service.CreateModelAsync(providerId, ParseModel(body), cancellationToken);
-                        return Results.Created($"/api/providers/{providerId}/models/{model.Id}", model);
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
+                    var model = await service.CreateModelAsync(providerId, ParseModel(body), cancellationToken);
+                    return Results.Created($"/api/providers/{providerId}/models/{model.Id}", model);
                 })
             .WithName("CreateAiModel")
             .WithTags("AI Configuration");
@@ -122,20 +84,11 @@ public static class AiConfigurationEndpoints
                     JsonElement body,
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        return Results.Ok(await service.UpdateModelAsync(
-                            providerId,
-                            id,
-                            ParseModel(body),
-                            cancellationToken));
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
-                })
+                    Results.Ok(await service.UpdateModelAsync(
+                        providerId,
+                        id,
+                        ParseModel(body),
+                        cancellationToken)))
             .WithName("UpdateAiModel")
             .WithTags("AI Configuration");
 
@@ -147,15 +100,8 @@ public static class AiConfigurationEndpoints
                     AiConfigurationService service,
                     CancellationToken cancellationToken) =>
                 {
-                    try
-                    {
-                        await service.DeleteModelAsync(providerId, id, cancellationToken);
-                        return Results.NoContent();
-                    }
-                    catch (AiConfigurationRequestException exception)
-                    {
-                        return Problem(exception);
-                    }
+                    await service.DeleteModelAsync(providerId, id, cancellationToken);
+                    return Results.NoContent();
                 })
             .WithName("DeleteAiModel")
             .WithTags("AI Configuration");
@@ -175,7 +121,7 @@ public static class AiConfigurationEndpoints
 
         var name = RequiredNonBlankString(body, "name", "invalid_provider_name").Trim();
         var kind = RequiredNonBlankString(body, "kind", "invalid_provider_kind").Trim().ToLowerInvariant();
-        if (kind is not ("openai" or "ollama"))
+        if (!AiProviderKinds.IsSupported(kind))
         {
             throw Invalid("invalid_provider_kind", "The provider kind must be openai or ollama.");
         }
@@ -194,10 +140,13 @@ public static class AiConfigurationEndpoints
         var apiKey = OptionalString(body, "apiKey");
         var enabled = OptionalBoolean(body, "enabled", true);
         var isDefault = OptionalBoolean(body, "isDefault", false);
-        var batchSize = OptionalInteger(body, "batchSize", 20);
-        var maxAttempts = OptionalInteger(body, "maxAttempts", 3);
-        var requestTimeout = OptionalTimeSpan(body, "requestTimeout", TimeSpan.FromMinutes(1));
-        if (batchSize is < 1 or > 200 || maxAttempts is < 1 or > 10 || requestTimeout <= TimeSpan.Zero)
+        var batchSize = OptionalInteger(body, "batchSize", AiProviderRuntimeSettings.DefaultBatchSize);
+        var maxAttempts = OptionalInteger(body, "maxAttempts", AiProviderRuntimeSettings.DefaultMaxAttempts);
+        var requestTimeout = OptionalTimeSpan(
+            body,
+            "requestTimeout",
+            AiProviderRuntimeSettings.DefaultRequestTimeout);
+        if (!AiProviderRuntimeSettings.IsValid(batchSize, requestTimeout, maxAttempts))
         {
             throw new AiConfigurationRequestException(
                 "invalid_runtime_settings",
@@ -205,9 +154,11 @@ public static class AiConfigurationEndpoints
                 StatusCodes.Status400BadRequest,
                 new Dictionary<string, object?>
                 {
-                    ["batchSize"] = "1..200",
+                    ["batchSize"] =
+                        $"{AiProviderRuntimeSettings.MinimumBatchSize}..{AiProviderRuntimeSettings.MaximumBatchSize}",
                     ["requestTimeout"] = "> 00:00:00",
-                    ["maxAttempts"] = "1..10"
+                    ["maxAttempts"] =
+                        $"{AiProviderRuntimeSettings.MinimumMaxAttempts}..{AiProviderRuntimeSettings.MaximumMaxAttempts}"
                 });
         }
 
@@ -241,7 +192,7 @@ public static class AiConfigurationEndpoints
     {
         if (body.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid("invalid_request", "The request body must be a JSON object.");
+            throw Invalid(null, "The request body must be a JSON object.");
         }
     }
 
@@ -266,7 +217,7 @@ public static class AiConfigurationEndpoints
 
         if (value.ValueKind != JsonValueKind.String)
         {
-            throw Invalid("invalid_request", $"{property} must be a string or null.");
+            throw Invalid(null, $"{property} must be a string or null.");
         }
 
         return value.GetString();
@@ -281,7 +232,7 @@ public static class AiConfigurationEndpoints
 
         if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
-            throw Invalid("invalid_request", $"{property} must be a boolean.");
+            throw Invalid(null, $"{property} must be a boolean.");
         }
 
         return value.GetBoolean();
@@ -318,14 +269,8 @@ public static class AiConfigurationEndpoints
         return result;
     }
 
-    private static AiConfigurationRequestException Invalid(string code, string message) => new(
+    private static AiConfigurationRequestException Invalid(string? code, string message) => new(
         code,
         message,
         StatusCodes.Status400BadRequest);
-
-    private static IResult Problem(AiConfigurationRequestException exception) => ApiProblem.Create(
-        exception.Code,
-        exception.Message,
-        exception.StatusCode,
-        exception.Errors);
 }

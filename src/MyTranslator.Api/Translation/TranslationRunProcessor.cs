@@ -32,7 +32,7 @@ public sealed class TranslationRunProcessor(
             var configuration = await LoadConfigurationAsync(run, cancellationToken);
             var segments = await LoadNextBatchAsync(
                 run,
-                configuration?.Provider.BatchSize ?? 20,
+                configuration?.Provider.BatchSize ?? AiProviderRuntimeSettings.DefaultBatchSize,
                 cancellationToken);
             if (segments.Count == 0)
             {
@@ -71,10 +71,7 @@ public sealed class TranslationRunProcessor(
             .SingleOrDefaultAsync(
                 item => item.Id == run.ModelId && item.ProviderId == run.ProviderId,
                 cancellationToken);
-        if (provider is null || model is null || !provider.Enabled ||
-            string.IsNullOrWhiteSpace(provider.BaseUrl) ||
-            (provider.Kind == "openai" && string.IsNullOrWhiteSpace(provider.ApiKey)) ||
-            string.IsNullOrWhiteSpace(model.ModelId))
+        if (provider is null || model is null || !AiConfigurationAvailability.IsAvailable(provider, model))
         {
             return null;
         }
@@ -98,7 +95,7 @@ public sealed class TranslationRunProcessor(
                 segment.ConfirmationStatus == SegmentConfirmationStatus.Pending &&
                 !failedIds.Contains(segment.Id))
             .OrderBy(segment => segment.Order)
-            .Take(Math.Clamp(batchSize, 1, 200))
+            .Take(AiProviderRuntimeSettings.ClampBatchSize(batchSize))
             .Select(segment => new SegmentWork(
                 segment.Id,
                 segment.Order,
@@ -117,7 +114,7 @@ public sealed class TranslationRunProcessor(
         var lastFailures = pending.Keys.ToDictionary(
             id => id,
             _ => new FailureCause("llm_response_invalid", true));
-        var maxAttempts = Math.Clamp(configuration.Provider.MaxAttempts, 1, 10);
+        var maxAttempts = AiProviderRuntimeSettings.ClampMaxAttempts(configuration.Provider.MaxAttempts);
 
         IChatClient chatClient;
         try

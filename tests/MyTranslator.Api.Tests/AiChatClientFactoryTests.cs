@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.Translation;
 using OllamaSharp;
@@ -56,6 +58,65 @@ public sealed class AiChatClientFactoryTests
     }
 
     [Fact]
+    public async Task ConcurrentOllamaProvidersUseIndependentFactoryClients()
+    {
+        var handler = new SuccessfulOllamaHandler();
+        var services = new ServiceCollection();
+        services.AddHttpClient("AiChatClient")
+            .ConfigurePrimaryHttpMessageHandler(() => handler);
+        await using var serviceProvider = services.BuildServiceProvider();
+        var factory = new AiChatClientFactory(serviceProvider.GetRequiredService<IHttpClientFactory>());
+        var firstClient = factory.Create(
+            new AiProvider { Kind = "ollama", BaseUrl = "http://first-ollama.test" },
+            new AiModel { ModelId = "first-model" });
+        var secondClient = factory.Create(
+            new AiProvider { Kind = "ollama", BaseUrl = "http://second-ollama.test" },
+            new AiModel { ModelId = "second-model" });
+
+        await Task.WhenAll(
+            firstClient.GetResponseAsync([new ChatMessage(ChatRole.User, "First")]),
+            secondClient.GetResponseAsync([new ChatMessage(ChatRole.User, "Second")]));
+
+        Assert.Contains(new Uri("http://first-ollama.test/api/chat"), handler.RequestUris);
+        Assert.Contains(new Uri("http://second-ollama.test/api/chat"), handler.RequestUris);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, "llm_authentication_failed", false, 1)]
+    [InlineData(HttpStatusCode.Forbidden, "llm_authentication_failed", false, 1)]
+    [InlineData(HttpStatusCode.NotFound, "llm_model_unavailable", false, 1)]
+    [InlineData(HttpStatusCode.RequestTimeout, "llm_provider_timeout", true, 3)]
+    [InlineData(HttpStatusCode.TooManyRequests, "llm_provider_unavailable", true, 3)]
+    [InlineData(HttpStatusCode.InternalServerError, "llm_provider_unavailable", true, 3)]
+    [InlineData(HttpStatusCode.GatewayTimeout, "llm_provider_timeout", true, 3)]
+    public async Task OllamaHttpErrorsFollowPublicFailureAndRetryContract(
+        HttpStatusCode status,
+        string expectedCode,
+        bool expectedRetryable,
+        int expectedAttempts)
+    {
+        var handler = new OllamaFailureHandler(status);
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            translationHandler: handler,
+            seedTranslationConfiguration: false);
+        using var client = CreateAuthenticatedClient(factory);
+        var (taskId, runId) = await CreateConfiguredOllamaRunAsync(client);
+
+        var run = await WaitForTerminalRunAsync(client, taskId, runId);
+        var failurePage = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/tasks/{taskId}/translation-runs/{runId}/failures");
+        var failure = Assert.Single(failurePage.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("failed", run.GetProperty("status").GetString());
+        Assert.Equal(expectedCode, failure.GetProperty("code").GetString());
+        Assert.Equal(expectedRetryable, failure.GetProperty("retryable").GetBoolean());
+        Assert.Equal(expectedAttempts, failure.GetProperty("attempts").GetInt32());
+        Assert.Equal(expectedAttempts, handler.Calls);
+    }
+
+    [Fact]
     public async Task ConfiguredOllamaProviderTranslatesAndPersistsSegment()
     {
         var handler = new OllamaTranslationHandler();
@@ -64,17 +125,37 @@ public sealed class AiChatClientFactoryTests
             null,
             translationHandler: handler,
             seedTranslationConfiguration: false);
-        using var client = factory.CreateClient();
+        using var client = CreateAuthenticatedClient(factory);
+        var (taskId, runId) = await CreateConfiguredOllamaRunAsync(client);
+
+        var run = await WaitForTerminalRunAsync(client, taskId, runId);
+        var segments = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var segment = Assert.Single(segments.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("completed", run.GetProperty("status").GetString());
+        Assert.Equal("你好", segment.GetProperty("targetText").GetString());
+        Assert.Equal(new Uri("http://ollama.test/api/chat"), handler.RequestUri);
+    }
+
+    private static HttpClient CreateAuthenticatedClient(ApiFactory factory)
+    {
+        var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             "sk-dev-00000000000000000000000000000000");
+        return client;
+    }
+
+    private static async Task<(Guid TaskId, Guid RunId)> CreateConfiguredOllamaRunAsync(HttpClient client)
+    {
         var providerResponse = await client.PostAsJsonAsync("/api/providers", new
         {
             name = "Local Ollama",
             kind = "ollama",
             baseUrl = "http://ollama.test",
             enabled = true,
-            isDefault = true
+            isDefault = true,
+            maxAttempts = 3
         });
         var provider = await providerResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(HttpStatusCode.Created, providerResponse.StatusCode);
@@ -93,13 +174,7 @@ public sealed class AiChatClientFactoryTests
             new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "zh-CN" });
         var createdRun = await createRunResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(HttpStatusCode.Accepted, createRunResponse.StatusCode);
-        var run = await WaitForTerminalRunAsync(client, taskId, createdRun.GetProperty("runId").GetGuid());
-        var segments = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
-        var segment = Assert.Single(segments.GetProperty("items").EnumerateArray());
-
-        Assert.Equal("completed", run.GetProperty("status").GetString());
-        Assert.Equal("你好", segment.GetProperty("targetText").GetString());
-        Assert.Equal(new Uri("http://ollama.test/api/chat"), handler.RequestUri);
+        return (taskId, createdRun.GetProperty("runId").GetGuid());
     }
 
     private static IChatClient CreateOllamaChatClient(HttpClient httpClient)
@@ -192,6 +267,47 @@ public sealed class AiChatClientFactoryTests
                     done_reason = "stop"
                 })
             };
+        }
+    }
+
+    private sealed class SuccessfulOllamaHandler : HttpMessageHandler
+    {
+        public ConcurrentQueue<Uri> RequestUris { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestUris.Enqueue(request.RequestUri!);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new
+                {
+                    model = "test-model",
+                    created_at = DateTimeOffset.UtcNow,
+                    message = new { role = "assistant", content = "translated" },
+                    done = true,
+                    done_reason = "stop"
+                })
+            });
+        }
+    }
+
+    private sealed class OllamaFailureHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        private int calls;
+
+        public int Calls => Volatile.Read(ref calls);
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref calls);
+            return Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = JsonContent.Create(new { error = "configured test failure" })
+            });
         }
     }
 }

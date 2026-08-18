@@ -119,3 +119,22 @@ public sealed record AiModelUpsert
 
     public bool IsDefault { get; init; }
 }
+
+/// <summary>
+/// 提供商列表的默认对查询（配置约定 §2.2：默认提供商 + 其默认模型合成默认对）。
+/// 设置页与翻译面板共用，避免各组件重复同形判定。
+/// </summary>
+public static class AiProviderQueries
+{
+    /// <summary>是否存在完整默认对（默认提供商且其下存在默认模型）。</summary>
+    public static bool HasDefaultPair(this IReadOnlyList<AiProvider>? providers) =>
+        DefaultProvider(providers)?.Models.Any(m => m.IsDefault) == true;
+
+    /// <summary>全局唯一默认提供商；无默认提供商时为 null。</summary>
+    public static AiProvider? DefaultProvider(this IReadOnlyList<AiProvider>? providers) =>
+        providers?.FirstOrDefault(p => p.IsDefault);
+
+    /// <summary>提供商内默认模型；无时为 null。</summary>
+    public static AiModel? DefaultModel(this AiProvider? provider) =>
+        provider?.Models.FirstOrDefault(m => m.IsDefault);
+}

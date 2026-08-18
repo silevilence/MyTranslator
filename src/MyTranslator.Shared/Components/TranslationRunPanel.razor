@@ -29,9 +29,17 @@
                           Disabled="_creating || HasActiveRun"
                           Error="_targetError is not null"
                           ErrorText="_targetError" />
+            <MudTextField T="string"
+                          Label="@Localizer["SourceLanguageLabel"]"
+                          HelperText="@Localizer["SourceLanguageHelper"]"
+                          Variant="Variant.Outlined"
+                          Class="mt-translation-run-field"
+                          @bind-Value="_sourceLanguage"
+                          Disabled="_creating || HasActiveRun" />
             <MudSelect T="string"
                        Label="@Localizer["ProviderLabel"]"
                        HelperText="@Localizer["ProviderHelper"]"
+                       Placeholder="@ProviderPlaceholder"
                        Variant="Variant.Outlined"
                        Value="@(_selectedProviderId?.ToString() ?? string.Empty)"
                        ValueChanged="OnProviderChangedAsync"
@@ -48,6 +56,7 @@
             <MudSelect T="string"
                        Label="@Localizer["ModelLabel"]"
                        HelperText="@Localizer["ModelHelper"]"
+                       Placeholder="@ModelPlaceholder"
                        Variant="Variant.Outlined"
                        Value="@(_selectedModelId?.ToString() ?? string.Empty)"
                        ValueChanged="OnModelChangedAsync"
@@ -101,7 +110,7 @@
     {
         <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
             <div class="mt-translation-run-header">
-                @RunStatusBadge(_run.Status)
+                @RunStatusBadge(_run)
                 @if (_run.Selection is { } selection)
                 {
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ms-2">
@@ -272,9 +281,12 @@
     /// <summary>存在未进入终态的运行；活动运行期间禁止再次创建（§2.4 互斥）。</summary>
     private bool HasActiveRun => _run is not null && !IsTerminal(_run);
 
+    /// <summary>按 ID 从已加载配置解析提供商；未选择或未找到为 null。</summary>
+    private AiProvider? ProviderById(Guid? id) =>
+        id is null ? null : _providers?.FirstOrDefault(p => p.Id == id);
+
     /// <summary>当前选中的提供商（按 ID 从已加载配置解析）。</summary>
-    private AiProvider? SelectedProvider =>
-        _providers?.FirstOrDefault(p => p.Id == _selectedProviderId);
+    private AiProvider? SelectedProvider => ProviderById(_selectedProviderId);
 
     /// <summary>
     /// 配置状态提示（§11.1 第 2 步）：未配置默认对/未配置任何提供商时提示将影响翻译；
@@ -317,7 +329,7 @@
                 return null;
             }
 
-            var provider = _providers?.FirstOrDefault(p => p.Id == providerId);
+            var provider = ProviderById(providerId);
             var model = provider?.Models.FirstOrDefault(m => m.Id == modelId);
             return (
                 provider?.Name ?? ShortId(providerId),
@@ -328,8 +340,39 @@
     private static string ShortId(Guid id) => id.ToString("N")[..8];
 
     /// <summary>默认提供商 + 其默认模型合成默认对（配置约定 §2.2）。</summary>
-    private bool HasDefaultPair =>
-        _providers?.Any(p => p.IsDefault && p.Models.Any(m => m.IsDefault)) == true;
+    private bool HasDefaultPair => _providers.HasDefaultPair();
+
+    /// <summary>提供商选择器占位文案：缺省显示默认对（交互规范 §1 / §11.1 第 2 步）；未配置时提示缺失。</summary>
+    private string ProviderPlaceholder
+    {
+        get
+        {
+            var provider = _providers.DefaultProvider();
+            var model = provider.DefaultModel();
+            return provider is null || model is null
+                ? Localizer["PlaceholderNoDefaultPair"].Value
+                : Localizer["PlaceholderDefaultPair", provider.Name, model.DisplayName].Value;
+        }
+    }
+
+    /// <summary>
+    /// 模型选择器占位文案：严格对应三档解析（§3.1）。
+    /// 未选提供商（走默认对）→ 显示默认对的默认模型；
+    /// 选中提供商（只传 providerId）→ 显示**该提供商**的默认模型，
+    /// 无默认模型时如实提示（此时提交将 422 model_not_found），不回退其他提供商的模型名。
+    /// </summary>
+    private string ModelPlaceholder
+    {
+        get
+        {
+            var model = SelectedProvider is null
+                ? _providers.DefaultProvider().DefaultModel()
+                : SelectedProvider.DefaultModel();
+            return model is null
+                ? Localizer["PlaceholderNoDefaultModel"].Value
+                : Localizer["PlaceholderDefaultModel", model.DisplayName].Value;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -368,7 +411,7 @@
             return;
         }
 
-        var provider = _providers.FirstOrDefault(p => p.Id == providerId);
+        var provider = ProviderById(providerId);
         if (provider is null)
         {
             return; // 提供商已删除或未选择：保持缺省（默认对）
@@ -724,29 +767,27 @@
         _failuresTruncated = false;
     }
 
-    private static Color ProgressColor(TranslationRun run)
+    /// <summary>
+    /// 运行状态的唯一视觉映射（文字 + 语义色 + 图标，三通道一致）：
+    /// 进度条颜色与状态徽标共用本映射，避免两处 switch 漂移。
+    /// 未知状态但已终态（finishedAt 非空）按中性处理；未知活动状态按进行中（Info）处理。
+    /// </summary>
+    private (string Text, Color Color, string Icon) RunStatusVisual(TranslationRun run) => run.Status switch
     {
-        return run.Status switch
-        {
-            "completed" => Color.Success,
-            "partial_failed" or "failed" => Color.Error,
-            // 未知状态但已终态（finishedAt 非空）：中性色，不再表现为活动中的蓝色
-            _ when run.FinishedAt is not null => Color.Default,
-            _ => Color.Info,
-        };
-    }
+        "queued" => (Localizer["RunQueued"], Color.Default, Icons.Material.Filled.Schedule),
+        "processing" => (Localizer["RunProcessing"], Color.Info, Icons.Material.Filled.Sync),
+        "completed" => (Localizer["RunCompleted"], Color.Success, Icons.Material.Filled.CheckCircle),
+        "partial_failed" => (Localizer["RunPartialFailed"], Color.Error, Icons.Material.Filled.WarningAmber),
+        "failed" => (Localizer["RunFailed"], Color.Error, Icons.Material.Filled.ErrorOutline),
+        _ when run.FinishedAt is not null => (Localizer["RunUnknown"], Color.Default, Icons.Material.Filled.HelpOutline),
+        _ => (Localizer["RunUnknown"], Color.Info, Icons.Material.Filled.HelpOutline),
+    };
 
-    private RenderFragment RunStatusBadge(string? status) => __builder =>
+    private Color ProgressColor(TranslationRun run) => RunStatusVisual(run).Color;
+
+    private RenderFragment RunStatusBadge(TranslationRun run) => __builder =>
     {
-        var (text, color, icon) = status switch
-        {
-            "queued" => (Localizer["RunQueued"], Color.Default, Icons.Material.Filled.Schedule),
-            "processing" => (Localizer["RunProcessing"], Color.Info, Icons.Material.Filled.Sync),
-            "completed" => (Localizer["RunCompleted"], Color.Success, Icons.Material.Filled.CheckCircle),
-            "partial_failed" => (Localizer["RunPartialFailed"], Color.Error, Icons.Material.Filled.WarningAmber),
-            "failed" => (Localizer["RunFailed"], Color.Error, Icons.Material.Filled.ErrorOutline),
-            _ => (Localizer["RunUnknown"], Color.Default, Icons.Material.Filled.HelpOutline),
-        };
+        var (text, color, icon) = RunStatusVisual(run);
         <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon">@text</MudChip>
     };
 

@@ -219,8 +219,7 @@
     private Guid? _busyKey;
 
     /// <summary>默认提供商 + 其默认模型合成默认对（§2.2）；缺失时未指定选择的翻译运行无法创建。</summary>
-    private bool HasDefaultPair =>
-        _providers?.Any(p => p.IsDefault && p.Models.Any(m => m.IsDefault)) == true;
+    private bool HasDefaultPair => _providers.HasDefaultPair();
 
     protected override async Task OnInitializedAsync()
     {
@@ -267,6 +266,12 @@
             await action();
             await LoadAsync();
         }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            // 交互规范 §3：操作失败 Snackbar + 错误码映射文案
+            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
+            await LoadAsync();
+        }
         finally
         {
             _busyKey = null;
@@ -283,15 +288,8 @@
         {
             { x => x.Provider, provider },
         };
-        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await Dialog.ShowAsync<ProviderEditDialog>(
-            provider is null ? Localizer["CreateProviderTitle"] : Localizer["EditProviderTitle"], parameters, options);
-        var result = await dialog.Result;
-        await LoadAsync();
-        if (result is { Canceled: false })
-        {
-            Snackbar.Add(Localizer["Saved"], Severity.Success);
-        }
+        await ShowConfigDialogAsync(
+            provider is null ? Localizer["CreateProviderTitle"] : Localizer["EditProviderTitle"], parameters);
     }
 
     private async Task OpenCreateModelDialogAsync(AiProvider provider) => await ShowModelDialogAsync(provider, null);
@@ -306,9 +304,19 @@
             { x => x.ProviderId, provider.Id },
             { x => x.Model, model },
         };
+        await ShowConfigDialogAsync(
+            model is null ? Localizer["CreateModelTitle"] : Localizer["EditModelTitle"], parameters);
+    }
+
+    /// <summary>
+    /// 编辑弹窗公共流程：展示 → 等待关闭 → 重新加载配置（可能被外部修改）→ 保存成功 Snackbar。
+    /// 提供商/模型两个弹窗共用，避免形状重复漂移。
+    /// </summary>
+    private async Task ShowConfigDialogAsync<TDialog>(string title, DialogParameters<TDialog> parameters)
+        where TDialog : Microsoft.AspNetCore.Components.ComponentBase
+    {
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await Dialog.ShowAsync<ModelEditDialog>(
-            model is null ? Localizer["CreateModelTitle"] : Localizer["EditModelTitle"], parameters, options);
+        var dialog = await Dialog.ShowAsync<TDialog>(title, parameters, options);
         var result = await dialog.Result;
         await LoadAsync();
         if (result is { Canceled: false })
@@ -316,7 +324,6 @@
             Snackbar.Add(Localizer["Saved"], Severity.Success);
         }
     }
-
     /// <summary>设为默认提供商：全字段替换（§4 PUT），apiKey 传 null 保持原密钥（§2.3）。</summary>
     private Task SetProviderDefaultAsync(AiProvider provider) =>
         RunRowActionAsync(provider.Id, async () =>
