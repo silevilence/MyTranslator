@@ -13,6 +13,7 @@ using MyTranslator.Api.TaskOperations;
 using MyTranslator.Api.TaskLists;
 using MyTranslator.Api.Rules;
 using MyTranslator.Api.AiConfiguration;
+using MyTranslator.Api.Terms;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -33,6 +34,8 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<FileTaskService>();
 builder.Services.AddScoped<TaskListService>();
 builder.Services.AddScoped<AiConfigurationService>();
+builder.Services.AddScoped<TermService>();
+builder.Services.AddScoped<TermAlignmentService>();
 builder.Services.AddSingleton<TaskOperationLock>();
 builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
 builder.Services.AddSingleton<TranslationRunQueue>();
@@ -146,6 +149,7 @@ app.MapAiConfigurationEndpoints();
 app.MapTaskListEndpoints();
 app.MapFileTaskEndpoints();
 app.MapTranslationEndpoints();
+app.MapTermEndpoints();
 
 app.Run();
 

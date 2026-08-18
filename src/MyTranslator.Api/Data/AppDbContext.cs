@@ -12,6 +12,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<TranslationRunFailure> TranslationRunFailures => Set<TranslationRunFailure>();
     public DbSet<AiProvider> Providers => Set<AiProvider>();
     public DbSet<AiModel> Models => Set<AiModel>();
+    public DbSet<Term> Terms => Set<Term>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,5 +129,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(entity => entity.Models)
             .HasForeignKey(entity => entity.ProviderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var term = modelBuilder.Entity<Term>();
+        term.ToTable("Terms");
+        term.HasKey(entity => entity.Id);
+        term.Property(entity => entity.SourceTerm).HasMaxLength(1000).IsRequired();
+        term.Property(entity => entity.SourceTermKey).HasMaxLength(1000).IsRequired();
+        term.Property(entity => entity.TargetTerm).HasMaxLength(1000).IsRequired();
+        term.Property(entity => entity.SourceLanguage).HasMaxLength(50).IsRequired();
+        term.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
+        term.Property(entity => entity.Notes).HasMaxLength(4000);
+        term.Property(entity => entity.Version).IsConcurrencyToken();
+        term.HasIndex(entity => new
+        {
+            entity.SourceLanguage,
+            entity.TargetLanguage,
+            entity.SourceTermKey
+        }).IsUnique();
+        term.HasIndex(entity => new { entity.UpdatedAt, entity.Id });
     }
 }

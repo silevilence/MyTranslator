@@ -192,6 +192,64 @@ namespace MyTranslator.Api.Data.Migrations
                     b.ToTable("ProtectedBlocks", (string)null);
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.Term", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("CaseSensitive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceTerm")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceTermKey")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetTerm")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceLanguage", "TargetLanguage", "SourceTermKey")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAt", "Id");
+
+                    b.ToTable("Terms", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationSegment", b =>
                 {
                     b.Property<Guid>("Id")
