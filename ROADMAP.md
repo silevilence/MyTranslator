@@ -126,6 +126,12 @@
 
 ## ✅ 已完成 (Completed)
 
+- [x] **后端：AI 连接器迁移 OllamaSharp**（替换弃用的 `Microsoft.Extensions.AI.Ollama`；二审遗留项，迁移已获批准）
+  - [x] 移除 NuGet `Microsoft.Extensions.AI.Ollama`（9.7.0-preview.1.25356.2，官方已标记弃用并推荐 OllamaSharp；无 stable 版）
+  - [x] `AiChatClientFactory` 的 Ollama 分支改由 OllamaSharp（`OllamaApiClient`）构造客户端；保持 `IChatClient` 消费形态、`kind=ollama` 契约语义、错误码映射与重试语义不变（OllamaSharp 不直接实现 `IChatClient` 时以最小适配层封装，不改变翻译处理器）
+  - [x] 同步 NuGet 约束：Ollama 连接器依赖 `OllamaSharp`；`docs/back` 配置契约不改（`kind` 仍为 `ollama`）
+  - 验收：构建零警告；Api.Tests 全绿（含 Ollama 连接器与错误码映射用例）；`Microsoft.Extensions.AI.Ollama` 不再出现在任何项目依赖中；配置 `kind=ollama` 提供商可实际翻译
+
 ### 一、前后端基本框架
 
 - [x] **前端：搭建 Blazor WASM 框架、共享组件库与 Token 登录**（网页端骨架 + 登录闭环）
