@@ -1,0 +1,309 @@
+@namespace MyTranslator.Shared.Components
+@inject TermService Terms
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<TermEditDialog> Localizer
+@inject IJSRuntime JS
+<MudDialog>
+
+    <DialogContent>
+        <div class="mt-term-form">
+            <MudTextField T="string"
+                          Label="@Localizer["SourceTermLabel"]"
+                          HelperText="@Localizer["SourceTermHelper"]"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_sourceTerm"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_sourceTermError is not null"
+                          ErrorText="_sourceTermError" />
+            <MudTextField T="string"
+                          Label="@Localizer["TargetTermLabel"]"
+                          HelperText="@Localizer["TargetTermHelper"]"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_targetTerm"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_targetTermError is not null"
+                          ErrorText="_targetTermError" />
+            <div class="mt-term-form-languages">
+                <MudTextField T="string"
+                              Label="@Localizer["SourceLanguageLabel"]"
+                              HelperText="@Localizer["LanguageHelper"]"
+                              Variant="Variant.Outlined"
+                              Class="mt-mono"
+                              @bind-Value="_sourceLanguage"
+                              Immediate="true"
+                              Disabled="_saving"
+                              Error="_sourceLanguageError is not null"
+                              ErrorText="_sourceLanguageError" />
+                <MudTextField T="string"
+                              Label="@Localizer["TargetLanguageLabel"]"
+                              HelperText="@Localizer["LanguageHelper"]"
+                              Variant="Variant.Outlined"
+                              Class="mt-mono"
+                              @bind-Value="_targetLanguage"
+                              Immediate="true"
+                              Disabled="_saving"
+                              Error="_targetLanguageError is not null"
+                              ErrorText="_targetLanguageError" />
+            </div>
+            <MudTextField T="string"
+                          Label="@Localizer["NotesLabel"]"
+                          HelperText="@Localizer["NotesHelper"]"
+                          Variant="Variant.Outlined"
+                          Lines="3"
+                          @bind-Value="_notes"
+                          Immediate="true"
+                          Disabled="_saving"
+                          Error="_notesError is not null"
+                          ErrorText="_notesError" />
+            <MudSwitch @bind-Value="_caseSensitive" Label="@Localizer["CaseSensitiveLabel"]" Disabled="_saving" />
+            @if (_conflictNotice is not null)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-term-form-notice" role="alert">
+                    @_conflictNotice
+                </MudAlert>
+            }
+            @if (_formError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-term-form-notice" role="alert">
+                    @_formError
+                </MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_saving" OnClick="Cancel">@Localizer["Cancel"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+            }
+            @Localizer["Save"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string _sourceTerm = string.Empty;
+    private string _targetTerm = string.Empty;
+    private string _sourceLanguage = string.Empty;
+    private string _targetLanguage = string.Empty;
+    private string _notes = string.Empty;
+    private bool _caseSensitive;
+    private string? _sourceTermError;
+    private string? _targetTermError;
+    private string? _sourceLanguageError;
+    private string? _targetLanguageError;
+    private string? _notesError;
+    private string? _formError;
+
+    /// <summary>冲突提示：版本冲突后已重新读取术语，或源术语冲突后已载入已有条目。</summary>
+    private string? _conflictNotice;
+    private bool _saving;
+
+    /// <summary>当前编辑基线；null 表示新建。版本冲突载入已有条目时切换为该术语。</summary>
+    private Term? _editing;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>待编辑的术语；null 表示新建。</summary>
+    [Parameter]
+    public Term? Term { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Term is { } term)
+        {
+            LoadFromTerm(term);
+        }
+    }
+
+    /// <summary>以服务端返回的术语填充表单并刷新编辑基线（版本以服务端为准）。</summary>
+    private void LoadFromTerm(Term term)
+    {
+        _editing = term;
+        _sourceTerm = term.SourceTerm;
+        _targetTerm = term.TargetTerm;
+        _sourceLanguage = term.SourceLanguage;
+        _targetLanguage = term.TargetLanguage;
+        _notes = term.Notes ?? string.Empty;
+        _caseSensitive = term.CaseSensitive;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving || !Validate())
+        {
+            return;
+        }
+
+        _saving = true;
+        _formError = null;
+        _conflictNotice = null;
+        try
+        {
+            var request = new TermUpsert
+            {
+                SourceTerm = _sourceTerm.Trim(),
+                TargetTerm = _targetTerm.Trim(),
+                SourceLanguage = _sourceLanguage.Trim(),
+                TargetLanguage = _targetLanguage.Trim(),
+                // 纯空白按 null 提交（§2.2 服务端统一保存为 null）
+                Notes = string.IsNullOrWhiteSpace(_notes) ? null : _notes.Trim(),
+                CaseSensitive = _caseSensitive,
+                Version = _editing?.Version,
+            };
+
+            if (_editing is { } editing)
+            {
+                await Terms.UpdateTermAsync(editing.Id, request);
+            }
+            else
+            {
+                await Terms.CreateTermAsync(request);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiErrorException ex)
+        {
+            await ApplyErrorAsync(ex);
+        }
+        catch (HttpRequestException)
+        {
+            _formError = ErrorProvider.For(null);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>基础客户端校验：必填与长度；语言标签格式以服务端错误码为准。</summary>
+    private bool Validate()
+    {
+        _sourceTermError = ValidateText(_sourceTerm, 500, Localizer["SourceTermRequired"].Value);
+        _targetTermError = ValidateText(_targetTerm, 500, Localizer["TargetTermRequired"].Value);
+        _sourceLanguageError = string.IsNullOrWhiteSpace(_sourceLanguage) ? Localizer["LanguageRequired"].Value : null;
+        _targetLanguageError = string.IsNullOrWhiteSpace(_targetLanguage) ? Localizer["LanguageRequired"].Value : null;
+        _notesError = ScalarCount(_notes.Trim()) > 2000 ? Localizer["NotesTooLong"].Value : null;
+        StateHasChanged();
+        return _sourceTermError is null && _targetTermError is null
+            && _sourceLanguageError is null && _targetLanguageError is null && _notesError is null;
+    }
+
+    private string? ValidateText(string value, int maxLength, string requiredMessage)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return requiredMessage;
+        }
+
+        return ScalarCount(value.Trim()) > maxLength ? Localizer["TermTooLong", maxLength].Value : null;
+    }
+
+    /// <summary>Unicode 标量值计数（契约 §2.2 按 Unicode 标量值计长，string.Length 是 UTF-16 码元数，含增补平面字符时会误判）。</summary>
+    private static int ScalarCount(string value) => value.EnumerateRunes().Count();
+
+    /// <summary>
+    /// 错误码只用于定位展示字段与冲突分支；文案一律取自错误码映射（禁止页面自行解释）。
+    /// 版本冲突：重新读取术语并同步基线版本，由用户决定是否重新提交（契约 §2.5，不得自动覆盖）。
+    /// 源术语冲突：按 conflictingTermId 载入已有术语供直接编辑（契约 §11.1.6）。
+    /// </summary>
+    private async Task ApplyErrorAsync(ApiErrorException ex)
+    {
+        switch (ex.Code)
+        {
+            case "invalid_source_term":
+                _sourceTermError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_target_term":
+                _targetTermError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_term_notes":
+                _notesError = ErrorProvider.ForError(ex);
+                break;
+            case "invalid_language_tag":
+                _sourceLanguageError = ErrorProvider.ForError(ex);
+                _targetLanguageError = ErrorProvider.ForError(ex);
+                break;
+            case "term_version_conflict":
+                await ReloadAfterVersionConflictAsync(ex);
+                break;
+            case "term_conflict":
+                await LoadConflictingTermAsync(ex);
+                break;
+            default:
+                _formError = ErrorProvider.ForError(ex);
+                break;
+        }
+
+
+        // 异步错误处理后 Blazor 会重新渲染，焦点可能落回 body：显式归还弹窗内容，
+        // 保证 Esc 关闭（MudDialog 依赖弹窗持有焦点）与键盘可达（审查标准 维度四）
+        await RestoreDialogFocusAsync();
+    }
+
+    /// <summary>将焦点归还弹窗首个输入框；失败静默忽略，不阻断错误展示。</summary>
+    private Task RestoreDialogFocusAsync()
+    {
+        const string script =
+            "var el = document.querySelector('.mud-dialog');" +
+            "if (el) { el.focus(); }";
+        return JS.InvokeVoidAsync("eval", script).AsTask();
+    }
+
+    /// <summary>
+    /// 版本冲突：重新读取术语，仅同步编辑基线（新版本号与最新服务端内容快照），
+    /// 保留用户未提交的表单输入（设计规范 §1.5 默认不丢数据；契约 §2.5 由用户决定是否重新提交）。
+    /// </summary>
+    private async Task ReloadAfterVersionConflictAsync(ApiErrorException ex)
+    {
+        var currentVersion = ex.GetErrorInt("currentVersion");
+        try
+        {
+            if (_editing is { } editing)
+            {
+                // 只刷新基线：下次提交携带服务端最新版本；表单字段不动，用户输入不丢失
+                var latest = await Terms.GetTermAsync(editing.Id);
+                _editing = latest;
+            }
+
+            _conflictNotice = currentVersion is { } version
+                ? Localizer["VersionConflictNotice", version].Value
+                : Localizer["VersionConflictNoticeNoVersion"].Value;
+        }
+        catch (Exception reloadEx) when (reloadEx is ApiErrorException or HttpRequestException)
+        {
+            // 术语可能已被删除：按重读失败的错误码展示（如 term_not_found），不误导用户重新提交
+            _formError = ErrorProvider.ForException(reloadEx);
+        }
+    }
+
+    /// <summary>源术语冲突：按 conflictingTermId 载入已有术语切换为编辑，避免创建竞争条目。</summary>
+    private async Task LoadConflictingTermAsync(ApiErrorException ex)
+    {
+        var conflictingId = ex.GetErrorString("conflictingTermId");
+        if (Guid.TryParse(conflictingId, out var termId))
+        {
+            try
+            {
+                LoadFromTerm(await Terms.GetTermAsync(termId));
+                // 已从新增切换为编辑已有术语：标题同步为编辑态（由“新增术语”误导为继续创建）
+                await MudDialog.SetTitleAsync(Localizer["EditTitle"].Value);
+                _conflictNotice = Localizer["ConflictLoadedNotice"].Value;
+                return;
+            }
+            catch (Exception loadEx) when (loadEx is ApiErrorException or HttpRequestException)
+            {
+                // 载入失败：降级为通用冲突文案
+            }
+        }
+
+        _formError = ErrorProvider.ForError(ex);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

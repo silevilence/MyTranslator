@@ -1,0 +1,430 @@
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@namespace MyTranslator.Shared.Components
+@inject TermService Terms
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<TermsPanel> Localizer
+
+<section class="mt-terms" aria-labelledby="mt-terms-title">
+    <div class="mt-terms-header">
+        <div>
+            <MudText Typo="Typo.h1" id="mt-terms-title">@Localizer["Title"]</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["Subtitle"]</MudText>
+        </div>
+        <div class="mt-terms-actions">
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                           Color="Color.Default"
+                           Disabled="_reloading || _loadingMore"
+                           OnClick="ReloadFromFirstPageAsync"
+                           aria-label="@Localizer["Refresh"]" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Disabled="_reloading || _loadingMore"
+                       OnClick="OpenCreateDialogAsync">
+                @Localizer["AddTerm"]
+            </MudButton>
+        </div>
+    </div>
+
+    <MudGrid Class="mt-terms-filters" Spacing="3">
+        <MudItem xs="12" md="6" lg="6">
+            <MudTextField T="string"
+                          Label="@Localizer["SearchLabel"]"
+                          Placeholder="@Localizer["SearchPlaceholder"]"
+                          HelperText="@Localizer["SearchHelper"]"
+                          Variant="Variant.Outlined"
+                          Clearable="true"
+                          Immediate="true"
+                          DebounceInterval="400"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Disabled="_reloading"
+                          @bind-Value="_searchText"
+                          OnDebounceIntervalElapsed="OnSearchDebouncedAsync" />
+        </MudItem>
+        <MudItem xs="12" md="3" lg="3">
+            <MudTextField T="string"
+                          Label="@Localizer["SourceLanguageFilter"]"
+                          Variant="Variant.Outlined"
+                          Clearable="true"
+                          Immediate="true"
+                          DebounceInterval="400"
+                          Class="mt-mono"
+                          Disabled="_reloading"
+                          @bind-Value="_sourceLanguage"
+                          OnDebounceIntervalElapsed="OnSearchDebouncedAsync" />
+        </MudItem>
+        <MudItem xs="12" md="3" lg="3">
+            <MudTextField T="string"
+                          Label="@Localizer["TargetLanguageFilter"]"
+                          Variant="Variant.Outlined"
+                          Clearable="true"
+                          Immediate="true"
+                          DebounceInterval="400"
+                          Class="mt-mono"
+                          Disabled="_reloading"
+                          @bind-Value="_targetLanguage"
+                          OnDebounceIntervalElapsed="OnSearchDebouncedAsync" />
+        </MudItem>
+    </MudGrid>
+
+    @if (_loadError is not null)
+    {
+        <div class="mt-4">
+            <ErrorBanner Message="@_loadError" RetryText="@Localizer["Retry"]" OnRetry="ReloadFromFirstPageAsync" />
+        </div>
+    }
+    else if (_reloading)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+            <MudSkeleton Width="40%" Height="20px" />
+            <MudSkeleton Width="100%" Height="44px" Class="mt-2" />
+            <MudSkeleton Width="100%" Height="44px" Class="mt-2" />
+            <MudSkeleton Width="100%" Height="44px" Class="mt-2" />
+        </MudPaper>
+    }
+    else
+    {
+        <div class="mt-terms-list" role="list" aria-label="@Localizer["ListLabel"]">
+            <Virtualize @ref="_virtualize" ItemsProvider="ProvideItemsAsync" OverscanCount="6" Context="term">
+                <ItemContent>
+                    <div class="mt-term-row" role="listitem">
+                        <div class="mt-term-row-main">
+                            <div class="mt-term-row-head">
+                                <MudText Typo="Typo.body1" Class="mt-term-source">@term.SourceTerm</MudText>
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowRightAlt" Size="Size.Small" Color="Color.Secondary" Class="mt-term-arrow" aria-label="@Localizer["ArrowLabel"]" />
+                                <MudText Typo="Typo.body1" Class="mt-term-target">@term.TargetTerm</MudText>
+                                @if (term.CaseSensitive)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Icon="@Icons.Material.Filled.TextFields">@Localizer["CaseSensitiveChip"]</MudChip>
+                                }
+                            </div>
+                            <div class="mt-term-row-meta">
+                                <code class="mt-mono mt-term-language">@term.SourceLanguage → @term.TargetLanguage</code>
+                                @if (term.MatchScore is { } score)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                             Icon="@Icons.Material.Filled.ManageSearch">
+                                        @Localizer["MatchScoreChip", score.ToString("0.####")]
+                                    </MudChip>
+                                }
+                                @if (term.Notes is { Length: > 0 } notes)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-term-notes">@notes</MudText>
+                                }
+                            </div>
+                        </div>
+                        <div class="mt-term-row-actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Edit"
+                                       Disabled="_busyId == term.Id"
+                                       OnClick="@(() => OpenEditDialogAsync(term))">
+                                @Localizer["Edit"]
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Delete"
+                                       Disabled="_busyId == term.Id"
+                                       OnClick="@(() => DeleteTermAsync(term))">
+                                @Localizer["Delete"]
+                            </MudButton>
+                        </div>
+                    </div>
+                </ItemContent>
+                <EmptyContent>
+                    @if (_hasLoaded)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.MenuBook"
+                                    Title="@(HasFilter ? Localizer["EmptyFilteredTitle"] : Localizer["EmptyTitle"])"
+                                    Description="@(HasFilter ? Localizer["EmptyFilteredDescription"] : Localizer["EmptyDescription"])"
+                                    ActionText="@Localizer["AddTerm"]"
+                                    OnAction="OpenCreateDialogAsync" />
+                    }
+                </EmptyContent>
+                <Placeholder>
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-terms-skeleton">
+                        <MudSkeleton Width="30%" Height="20px" />
+                        <MudSkeleton Width="60%" Height="14px" Class="mt-2" />
+                    </MudPaper>
+                </Placeholder>
+            </Virtualize>
+            @if (_moreError is not null)
+            {
+                <div class="mt-terms-more-error">
+                    <ErrorBanner Message="@_moreError" RetryText="@Localizer["Retry"]" OnRetry="RetryLoadMoreAsync" />
+                </div>
+            }
+        </div>
+
+        @* 屏幕阅读器状态区：列表加载结果经 aria-live 播报（审查标准 维度四） *@
+        @if (_announceCount is { } announceCount)
+        {
+            <div class="mt-terms-sr-only" aria-live="polite">@Localizer["LoadedAnnouncement", announceCount]</div>
+        }
+
+        @if (_cursor is not null && _moreError is null)
+        {
+            <div class="mt-terms-more">
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.MoreHoriz"
+                           Disabled="_loadingMore"
+                           OnClick="LoadMoreAsync">
+                    @Localizer["LoadMore"]
+                </MudButton>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private string _searchText = string.Empty;
+    private string _sourceLanguage = string.Empty;
+    private string _targetLanguage = string.Empty;
+
+    /// <summary>已加载术语（Virtualize 数据源）；筛选或写操作后整体重置。</summary>
+    private readonly List<TermListItem> _items = [];
+
+    /// <summary>不透明游标；null 表示没有下一页。</summary>
+    private string? _cursor;
+
+    /// <summary>已确认末页（后端 nextCursor = null）。</summary>
+    private bool _noMorePages;
+
+    /// <summary>首页是否已成功加载（控制 EmptyContent 与空态展示时机）。</summary>
+    private bool _hasLoaded;
+
+    /// <summary>页级加载失败（ErrorBanner）；重试从第一页重新加载。</summary>
+    private string? _loadError;
+
+    /// <summary>追加页失败横幅；不中断已加载内容。</summary>
+    private string? _moreError;
+
+    /// <summary>行级操作锁：编辑/删除提交期间禁用该行操作，防重复提交。</summary>
+    private Guid? _busyId;
+
+    /// <summary>已加载条数，供 aria-live 状态区播报。</summary>
+    private int _announceCount;
+
+    /// <summary>加载代次：筛选变化使旧代次响应过期，防止旧条件数据写入新列表（契约 §2.3）。</summary>
+    private int _loadGeneration;
+
+    /// <summary>Virtualize 实例引用：重置本地缓存后需显式 RefreshDataAsync。</summary>
+    private Virtualize<TermListItem>? _virtualize;
+
+    /// <summary>首页/重置加载进行中：头部操作与筛选禁用。</summary>
+    private bool _reloading;
+
+    /// <summary>追加页加载中（重试按钮禁用）。</summary>
+    private bool _loadingMore;
+
+    private bool HasFilter =>
+        !string.IsNullOrWhiteSpace(_searchText)
+        || !string.IsNullOrWhiteSpace(_sourceLanguage)
+        || !string.IsNullOrWhiteSpace(_targetLanguage);
+
+    /// <summary>Virtualize 数据提供器：按需拉取游标页并缓存；滚动取消不视为错误。</summary>
+    private async ValueTask<ItemsProviderResult<TermListItem>> ProvideItemsAsync(ItemsProviderRequest request)
+    {
+        var need = request.StartIndex + request.Count;
+        while (_items.Count < need && !_noMorePages && _loadError is null && _moreError is null)
+        {
+            try
+            {
+                var page = await Terms.GetTermsAsync(
+                    NullIfBlank(_searchText), NullIfBlank(_sourceLanguage), NullIfBlank(_targetLanguage), _cursor,
+                    request.CancellationToken);
+                _cursor = page.NextCursor;
+                _noMorePages = page.NextCursor is null;
+                _hasLoaded = true;
+                // 分页无跨请求快照：其他调用方可能造成重复项，按 id 去重（契约 §2.3）
+                var seen = new HashSet<Guid>(_items.Select(t => t.Id));
+                foreach (var item in page.Items)
+                {
+                    if (seen.Add(item.Id))
+                    {
+                        _items.Add(item);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break; // 滚动取消：不视为错误
+            }
+            catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+            {
+                if (_items.Count == 0)
+                {
+                    _loadError = ErrorProvider.ForException(ex);
+                }
+                else
+                {
+                    _moreError = ErrorProvider.ForException(ex);
+                }
+
+                break;
+            }
+        }
+
+        _announceCount = _items.Count;
+        var items = _items.Skip(request.StartIndex).Take(request.Count).ToArray();
+        return new ItemsProviderResult<TermListItem>(items, _noMorePages ? _items.Count : _items.Count + 1);
+    }
+
+    /// <summary>搜索词或语言筛选防抖结束：变化后丢弃旧游标与已加载项，从第一页重新加载（契约 §11.1.2）。</summary>
+    private async Task OnSearchDebouncedAsync(string value)
+    {
+        // bind-Value 已先于本回调更新为当前输入；三个筛选框共用本回调，条件不一致时由代次机制丢弃旧响应
+        await ReloadFromFirstPageAsync();
+    }
+
+    /// <summary>
+    /// 清空本地缓存并触发 Virtualize 从第一页重新查询。
+    /// 筛选变化、写操作成功/失败后统一走此路径（契约 §2.3：写后丢弃旧游标）。
+    /// </summary>
+    private async Task ReloadFromFirstPageAsync()
+    {
+        _reloading = true;
+        var generation = ++_loadGeneration;
+        ResetLocalItems();
+        try
+        {
+            if (_virtualize is not null)
+            {
+                await _virtualize.RefreshDataAsync();
+            }
+        }
+        finally
+        {
+            if (generation == _loadGeneration)
+            {
+                _reloading = false;
+            }
+        }
+    }
+
+    private void ResetLocalItems()
+    {
+        _items.Clear();
+        _cursor = null;
+        _noMorePages = false;
+        _hasLoaded = false;
+        _loadError = null;
+        _moreError = null;
+    }
+
+    /// <summary>手动"加载更多"：Virtualize 已按需拉取，此处仅触发补一页（保持按钮语义与失败重试入口）。</summary>
+    private async Task LoadMoreAsync()
+    {
+        if (_loadingMore || _noMorePages)
+        {
+            return;
+        }
+
+        _loadingMore = true;
+        try
+        {
+            if (_virtualize is not null)
+            {
+                await _virtualize.RefreshDataAsync();
+            }
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
+    }
+
+    /// <summary>追加页失败重试：清除错误后触发重新拉取。</summary>
+    private Task RetryLoadMoreAsync()
+    {
+        _moreError = null;
+        return LoadMoreAsync();
+    }
+
+    private static string? NullIfBlank(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var closed = await ShowTermDialogAsync(null);
+        if (closed)
+        {
+            Snackbar.Add(Localizer["Created"], Severity.Success);
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task OpenEditDialogAsync(TermListItem term)
+    {
+        var closed = await ShowTermDialogAsync(term);
+        if (closed)
+        {
+            Snackbar.Add(Localizer["Saved"], Severity.Success);
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    /// <summary>新增/编辑弹窗：保存成功关闭后从第一页刷新（契约 §11.1.3 / §2.3：写后丢弃旧游标）。</summary>
+    private async Task<bool> ShowTermDialogAsync(Term? term)
+    {
+        var parameters = new DialogParameters<TermEditDialog>
+        {
+            { x => x.Term, term },
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, BackdropClick = false, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await Dialog.ShowAsync<TermEditDialog>(
+            term is null ? Localizer["CreateTitle"] : Localizer["EditTitle"], parameters, options);
+        var result = await dialog.Result;
+        return result is { Canceled: false };
+    }
+
+    private async Task DeleteTermAsync(TermListItem term)
+    {
+        var confirmed = await ShowConfirmAsync(
+            Localizer["DeleteTitle"],
+            Localizer["DeleteMessage", term.SourceTerm],
+            Localizer["DeleteDetail"]);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (_busyId is not null)
+        {
+            return;
+        }
+
+        _busyId = term.Id;
+        try
+        {
+            await Terms.DeleteTermAsync(term.Id, term.Version);
+            Snackbar.Add(Localizer["Deleted"], Severity.Success);
+            await ReloadFromFirstPageAsync();
+        }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            // 交互规范 §3：操作失败 Snackbar + 错误码映射文案；404/版本冲突后刷新保证与后端一致
+            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
+            await ReloadFromFirstPageAsync();
+        }
+        finally
+        {
+            _busyId = null;
+        }
+    }
+
+    /// <summary>危险操作确认（交互规范 §3）：后果说明 + 红字确认，经统一 ConfirmDialog。</summary>
+    private async Task<bool> ShowConfirmAsync(string title, string message, string detail)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, message },
+            { x => x.Detail, detail },
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, BackdropClick = false, MaxWidth = MaxWidth.Small };
+        var dialog = await Dialog.ShowAsync<ConfirmDialog>(title, parameters, options);
+        var result = await dialog.Result;
+        return result is { Canceled: false } && result.Data is true;
+    }
+}

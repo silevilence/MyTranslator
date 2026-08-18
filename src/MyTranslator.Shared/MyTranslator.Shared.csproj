@@ -41,6 +41,12 @@
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\TaskStatusBadge.resx">
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TermsPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.TermsPanel.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TermEditDialog.resx">
+      <LogicalName>MyTranslator.Shared.Components.TermEditDialog.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

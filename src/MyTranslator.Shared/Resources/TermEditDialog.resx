@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SourceTermLabel" xml:space="preserve">
+    <value>源术语</value>
+  </data>
+  <data name="SourceTermHelper" xml:space="preserve">
+    <value>原文中的术语；同一语言对内不得重复</value>
+  </data>
+  <data name="TargetTermLabel" xml:space="preserve">
+    <value>期望术语</value>
+  </data>
+  <data name="TargetTermHelper" xml:space="preserve">
+    <value>翻译时规定使用的译法</value>
+  </data>
+  <data name="SourceLanguageLabel" xml:space="preserve">
+    <value>源语言</value>
+  </data>
+  <data name="TargetLanguageLabel" xml:space="preserve">
+    <value>目标语言</value>
+  </data>
+  <data name="LanguageHelper" xml:space="preserve">
+    <value>BCP 47 标签，如 en、zh-CN</value>
+  </data>
+  <data name="NotesLabel" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="NotesHelper" xml:space="preserve">
+    <value>可选；不超过 2000 个字符</value>
+  </data>
+  <data name="CaseSensitiveLabel" xml:space="preserve">
+    <value>对齐检查区分大小写</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="SourceTermRequired" xml:space="preserve">
+    <value>源术语不能为空</value>
+  </data>
+  <data name="TargetTermRequired" xml:space="preserve">
+    <value>期望术语不能为空</value>
+  </data>
+  <data name="LanguageRequired" xml:space="preserve">
+    <value>语言标签不能为空</value>
+  </data>
+  <data name="TermTooLong" xml:space="preserve">
+    <value>不能超过 {0} 个字符</value>
+  </data>
+  <data name="NotesTooLong" xml:space="preserve">
+    <value>说明不能超过 2000 个字符</value>
+  </data>
+  <data name="VersionConflictNotice" xml:space="preserve">
+    <value>该术语已被其他修改更新（当前版本 {0}）。已同步最新版本号，你输入的内容已保留，请核对后重新提交。</value>
+  </data>
+  <data name="VersionConflictNoticeNoVersion" xml:space="preserve">
+    <value>该术语已被其他修改更新。已同步最新版本号，你输入的内容已保留，请核对后重新提交。</value>
+  </data>
+  <data name="ConflictLoadedNotice" xml:space="preserve">
+    <value>同一语言对已存在该源术语，已载入已有术语，可直接编辑其期望译法。</value>
+  </data>
+</root>

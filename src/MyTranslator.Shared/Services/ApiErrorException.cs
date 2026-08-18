@@ -46,6 +46,17 @@ public sealed class ApiErrorException : Exception
         return value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var n) ? n : null;
     }
 
+    /// <summary>读取 <see cref="Errors"/> 中的字符串项（如术语 409 term_conflict 的 conflictingTermId）。</summary>
+    public string? GetErrorString(string key)
+    {
+        if (Errors is null || !Errors.TryGetValue(key, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    }
+
     /// <summary>
     /// 从非成功响应构造异常：尽力解析 Problem Details 的 `code` / `instance` / `errors`；
     /// 响应体不可解析为 JSON 时降级为仅状态码（不阻断错误处理）。

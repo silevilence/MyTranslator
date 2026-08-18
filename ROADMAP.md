@@ -99,18 +99,9 @@
 
 ## 🚧 开发中 (In Progress)
 
-- [ ] **前端：术语表管理界面**（术语 CRUD + 搜索）
-  - [ ] 术语列表、搜索、新增/编辑/删除操作界面
-  - 验收：界面完成术语增删改查，刷新后数据一致
+
 
 ## ✅ 已完成 (Completed)
-
-- [x] **后端：AI 连接器迁移 OllamaSharp**（替换弃用的 `Microsoft.Extensions.AI.Ollama`；二审遗留项，迁移已获批准）
-  - [x] 移除 NuGet `Microsoft.Extensions.AI.Ollama`（9.7.0-preview.1.25356.2，官方已标记弃用并推荐 OllamaSharp；无 stable 版）
-  - [x] `AiChatClientFactory` 的 Ollama 分支改由 OllamaSharp（`OllamaApiClient`）构造客户端；OllamaSharp 直接实现 `IChatClient`，最小子类仅将其 HTTP 400 `OllamaException` 归一为带状态码的 `HttpRequestException`，不改变翻译处理器
-  - [x] 非 400 HTTP 错误改由翻译处理器按真实状态映射，修正旧连接器将全部状态降级为可重试 `llm_response_invalid` 的行为，使错误码与重试语义符合 `docs/back/AI 翻译接口约定.md` §10.2
-  - [x] 同步 NuGet 约束：Ollama 连接器依赖 `OllamaSharp`；`docs/back` 配置契约不改（`kind` 仍为 `ollama`）
-  - 验收：构建零警告；Api.Tests 全绿（含多 Ollama 提供商端点隔离、连接器与 HTTP 状态/错误码/重试矩阵用例）；`Microsoft.Extensions.AI.Ollama` 不再出现在任何项目依赖中；配置 `kind=ollama` 提供商可实际翻译
 
 ### 一、前后端基本框架
 
@@ -189,8 +180,19 @@
   - [x] 保存生效提示与配置状态展示（未配置默认对时提示将影响翻译功能）
   - [x] 验收：界面可配置多个提供商与模型、设默认对并保存；翻译面板可选择提供商/模型发起翻译；刷新后配置与选择一致
 
+- [x] **后端：AI 连接器迁移 OllamaSharp**（替换弃用的 `Microsoft.Extensions.AI.Ollama`；二审遗留项，迁移已获批准）
+  - [x] 移除 NuGet `Microsoft.Extensions.AI.Ollama`（9.7.0-preview.1.25356.2，官方已标记弃用并推荐 OllamaSharp；无 stable 版）
+  - [x] `AiChatClientFactory` 的 Ollama 分支改由 OllamaSharp（`OllamaApiClient`）构造客户端；OllamaSharp 直接实现 `IChatClient`，最小子类仅将其 HTTP 400 `OllamaException` 归一为带状态码的 `HttpRequestException`，不改变翻译处理器
+  - [x] 非 400 HTTP 错误改由翻译处理器按真实状态映射，修正旧连接器将全部状态降级为可重试 `llm_response_invalid` 的行为，使错误码与重试语义符合 `docs/back/AI 翻译接口约定.md` §10.2
+  - [x] 同步 NuGet 约束：Ollama 连接器依赖 `OllamaSharp`；`docs/back` 配置契约不改（`kind` 仍为 `ollama`）
+  - 验收：构建零警告；Api.Tests 全绿（含多 Ollama 提供商端点隔离、连接器与 HTTP 状态/错误码/重试矩阵用例）；`Microsoft.Extensions.AI.Ollama` 不再出现在任何项目依赖中；配置 `kind=ollama` 提供商可实际翻译
+
 - [x] **后端：术语表管理 API 与术语对齐检查**（术语 CRUD + 对齐校验接口）
   - [x] 术语条目增删改查与模糊匹配查询接口（供翻译/规则引擎复用）
   - [x] 术语对齐检查接口：校验译文是否使用规定术语，输出未对齐分段
   - [x] 更新 `docs/back` 术语接口约定
   - 验收：术语 CRUD 生效；包含规定术语的译文通过检查，未使用术语的译文被检出并指出期望术语
+
+- [x] **前端：术语表管理界面**（术语 CRUD + 搜索）
+  - [x] 术语列表、搜索、新增/编辑/删除操作界面
+  - 验收：界面完成术语增删改查，刷新后数据一致

@@ -23,8 +23,8 @@ builder.Services.AddScoped<ApiErrorMessageProvider>();
 builder.Services.AddScoped<ImportExportService>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<ProviderConfigService>();
+builder.Services.AddScoped<TermService>();
 builder.Services.AddScoped<ThemeService>();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-
 await builder.Build().RunAsync();

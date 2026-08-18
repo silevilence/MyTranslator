@@ -186,4 +186,28 @@
   <data name="translation_interrupted" xml:space="preserve">
     <value>翻译运行被中断，已成功译文已保留</value>
   </data>
+  <data name="invalid_source_term" xml:space="preserve">
+    <value>源术语不能为空，且不超过 500 个字符</value>
+  </data>
+  <data name="invalid_target_term" xml:space="preserve">
+    <value>期望术语不能为空，且不超过 500 个字符</value>
+  </data>
+  <data name="invalid_term_notes" xml:space="preserve">
+    <value>说明不能超过 2000 个字符</value>
+  </data>
+  <data name="invalid_term_query" xml:space="preserve">
+    <value>搜索词不能超过 500 个字符</value>
+  </data>
+  <data name="invalid_term_version" xml:space="preserve">
+    <value>版本号无效，请刷新列表后重试</value>
+  </data>
+  <data name="term_not_found" xml:space="preserve">
+    <value>术语不存在或已被删除</value>
+  </data>
+  <data name="term_conflict" xml:space="preserve">
+    <value>同一语言对已存在相同的源术语</value>
+  </data>
+  <data name="term_version_conflict" xml:space="preserve">
+    <value>术语已被其他修改更新，请核对最新内容后重新提交</value>
+  </data>
 </root>

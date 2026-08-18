@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>术语表</value>
+  </data>
+  <data name="Subtitle" xml:space="preserve">
+    <value>维护规定译法的术语词条；翻译与对齐检查按语言对使用</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="AddTerm" xml:space="preserve">
+    <value>新增术语</value>
+  </data>
+  <data name="SearchLabel" xml:space="preserve">
+    <value>搜索术语</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>输入源术语或期望术语</value>
+  </data>
+  <data name="SearchHelper" xml:space="preserve">
+    <value>同时模糊匹配源术语与期望术语，按匹配度排序</value>
+  </data>
+  <data name="SourceLanguageFilter" xml:space="preserve">
+    <value>源语言</value>
+  </data>
+  <data name="TargetLanguageFilter" xml:space="preserve">
+    <value>目标语言</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>暂无术语</value>
+  </data>
+  <data name="EmptyDescription" xml:space="preserve">
+    <value>新增术语后，翻译与对齐检查将按规定译法执行</value>
+  </data>
+  <data name="EmptyFilteredTitle" xml:space="preserve">
+    <value>没有匹配的术语</value>
+  </data>
+  <data name="EmptyFilteredDescription" xml:space="preserve">
+    <value>调整搜索词或语言筛选后重试</value>
+  </data>
+  <data name="ListLabel" xml:space="preserve">
+    <value>术语列表</value>
+  </data>
+  <data name="ArrowLabel" xml:space="preserve">
+    <value>对应期望术语</value>
+  </data>
+  <data name="CaseSensitiveChip" xml:space="preserve">
+    <value>区分大小写</value>
+  </data>
+  <data name="MatchScoreChip" xml:space="preserve">
+    <value>匹配度 {0}</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="LoadMore" xml:space="preserve">
+    <value>加载更多</value>
+  </data>
+  <data name="LoadedAnnouncement" xml:space="preserve">
+    <value>已加载 {0} 个术语</value>
+  </data>
+  <data name="CreateTitle" xml:space="preserve">
+    <value>新增术语</value>
+  </data>
+  <data name="EditTitle" xml:space="preserve">
+    <value>编辑术语</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>术语已创建</value>
+  </data>
+  <data name="Saved" xml:space="preserve">
+    <value>术语已保存</value>
+  </data>
+  <data name="Deleted" xml:space="preserve">
+    <value>术语已删除</value>
+  </data>
+  <data name="DeleteTitle" xml:space="preserve">
+    <value>删除术语</value>
+  </data>
+  <data name="DeleteMessage" xml:space="preserve">
+    <value>确定删除术语「{0}」吗？</value>
+  </data>
+  <data name="DeleteDetail" xml:space="preserve">
+    <value>删除后立即影响之后的查询与对齐检查，不会修改已有任务的译文。</value>
+  </data>
+</root>
