@@ -1,20 +1,22 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MyTranslator.Api.Data;
-using MyTranslator.Api.TaskOperations;
 using MyTranslator.Api.Pagination;
+using MyTranslator.Api.TaskOperations;
+using MyTranslator.Api.Translation;
 
-namespace MyTranslator.Api.Translation;
+namespace MyTranslator.Api.Review;
 
-public sealed class TranslationRunService(
+public sealed class ReviewRunService(
     AppDbContext database,
-    TranslationRunQueue queue,
+    ReviewRunQueue queue,
     TaskOperationLock taskOperationLock)
 {
-    public async Task<TranslationRunResponse> CreateAsync(
+    public async Task<ReviewRunResponse> CreateAsync(
         Guid taskId,
-        CreateTranslationRunRequest request,
+        CreateReviewRunRequest request,
         CancellationToken cancellationToken)
     {
         ValidateRevision(request.ExtractionRevision);
@@ -54,19 +56,14 @@ public sealed class TranslationRunService(
         }
 
         if (task.Status == TranslationTaskStatus.Processing ||
-            await database.TranslationRuns.AnyAsync(
-                run => run.ActiveTaskLockId == taskId,
-                cancellationToken) ||
-            await database.ReviewRuns.AnyAsync(
-                run => run.ActiveTaskLockId == taskId,
-                cancellationToken))
+            await database.TranslationRuns.AnyAsync(run => run.ActiveTaskLockId == taskId, cancellationToken) ||
+            await database.ReviewRuns.AnyAsync(run => run.ActiveTaskLockId == taskId, cancellationToken))
         {
             throw Problem("task_busy", "The task is currently processing.", StatusCodes.Status409Conflict);
         }
 
         if (task.Segments.Any(segment =>
-                (segment.TargetText is not null && string.IsNullOrWhiteSpace(segment.TargetText)) ||
-                (segment.TargetText is null && segment.ConfirmationStatus != SegmentConfirmationStatus.Pending)))
+                segment.TargetText is not null && string.IsNullOrWhiteSpace(segment.TargetText)))
         {
             throw Problem(
                 "invalid_segment_state",
@@ -74,37 +71,35 @@ public sealed class TranslationRunService(
                 StatusCodes.Status422UnprocessableEntity);
         }
 
-        AiSelection selection;
-        try
+        var selectedSegments = task.Segments
+            .Where(segment => segment.TargetText is not null)
+            .OrderBy(segment => segment.Order)
+            .ToArray();
+        if (selectedSegments.Length == 0)
         {
-            selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, cancellationToken);
-        }
-        catch (TranslationRequestException exception)
-        {
-            if (exception.Code == "llm_not_configured")
-            {
-                task.Status = TranslationTaskStatus.Failed;
-                await database.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-            }
-
-            throw;
-        }
-
-        var selectedSegments = task.Segments.Count(segment => segment.TargetText is null);
-        if (selectedSegments == 0)
-        {
-            task.Status = TranslationTaskStatus.Completed;
-            await database.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
             throw Problem(
-                "no_segments_to_translate",
-                "The task has no untranslated segments.",
+                "no_segments_to_review",
+                "The task has no translated segments.",
                 StatusCodes.Status409Conflict);
         }
 
+        var selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, cancellationToken);
+        var termSnapshot = sourceLanguage is null
+            ? Array.Empty<ReviewTermSnapshot>()
+            : await database.Terms
+                .AsNoTracking()
+                .Where(term =>
+                    term.SourceLanguage == sourceLanguage &&
+                    term.TargetLanguage == targetLanguage)
+                .OrderBy(term => term.Id)
+                .Select(term => new ReviewTermSnapshot(
+                    term.SourceTerm,
+                    term.TargetTerm,
+                    term.CaseSensitive))
+                .ToArrayAsync(cancellationToken);
+
         var now = DateTimeOffset.UtcNow;
-        var run = new TranslationRun
+        var run = new ReviewRun
         {
             Id = Guid.NewGuid(),
             TaskId = taskId,
@@ -114,13 +109,21 @@ public sealed class TranslationRunService(
             TargetLanguage = targetLanguage,
             ProviderId = selection.ProviderId,
             ModelId = selection.ModelId,
+            TermSnapshotJson = JsonSerializer.Serialize(termSnapshot),
             TotalSegments = task.Segments.Count,
-            SelectedSegments = selectedSegments,
-            SkippedExistingSegments = task.Segments.Count - selectedSegments,
-            CreatedAt = now
+            SelectedSegments = selectedSegments.Length,
+            SkippedUntranslatedSegments = task.Segments.Count - selectedSegments.Length,
+            CreatedAt = now,
+            Segments = selectedSegments.Select(segment => new ReviewRunSegment
+            {
+                SegmentId = segment.Id,
+                SegmentOrder = segment.Order,
+                SourceText = segment.SourceText,
+                TargetText = segment.TargetText!,
+                MarkupTableJson = segment.MarkupTableJson
+            }).ToList()
         };
-        task.Status = TranslationTaskStatus.Processing;
-        database.TranslationRuns.Add(run);
+        database.ReviewRuns.Add(run);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -135,12 +138,12 @@ public sealed class TranslationRunService(
         return ToResponse(run);
     }
 
-    public async Task<TranslationRunResponse?> GetAsync(
+    public async Task<ReviewRunResponse?> GetAsync(
         Guid taskId,
         Guid runId,
         CancellationToken cancellationToken)
     {
-        var run = await database.TranslationRuns
+        var run = await database.ReviewRuns
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 entity => entity.Id == runId && entity.TaskId == taskId,
@@ -148,7 +151,7 @@ public sealed class TranslationRunService(
         return run is null ? null : ToResponse(run);
     }
 
-    public async Task<TranslationRunPage> ListAsync(
+    public async Task<ReviewRunPage> ListAsync(
         Guid taskId,
         int limit,
         string? cursor,
@@ -164,9 +167,9 @@ public sealed class TranslationRunService(
             throw Problem("task_not_found", "Task not found", StatusCodes.Status404NotFound);
         }
 
-        var resource = $"translation-runs:{taskId}";
+        var resource = $"review-runs:{taskId}";
         var offset = DecodeCursor(cursor, resource, revision.Value);
-        var allRuns = await database.TranslationRuns
+        var allRuns = await database.ReviewRuns
             .AsNoTracking()
             .Where(run => run.TaskId == taskId && run.ExtractionRevision == revision.Value)
             .ToListAsync(cancellationToken);
@@ -177,13 +180,13 @@ public sealed class TranslationRunService(
             .Take(limit + 1)
             .ToList();
         var hasNextPage = runs.Count > limit;
-        return new TranslationRunPage(
+        return new ReviewRunPage(
             revision.Value,
             runs.Take(limit).Select(ToResponse).ToArray(),
             hasNextPage ? PaginationCursor.Encode(resource, revision.Value, offset + limit) : null);
     }
 
-    public async Task<TranslationRunFailurePage> ListFailuresAsync(
+    public async Task<ReviewRunFailurePage> ListFailuresAsync(
         Guid taskId,
         Guid runId,
         int limit,
@@ -191,22 +194,19 @@ public sealed class TranslationRunService(
         CancellationToken cancellationToken)
     {
         ValidatePagination(limit);
-        var run = await database.TranslationRuns
+        var run = await database.ReviewRuns
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 entity => entity.Id == runId && entity.TaskId == taskId,
                 cancellationToken);
         if (run is null)
         {
-            throw Problem(
-                "translation_run_not_found",
-                "Translation run not found",
-                StatusCodes.Status404NotFound);
+            throw Problem("review_run_not_found", "Review run not found", StatusCodes.Status404NotFound);
         }
 
-        var resource = $"translation-run-failures:{runId}";
+        var resource = $"review-run-failures:{runId}";
         var offset = DecodeCursor(cursor, resource, run.ExtractionRevision);
-        var failures = await database.TranslationRunFailures
+        var failures = await database.ReviewRunFailures
             .AsNoTracking()
             .Where(failure => failure.RunId == runId)
             .OrderBy(failure => failure.SegmentOrder)
@@ -214,9 +214,9 @@ public sealed class TranslationRunService(
             .Take(limit + 1)
             .ToListAsync(cancellationToken);
         var hasNextPage = failures.Count > limit;
-        return new TranslationRunFailurePage(
+        return new ReviewRunFailurePage(
             runId,
-            failures.Take(limit).Select(failure => new TranslationRunFailureResponse(
+            failures.Take(limit).Select(failure => new ReviewRunFailureResponse(
                 failure.SegmentId,
                 failure.SegmentOrder,
                 failure.Code,
@@ -225,44 +225,41 @@ public sealed class TranslationRunService(
             hasNextPage ? PaginationCursor.Encode(resource, run.ExtractionRevision, offset + limit) : null);
     }
 
-    internal static TranslationRunResponse ToResponse(TranslationRun run)
-    {
-        return new TranslationRunResponse(
-            run.Id,
-            run.TaskId,
-            run.ExtractionRevision,
-            run.Status.ToWireValue(),
-            run.SourceLanguage,
-            run.TargetLanguage,
-            run.ProviderId,
-            run.ModelId,
-            new TranslationRunSelection(
-                run.TotalSegments,
-                run.SelectedSegments,
-                run.SkippedExistingSegments),
-            ToProgress(run),
-            ToFailure(run),
-            run.CreatedAt,
-            run.StartedAt,
-            run.FinishedAt);
-    }
+    internal static ReviewRunResponse ToResponse(ReviewRun run) => new(
+        run.Id,
+        run.TaskId,
+        run.ExtractionRevision,
+        run.Status.ToWireValue(),
+        run.SourceLanguage,
+        run.TargetLanguage,
+        run.ProviderId,
+        run.ModelId,
+        new ReviewRunSelection(
+            run.TotalSegments,
+            run.SelectedSegments,
+            run.SkippedUntranslatedSegments),
+        ToProgress(run),
+        ToFailure(run),
+        run.CreatedAt,
+        run.StartedAt,
+        run.FinishedAt);
 
-    internal static TranslationRunProgress ToProgress(TranslationRun run)
+    internal static ReviewRunProgress ToProgress(ReviewRun run)
     {
         var percent = run.SelectedSegments == 0
             ? 0
             : Math.Round(run.ProcessedSegments * 100.0 / run.SelectedSegments, 1);
-        return new TranslationRunProgress(
+        return new ReviewRunProgress(
             run.ProcessedSegments,
             run.SucceededSegments,
             run.FailedSegments,
             percent);
     }
 
-    internal static TranslationRunFailureSummary? ToFailure(TranslationRun run) =>
+    internal static ReviewRunFailureSummary? ToFailure(ReviewRun run) =>
         run.FailureCode is null
             ? null
-            : new TranslationRunFailureSummary(
+            : new ReviewRunFailureSummary(
                 run.FailureCode,
                 run.FailureRetryable ?? false,
                 run.FailedSegments);
@@ -289,10 +286,7 @@ public sealed class TranslationRunService(
                 .SingleOrDefaultAsync(item => item.Id == requestedProviderId, cancellationToken);
             if (provider is null)
             {
-                throw Problem(
-                    "provider_not_found",
-                    "Provider not found.",
-                    StatusCodes.Status404NotFound);
+                throw Problem("provider_not_found", "Provider not found.", StatusCodes.Status404NotFound);
             }
         }
         else
@@ -309,10 +303,7 @@ public sealed class TranslationRunService(
         if (!provider.Enabled)
         {
             throw explicitProvider
-                ? Problem(
-                    "provider_disabled",
-                    "The selected provider is disabled.",
-                    StatusCodes.Status422UnprocessableEntity)
+                ? Problem("provider_disabled", "The selected provider is disabled.", StatusCodes.Status422UnprocessableEntity)
                 : NotConfigured(["providerEnabled"]);
         }
 
@@ -359,7 +350,7 @@ public sealed class TranslationRunService(
         return new AiSelection(provider.Id, model.Id);
     }
 
-    private static TranslationRequestException NotConfigured(IReadOnlyList<string> missing) => Problem(
+    private static ReviewRequestException NotConfigured(IReadOnlyList<string> missing) => Problem(
         "llm_not_configured",
         "The selected AI provider and model are not configured completely.",
         StatusCodes.Status503ServiceUnavailable,
@@ -391,16 +382,7 @@ public sealed class TranslationRunService(
                 StatusCodes.Status400BadRequest);
         }
 
-        var trimmed = value.Trim();
-        if (trimmed.Length == 0)
-        {
-            throw Problem(
-                "invalid_language_tag",
-                "The language tag is invalid.",
-                StatusCodes.Status400BadRequest);
-        }
-
-        if (!Bcp47LanguageTag.TryNormalize(trimmed, out var normalized))
+        if (!Bcp47LanguageTag.TryNormalize(value.Trim(), out var normalized))
         {
             throw Problem(
                 "invalid_language_tag",
@@ -454,7 +436,7 @@ public sealed class TranslationRunService(
             SqliteExtendedErrorCode: 2067
         };
 
-    private static TranslationRequestException Problem(
+    private static ReviewRequestException Problem(
         string? code,
         string message,
         int statusCode,

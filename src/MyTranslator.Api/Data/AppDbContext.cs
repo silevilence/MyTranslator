@@ -10,6 +10,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ProtectedBlock> ProtectedBlocks => Set<ProtectedBlock>();
     public DbSet<TranslationRun> TranslationRuns => Set<TranslationRun>();
     public DbSet<TranslationRunFailure> TranslationRunFailures => Set<TranslationRunFailure>();
+    public DbSet<ReviewRun> ReviewRuns => Set<ReviewRun>();
+    public DbSet<ReviewRunSegment> ReviewRunSegments => Set<ReviewRunSegment>();
+    public DbSet<ReviewRunFailure> ReviewRunFailures => Set<ReviewRunFailure>();
+    public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<AiProvider> Providers => Set<AiProvider>();
     public DbSet<AiModel> Models => Set<AiModel>();
     public DbSet<Term> Terms => Set<Term>();
@@ -101,6 +105,70 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         failure.HasOne(entity => entity.Run)
             .WithMany(entity => entity.Failures)
             .HasForeignKey(entity => entity.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var reviewRun = modelBuilder.Entity<ReviewRun>();
+        reviewRun.ToTable("ReviewRuns");
+        reviewRun.HasKey(entity => entity.Id);
+        reviewRun.Property(entity => entity.Status)
+            .HasConversion(
+                status => status.ToWireValue(),
+                value => ReviewRunStatusExtensions.ParseWireValue(value))
+            .HasMaxLength(20)
+            .IsRequired();
+        reviewRun.Property(entity => entity.SourceLanguage).HasMaxLength(50);
+        reviewRun.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
+        reviewRun.Property(entity => entity.TermSnapshotJson).IsRequired();
+        reviewRun.Property(entity => entity.FailureCode).HasMaxLength(80);
+        reviewRun.HasIndex(entity => entity.ActiveTaskLockId)
+            .IsUnique()
+            .HasDatabaseName("IX_ReviewRuns_ActiveTaskId")
+            .HasFilter("\"ActiveTaskId\" IS NOT NULL");
+        reviewRun.HasIndex(entity => new { entity.TaskId, entity.CreatedAt });
+        reviewRun.HasOne(entity => entity.Task)
+            .WithMany(entity => entity.ReviewRuns)
+            .HasForeignKey(entity => entity.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var reviewRunSegment = modelBuilder.Entity<ReviewRunSegment>();
+        reviewRunSegment.ToTable("ReviewRunSegments");
+        reviewRunSegment.HasKey(entity => new { entity.RunId, entity.SegmentId });
+        reviewRunSegment.Property(entity => entity.SourceText).IsRequired();
+        reviewRunSegment.Property(entity => entity.TargetText).IsRequired();
+        reviewRunSegment.Property(entity => entity.MarkupTableJson).IsRequired();
+        reviewRunSegment.HasIndex(entity => new { entity.RunId, entity.SegmentOrder }).IsUnique();
+        reviewRunSegment.HasOne(entity => entity.Run)
+            .WithMany(entity => entity.Segments)
+            .HasForeignKey(entity => entity.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+        reviewRunSegment.HasOne(entity => entity.Segment)
+            .WithMany(entity => entity.ReviewRunSegments)
+            .HasForeignKey(entity => entity.SegmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var reviewFailure = modelBuilder.Entity<ReviewRunFailure>();
+        reviewFailure.ToTable("ReviewRunFailures");
+        reviewFailure.HasKey(entity => entity.Id);
+        reviewFailure.Property(entity => entity.Code).HasMaxLength(80).IsRequired();
+        reviewFailure.HasIndex(entity => new { entity.RunId, entity.SegmentOrder }).IsUnique();
+        reviewFailure.HasOne(entity => entity.Run)
+            .WithMany(entity => entity.Failures)
+            .HasForeignKey(entity => entity.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var reviewComment = modelBuilder.Entity<ReviewComment>();
+        reviewComment.ToTable("ReviewComments");
+        reviewComment.HasKey(entity => entity.Id);
+        reviewComment.Property(entity => entity.Severity).HasMaxLength(10).IsRequired();
+        reviewComment.Property(entity => entity.Issue).IsRequired();
+        reviewComment.HasIndex(entity => new { entity.SegmentId, entity.Position });
+        reviewComment.HasOne(entity => entity.Run)
+            .WithMany(entity => entity.Comments)
+            .HasForeignKey(entity => entity.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+        reviewComment.HasOne(entity => entity.Segment)
+            .WithMany(entity => entity.ReviewComments)
+            .HasForeignKey(entity => entity.SegmentId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var provider = modelBuilder.Entity<AiProvider>();

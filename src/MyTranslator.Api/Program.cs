@@ -14,6 +14,7 @@ using MyTranslator.Api.TaskLists;
 using MyTranslator.Api.Rules;
 using MyTranslator.Api.AiConfiguration;
 using MyTranslator.Api.Terms;
+using MyTranslator.Api.Review;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -41,6 +42,9 @@ builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection(
 builder.Services.AddSingleton<TranslationRunQueue>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<TranslationRunProcessor>();
+builder.Services.AddSingleton<ReviewRunQueue>();
+builder.Services.AddScoped<ReviewRunService>();
+builder.Services.AddScoped<ReviewRunProcessor>();
 builder.Services.AddSingleton<IAiChatClientFactory, AiChatClientFactory>();
 builder.Services.AddSingleton<ITranslationRule, PlaceholderIntegrityRule>();
 builder.Services.AddHttpClient("AiChatClient");
@@ -50,6 +54,7 @@ builder.Services.AddHttpClient<UrlImportClient>(client =>
     .ConfigurePrimaryHttpMessageHandler(PublicAddressHttpHandler.Create);
 builder.Services.AddHostedService<DatabaseInitializer>();
 builder.Services.AddHostedService<TranslationRunWorker>();
+builder.Services.AddHostedService<ReviewRunWorker>();
 builder.Services
     .AddAuthentication(TokenAuthenticationDefaults.Scheme)
     .AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(
@@ -149,6 +154,7 @@ app.MapAiConfigurationEndpoints();
 app.MapTaskListEndpoints();
 app.MapFileTaskEndpoints();
 app.MapTranslationEndpoints();
+app.MapReviewEndpoints();
 app.MapTermEndpoints();
 
 app.Run();

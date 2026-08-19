@@ -68,7 +68,13 @@ public sealed record SegmentResponse(
     string ConfirmationStatus,
     int Version,
     JsonElement MarkupTable,
-    JsonElement? Chapter);
+    JsonElement? Chapter,
+    IReadOnlyList<ReviewCommentResponse> ReviewComments);
+
+public sealed record ReviewCommentResponse(
+    string Severity,
+    string Issue,
+    string? Suggestion);
 
 public sealed record SourceUnitPage(
     int ExtractionRevision,

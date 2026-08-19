@@ -14,6 +14,8 @@ public sealed class TranslationSegment
     public string MarkupTableJson { get; set; } = "[]";
     public string? ChapterJson { get; set; }
     public string TemplateToken { get; set; } = null!;
+    public List<ReviewRunSegment> ReviewRunSegments { get; set; } = [];
+    public List<ReviewComment> ReviewComments { get; set; } = [];
 }
 
 public enum SegmentConfirmationStatus

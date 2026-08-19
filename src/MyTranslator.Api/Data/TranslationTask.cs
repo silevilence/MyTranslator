@@ -25,6 +25,7 @@ public sealed class TranslationTask
     public List<TranslationSegment> Segments { get; set; } = [];
     public List<ProtectedBlock> ProtectedBlocks { get; set; } = [];
     public List<TranslationRun> TranslationRuns { get; set; } = [];
+    public List<ReviewRun> ReviewRuns { get; set; } = [];
 }
 
 public enum TranslationTaskStatus

@@ -192,6 +192,201 @@ namespace MyTranslator.Api.Data.Migrations
                     b.ToTable("ProtectedBlocks", (string)null);
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Issue")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SegmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Suggestion")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("SegmentId", "Position");
+
+                    b.ToTable("ReviewComments", (string)null);
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActiveTaskLockId")
+                        .HasColumnName("ActiveTaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ExtractionRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FailedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("FailureRetryable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ModelId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProcessedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SelectedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SkippedUntranslatedSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SucceededSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TermSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TotalSegments")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveTaskLockId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ReviewRuns_ActiveTaskId")
+                        .HasFilter("\"ActiveTaskId\" IS NOT NULL");
+
+                    b.HasIndex("TaskId", "CreatedAt");
+
+                    b.ToTable("ReviewRuns", (string)null);
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRunFailure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Retryable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SegmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SegmentOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId", "SegmentOrder")
+                        .IsUnique();
+
+                    b.ToTable("ReviewRunFailures", (string)null);
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRunSegment", b =>
+                {
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SegmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MarkupTableJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Processed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SegmentOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("RunId", "SegmentId");
+
+                    b.HasIndex("SegmentId");
+
+                    b.HasIndex("RunId", "SegmentOrder")
+                        .IsUnique();
+
+                    b.ToTable("ReviewRunSegments", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.Term", b =>
                 {
                     b.Property<Guid>("Id")
@@ -525,6 +720,66 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewComment", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.ReviewRun", "Run")
+                        .WithMany("Comments")
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyTranslator.Api.Data.TranslationSegment", "Segment")
+                        .WithMany("ReviewComments")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Run");
+
+                    b.Navigation("Segment");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRun", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.TranslationTask", "Task")
+                        .WithMany("ReviewRuns")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRunFailure", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.ReviewRun", "Run")
+                        .WithMany("Failures")
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Run");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRunSegment", b =>
+                {
+                    b.HasOne("MyTranslator.Api.Data.ReviewRun", "Run")
+                        .WithMany("Segments")
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyTranslator.Api.Data.TranslationSegment", "Segment")
+                        .WithMany("ReviewRunSegments")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Run");
+
+                    b.Navigation("Segment");
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.AiModel", b =>
                 {
                     b.HasOne("MyTranslator.Api.Data.AiProvider", "Provider")
@@ -568,9 +823,27 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Navigation("Failures");
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.ReviewRun", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Failures");
+
+                    b.Navigation("Segments");
+                });
+
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationSegment", b =>
+                {
+                    b.Navigation("ReviewComments");
+
+                    b.Navigation("ReviewRunSegments");
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationTask", b =>
                 {
                     b.Navigation("ProtectedBlocks");
+
+                    b.Navigation("ReviewRuns");
 
                     b.Navigation("Segments");
 

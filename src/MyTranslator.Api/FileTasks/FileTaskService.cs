@@ -169,6 +169,7 @@ public sealed class FileTaskService(
             .CountAsync(entity => entity.TaskId == taskId, cancellationToken);
         var segments = await database.TranslationSegments
             .AsNoTracking()
+            .Include(entity => entity.ReviewComments)
             .Where(entity => entity.TaskId == taskId)
             .OrderBy(entity => entity.Order)
             .Skip(offset)
@@ -210,6 +211,7 @@ public sealed class FileTaskService(
         var offset = DecodeCursor(cursor, cursorResource, task.ExtractionRevision);
         var segments = await database.TranslationSegments
             .AsNoTracking()
+            .Include(entity => entity.ReviewComments)
             .Where(entity => entity.TaskId == taskId)
             .ToListAsync(cancellationToken);
         var protectedBlocks = await database.ProtectedBlocks
@@ -385,7 +387,10 @@ public sealed class FileTaskService(
                 "The extraction preview is stale.");
         }
 
-        if (task.Status == TranslationTaskStatus.Processing)
+        if (task.Status == TranslationTaskStatus.Processing ||
+            await database.ReviewRuns.AnyAsync(
+                run => run.ActiveTaskLockId == taskId,
+                cancellationToken))
         {
             throw new InvalidFileTaskRequestException("task_busy", "The task is currently processing.");
         }
@@ -412,6 +417,9 @@ public sealed class FileTaskService(
         }
 
         await database.TranslationRuns
+            .Where(run => run.TaskId == taskId)
+            .ExecuteDeleteAsync(cancellationToken);
+        await database.ReviewRuns
             .Where(run => run.TaskId == taskId)
             .ExecuteDeleteAsync(cancellationToken);
         await database.TranslationSegments
@@ -472,7 +480,10 @@ public sealed class FileTaskService(
         }
 
 
-        if (task.Status == TranslationTaskStatus.Processing)
+        if (task.Status == TranslationTaskStatus.Processing ||
+            await database.ReviewRuns.AnyAsync(
+                run => run.ActiveTaskLockId == taskId,
+                cancellationToken))
         {
             throw new InvalidFileTaskRequestException("task_busy", "The task is currently processing.");
         }
@@ -1010,7 +1021,14 @@ public sealed class FileTaskService(
             segment.ConfirmationStatus.ToWireValue(),
             segment.Version,
             markup.RootElement.Clone(),
-            chapter);
+            chapter,
+            segment.ReviewComments
+                .OrderBy(comment => comment.Position)
+                .Select(comment => new ReviewCommentResponse(
+                    comment.Severity,
+                    comment.Issue,
+                    comment.Suggestion))
+                .ToArray());
     }
 
     private static ProtectedBlockResponse ToResponse(ProtectedBlock block)
@@ -1049,7 +1067,8 @@ public sealed class FileTaskService(
             SegmentConfirmationStatus.Pending.ToWireValue(),
             1,
             markup.RootElement.Clone(),
-            chapter);
+            chapter,
+            []);
     }
 
     private ExtractionPreviewData? GetPreview(Guid taskId, Guid previewId)

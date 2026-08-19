@@ -48,15 +48,15 @@
 
 ### 三、进阶功能
 
-- [ ] **后端：AI 审核意见**（独立异步审核运行：LLM 二次审查译文质量与风格）
-  - [ ] 审核运行资源复刻翻译运行机制：队列 + 后台 Worker + 中断恢复 + 同锁互斥；活动审核期间翻译/人工保存/导出/重新提取返回 `409 task_busy`；审核不改变任务公共状态
-  - [ ] 创建：`POST /api/tasks/{taskId}/review-runs`，请求带 `extractionRevision`（必填）/`sourceLanguage`（可空=自动识别）/`targetLanguage`（必填）/`providerId`/`modelId`（复用配置三档解析）；选择 = 创建时快照，全部有非空白译文的分段（translated + confirmed 一视同仁，含人工编辑过的译文）
-  - [ ] 查询：运行详情/列表/分段级失败端点；状态枚举（queued/processing/completed/partial_failed/failed）与 `llm_*` 失败码复用（新增 `review_interrupted`）；Retry-After 轮询与游标分页同翻译运行；selection = total 全部可译分段 / selected 有译文分段 / skipped 无译文分段
-  - [ ] 审核执行：分批 LLM 请求，输入 = 语言对 + (segmentId, sourceText, targetText)；占位符 `<xN>` 透明引用随文本发送、提示词声明不可改写；`markupTable` 原文不发送；失败重试与部分失败语义同翻译
-  - [ ] 审核上下文（服务端构造，不进请求字段）：术语表命中条目与规定译法注入提示词（复用术语匹配）；TM 匹配预留（未实现时上下文为空，审核照常可用）；审核维度 = 忠实度（误译/漏译/增译）/ 术语对齐 / 语言自然度与风格 / 占位符保护
-  - [ ] 意见结构与存储：每分段 0..N 条意见 = `severity`（high/medium/low，非法值兜底 medium）+ `issue`（必填）+ `suggestion`（可空）；新表 ReviewRun（镜像 TranslationRun）+ ReviewComment（随分段级联删除）
-  - [ ] 意见生命周期：不绑定译文 version，人工编辑不清除；新审核运行成功审过的分段整体替换意见（0 条 = 清空），失败分段保留旧意见；重新提取后旧运行/意见/游标一并删除
-  - [ ] 意见下发：分段响应新增可选字段 `reviewComments`（当前有效意见），不新增独立意见查询接口
+- [x] **后端：AI 审核意见**（独立异步审核运行：LLM 二次审查译文质量与风格）
+  - [x] 审核运行资源复刻翻译运行机制：队列 + 后台 Worker + 中断恢复 + 同锁互斥；活动审核期间翻译/人工保存/导出/重新提取返回 `409 task_busy`；审核不改变任务公共状态
+  - [x] 创建：`POST /api/tasks/{taskId}/review-runs`，请求带 `extractionRevision`（必填）/`sourceLanguage`（可空=自动识别）/`targetLanguage`（必填）/`providerId`/`modelId`（复用配置三档解析）；选择 = 创建时快照，全部有非空白译文的分段（translated + confirmed 一视同仁，含人工编辑过的译文）
+  - [x] 查询：运行详情/列表/分段级失败端点；状态枚举（queued/processing/completed/partial_failed/failed）与 `llm_*` 失败码复用（新增 `review_interrupted`）；Retry-After 轮询与游标分页同翻译运行；selection = total 全部可译分段 / selected 有译文分段 / skipped 无译文分段
+  - [x] 审核执行：分批 LLM 请求，输入 = 语言对 + (segmentId, sourceText, targetText)；占位符 `<xN>` 透明引用随文本发送、提示词声明不可改写；`markupTable` 原文不发送；失败重试与部分失败语义同翻译
+  - [x] 审核上下文（服务端构造，不进请求字段）：术语表命中条目与规定译法注入提示词（复用术语匹配）；TM 匹配预留（未实现时上下文为空，审核照常可用）；审核维度 = 忠实度（误译/漏译/增译）/ 术语对齐 / 语言自然度与风格 / 占位符保护
+  - [x] 意见结构与存储：每分段 0..N 条意见 = `severity`（high/medium/low，非法值兜底 medium）+ `issue`（必填）+ `suggestion`（可空）；新表 ReviewRun（镜像 TranslationRun）+ ReviewComment（随分段级联删除）
+  - [x] 意见生命周期：不绑定译文 version，人工编辑不清除；新审核运行成功审过的分段整体替换意见（0 条 = 清空），失败分段保留旧意见；重新提取后旧运行/意见/游标一并删除
+  - [x] 意见下发：分段响应新增可选字段 `reviewComments`（当前有效意见），不新增独立意见查询接口
   - [x] 更新 `docs/back`：新建《AI 审核接口约定.md》；微调《文件导入拆解与导出接口约定.md》任务状态 `processing` 描述（仅指翻译）
   - 验收：创建审核运行后按分段查询到结构化意见（严重度/问题描述/修改建议）；运行状态与进度正确、失败可重试；人工编辑后意见保留、重审后意见被替换；无 TM 数据时审核仍可用且术语注入生效；活动审核期间翻译/保存/导出/重提取返回 `409 task_busy`；第三方按约定文档独立完成「创建审核→查询进度→按分段读取意见」
 
