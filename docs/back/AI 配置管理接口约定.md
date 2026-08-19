@@ -201,12 +201,15 @@ curl http://localhost:5199/api/providers \
 | 只传 `providerId` | 该提供商默认模型 |
 | 都传 | 精确指定（`modelId` 必须是该提供商的模型条目） |
 
+只传 `modelId` 不属于合法选择形状，返回 `400 invalid_model_selection`。
+
 解析在创建请求的事务内完成：解析成功才创建运行；运行资源顶层回显 `providerId`/`modelId`（恒为解析后的实际选择、非空，仅 ID 不回显名称）。运行内失败重试沿用同一选择。
 
 ### 6.2 解析失败映射
 
 | 场景 | HTTP | code |
 |---|---|---|
+| 只传 `modelId`，未传 `providerId` | 400 | `invalid_model_selection` |
 | 都缺省且无默认对（无默认提供商或默认提供商无默认模型） | 503 | `llm_not_configured` |
 | 默认对中的提供商被停用 | 503 | `llm_not_configured` |
 | 选中的提供商/模型未配置完整（如 `openai` kind 缺密钥、`baseUrl` 为空） | 503 | `llm_not_configured` |
@@ -214,7 +217,7 @@ curl http://localhost:5199/api/providers \
 | 显式 `modelId` 不存在、不属于该提供商，或只传 `providerId` 而该提供商无默认模型 | 422 | `model_not_found` |
 | 显式选择已停用的提供商 | 422 | `provider_disabled` |
 
-`503 llm_not_configured` 不创建运行，任务标记为 `failed`，修复配置后可重新触发；`404`/`422` 不创建运行、不改任务状态。解析失败详情（如缺失的配置项）放在 Problem Details 的 `errors` 扩展中。
+`503 llm_not_configured` 不创建运行，任务标记为 `failed`，修复配置后可重新触发；`400`/`404`/`422` 不创建运行、不改任务状态。解析失败详情（如缺失的配置项）放在 Problem Details 的 `errors` 扩展中。
 
 ### 6.3 运行期间的配置变更
 
@@ -228,6 +231,7 @@ curl http://localhost:5199/api/providers \
 
 | HTTP | `code` | 场景 |
 |---|---|---|
+| 400 | `invalid_model_selection` | 创建运行时只传 `modelId`，没有用于确定所属关系的 `providerId` |
 | 400 | `invalid_provider_name` | `name` 缺失或纯空白 |
 | 400 | `invalid_provider_kind` | `kind` 不是 `openai`/`ollama` |
 | 400 | `invalid_base_url` | `baseUrl` 提供但不是绝对 http(s) URL |

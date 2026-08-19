@@ -84,12 +84,14 @@ AI 提供商（Provider）与 AI 模型（Model）为二级配置：提供商挂
 | 只传 `providerId` | 该提供商默认模型 |
 | 都传 | 精确指定（`modelId` 必须是该提供商的模型条目） |
 
+只传 `modelId` 不属于合法选择形状，返回 `400 invalid_model_selection`。
+
 解析在创建请求的事务内完成：解析成功才创建运行，运行资源回显解析后的 `providerId`/`modelId`（恒非空）；运行内失败重试沿用同一选择。
 
 ### 3.2 配置可用性校验
 
 - 配置允许不完整（草稿），完整可用性在创建运行时校验。选中的提供商/模型未配置完整（无默认对、`openai` kind 缺密钥、`baseUrl` 为空、默认提供商被停用等）→ `503 llm_not_configured`，不创建运行，任务标记为 `failed`；修复配置后可重新触发。
-- 显式 `providerId` 不存在 → `404 provider_not_found`；显式 `modelId` 不存在、不属于该提供商，或只传 `providerId` 而该提供商无默认模型 → `422 model_not_found`；显式选择已停用提供商 → `422 provider_disabled`。上述错误均不创建运行、不改任务状态。
+- 只传 `modelId` → `400 invalid_model_selection`；显式 `providerId` 不存在 → `404 provider_not_found`；显式 `modelId` 不存在、不属于该提供商，或只传 `providerId` 而该提供商无默认模型 → `422 model_not_found`；显式选择已停用提供商 → `422 provider_disabled`。上述错误均不创建运行、不改任务状态。
 - 运行期间删除/停用所选提供商或模型：后续批构造客户端失败 → 分段失败码 `llm_model_unavailable`，运行按既有部分失败语义结束。
 - `ApiKey` 不得写入日志、Problem Details、运行资源或分段级失败详情；运行资源不暴露密钥，配置侧只回显掩码。
 
@@ -422,6 +424,7 @@ LLM 返回的批次结构整体可解析且分段 ID 集合匹配后，后端按
 |---|---|---|
 | 400 | `invalid_language_tag` | `sourceLanguage` 或 `targetLanguage` 不是合法 BCP 47 标签 |
 | 400 | `invalid_extraction_revision` | `extractionRevision` 缺失、类型错误或小于 `1` |
+| 400 | `invalid_model_selection` | 只传 `modelId`，没有用于确定所属关系的 `providerId` |
 | 400 | `invalid_cursor` | 游标不可解析或不属于当前资源 |
 | 400 | `invalid_pagination` | `limit` 不在 `1..200` 范围内 |
 | 404 | `task_not_found` | 任务不存在 |

@@ -306,7 +306,7 @@ public sealed class AiConfigurationApiTests
     }
 
     [Fact]
-    public async Task InvalidSelectionShapesReturnGenericBadRequest()
+    public async Task InvalidSelectionShapesReturnContractBadRequests()
     {
         using var factory = new ApiFactory(
             "Development",
@@ -334,7 +334,8 @@ public sealed class AiConfigurationApiTests
                 targetLanguage = "zh-CN",
                 modelId = Guid.NewGuid()
             });
-        await AssertGenericBadRequestAsync(modelWithoutProvider);
+        Assert.Equal(HttpStatusCode.BadRequest, modelWithoutProvider.StatusCode);
+        Assert.Equal("invalid_model_selection", await ReadCodeAsync(modelWithoutProvider));
 
         var malformedModel = await client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/translation-runs",

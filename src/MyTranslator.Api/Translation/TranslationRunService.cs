@@ -272,7 +272,7 @@ public sealed class TranslationRunService(
         if (!explicitProvider && requestedModelId.HasValue)
         {
             throw Problem(
-                null,
+                "invalid_model_selection",
                 "A model cannot be selected without its provider.",
                 StatusCodes.Status400BadRequest);
         }
