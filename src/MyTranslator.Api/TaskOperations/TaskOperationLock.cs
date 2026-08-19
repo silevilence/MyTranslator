@@ -31,6 +31,29 @@ public sealed class TaskOperationLock
         }
     }
 
+    public IAsyncDisposable? TryAcquire(Guid taskId)
+    {
+        LockEntry entry;
+        lock (sync)
+        {
+            if (!locks.TryGetValue(taskId, out entry!))
+            {
+                entry = new LockEntry();
+                locks.Add(taskId, entry);
+            }
+
+            entry.References++;
+        }
+
+        if (entry.Semaphore.Wait(0))
+        {
+            return new Releaser(this, taskId, entry);
+        }
+
+        ReleaseReference(taskId, entry);
+        return null;
+    }
+
     private void Release(Guid taskId, LockEntry entry)
     {
         entry.Semaphore.Release();

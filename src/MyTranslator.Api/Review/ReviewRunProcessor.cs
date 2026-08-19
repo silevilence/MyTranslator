@@ -1,7 +1,6 @@
 using System.ClientModel;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using MyTranslator.Api.Data;
@@ -10,7 +9,7 @@ using MyTranslator.Api.Terms;
 
 namespace MyTranslator.Api.Review;
 
-public sealed partial class ReviewRunProcessor(
+public sealed class ReviewRunProcessor(
     AppDbContext database,
     IAiChatClientFactory chatClientFactory)
 {
@@ -171,7 +170,9 @@ public sealed partial class ReviewRunProcessor(
                 var successful = new Dictionary<Guid, IReadOnlyList<ReviewCommentValue>>();
                 foreach (var segment in pending.Values)
                 {
-                    if (TryNormalizeComments(outputLookup[segment.SegmentId][0].Comments, out var comments))
+                    var output = outputLookup[segment.SegmentId][0];
+                    if (output.StructurallyValid &&
+                        TryNormalizeComments(output.Comments, out var comments))
                     {
                         successful[segment.SegmentId] = comments;
                     }
@@ -224,7 +225,7 @@ public sealed partial class ReviewRunProcessor(
                 segmentId = segment.SegmentId,
                 sourceText = segment.SourceText,
                 targetText = segment.TargetText,
-                terms = FindTerms(terms, segment.SourceText).Select(term => new
+                terms = FindTerms(terms, segment.SourceText, segment.MarkupTableJson).Select(term => new
                 {
                     sourceTerm = term.SourceTerm,
                     targetTerm = term.TargetTerm,
@@ -236,7 +237,7 @@ public sealed partial class ReviewRunProcessor(
         {
             new ChatMessage(
                 ChatRole.System,
-                "Review translation accuracy, fluency, terminology, and consistency. Return JSON as {\"reviews\":[{\"segmentId\":\"uuid\",\"comments\":[{\"severity\":\"high|medium|low\",\"issue\":\"...\",\"suggestion\":\"... or null\"}]}]}. Return every requested segment ID exactly once and no additional IDs. Return zero to twenty comments per segment; never exceed 20, keeping higher-severity non-duplicate issues first. Treat <xN>, </xN>, and <xN/> tokens as transparent placeholders: do not translate, rewrite, delete, add, or move them, and report any placeholder problem as a review comment."),
+                "Review every translation for fidelity (mistranslation, omission, and addition), required terminology, naturalness, style, and consistency. A null sourceLanguage means detect the source language automatically. Return JSON as {\"reviews\":[{\"segmentId\":\"uuid\",\"comments\":[{\"severity\":\"high|medium|low\",\"issue\":\"...\",\"suggestion\":\"... or null\"}]}]}. Return every requested segment ID exactly once and no additional IDs. Return zero to twenty comments per segment; never exceed 20, keeping higher-severity non-duplicate issues first. Treat <xN>, </xN>, and <xN/> tokens as transparent placeholders: do not translate, rewrite, delete, add, or move them, and report any placeholder problem as a review comment."),
             new ChatMessage(ChatRole.User, input)
         };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -261,9 +262,7 @@ public sealed partial class ReviewRunProcessor(
             return document.RootElement
                 .GetProperty("reviews")
                 .EnumerateArray()
-                .Select(item => new ReviewOutput(
-                    item.GetProperty("segmentId").GetGuid(),
-                    item.GetProperty("comments").EnumerateArray().Select(ParseComment).ToArray()))
+                .Select(ParseOutput)
                 .ToArray();
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
@@ -300,7 +299,30 @@ public sealed partial class ReviewRunProcessor(
         }
     }
 
-    private static ReviewCommentInput ParseComment(JsonElement item)
+    private static ReviewOutput ParseOutput(JsonElement item)
+    {
+        var segmentId = item.GetProperty("segmentId").GetGuid();
+        if (!item.TryGetProperty("comments", out var commentsProperty) ||
+            commentsProperty.ValueKind != JsonValueKind.Array)
+        {
+            return new ReviewOutput(segmentId, [], false);
+        }
+
+        var comments = new List<ReviewCommentInput>();
+        foreach (var comment in commentsProperty.EnumerateArray())
+        {
+            if (comment.ValueKind != JsonValueKind.Object || !TryParseComment(comment, out var parsed))
+            {
+                return new ReviewOutput(segmentId, [], false);
+            }
+
+            comments.Add(parsed);
+        }
+
+        return new ReviewOutput(segmentId, comments, true);
+    }
+
+    private static bool TryParseComment(JsonElement item, out ReviewCommentInput comment)
     {
         var severity = item.TryGetProperty("severity", out var severityProperty) &&
                        severityProperty.ValueKind == JsonValueKind.String
@@ -319,11 +341,13 @@ public sealed partial class ReviewRunProcessor(
             }
             else if (suggestionProperty.ValueKind != JsonValueKind.Null)
             {
-                throw InvalidResponse();
+                comment = new ReviewCommentInput(severity, issue, null);
+                return false;
             }
         }
 
-        return new ReviewCommentInput(severity, issue, suggestion);
+        comment = new ReviewCommentInput(severity, issue, suggestion);
+        return true;
     }
 
     private static bool TryNormalizeComments(
@@ -354,9 +378,9 @@ public sealed partial class ReviewRunProcessor(
 
             var severity = comment.Severity?.Trim().ToLowerInvariant() switch
             {
-                "high" => "high",
-                "low" => "low",
-                _ => "medium"
+                "high" => ReviewSeverity.High,
+                "low" => ReviewSeverity.Low,
+                _ => ReviewSeverity.Medium
             };
             normalized.Add(new ReviewCommentValue(severity, issue, suggestion));
         }
@@ -364,8 +388,8 @@ public sealed partial class ReviewRunProcessor(
         comments = normalized
             .OrderBy(comment => comment.Severity switch
             {
-                "high" => 0,
-                "medium" => 1,
+                ReviewSeverity.High => 0,
+                ReviewSeverity.Medium => 1,
                 _ => 2
             })
             .ToArray();
@@ -478,17 +502,14 @@ public sealed partial class ReviewRunProcessor(
 
     private static IReadOnlyList<ReviewTermSnapshot> FindTerms(
         IReadOnlyList<ReviewTermSnapshot> terms,
-        string sourceText)
-    {
-        var normalizedSource = TermText.NormalizeForMatch(PlaceholderPattern().Replace(sourceText, " "));
-        return terms.Where(term =>
-        {
-            var sourceTerm = TermText.NormalizeForMatch(term.SourceTerm);
-            return sourceTerm.Length > 0 && normalizedSource.Contains(
-                sourceTerm,
-                term.CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
-        }).ToArray();
-    }
+        string sourceText,
+        string markupTableJson) => terms
+        .Where(term => TermAlignmentMatcher.CountSourceOccurrences(
+            sourceText,
+            markupTableJson,
+            term.SourceTerm,
+            term.CaseSensitive) > 0)
+        .ToArray();
 
     private static int CountScalars(string value) => value.EnumerateRunes().Count();
 
@@ -572,13 +593,13 @@ public sealed partial class ReviewRunProcessor(
         "The AI provider returned an invalid structured response.",
         exception);
 
-    [GeneratedRegex(@"</?x\d+\s*/?>", RegexOptions.CultureInvariant)]
-    private static partial Regex PlaceholderPattern();
-
     private sealed record AiExecutionConfiguration(AiProvider Provider, AiModel Model);
-    private sealed record ReviewOutput(Guid SegmentId, IReadOnlyList<ReviewCommentInput> Comments);
+    private sealed record ReviewOutput(
+        Guid SegmentId,
+        IReadOnlyList<ReviewCommentInput> Comments,
+        bool StructurallyValid);
     private sealed record ReviewCommentInput(string? Severity, string? Issue, string? Suggestion);
-    private sealed record ReviewCommentValue(string Severity, string Issue, string? Suggestion);
+    private sealed record ReviewCommentValue(ReviewSeverity Severity, string Issue, string? Suggestion);
     private sealed record FailureCause(string Code, bool Retryable);
 }
 

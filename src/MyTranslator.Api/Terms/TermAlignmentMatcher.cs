@@ -17,12 +17,14 @@ internal static class TermAlignmentMatcher
         var misalignments = new List<TermMisalignmentResponse>();
         foreach (var term in terms)
         {
-            var sourceTerm = TermText.NormalizeForMatch(term.SourceTerm);
             var targetTerm = TermText.NormalizeForMatch(term.TargetTerm);
             var comparison = term.CaseSensitive
                 ? StringComparison.Ordinal
                 : StringComparison.OrdinalIgnoreCase;
-            var sourceOccurrences = CountOccurrences(normalizedSourceText, sourceTerm, comparison);
+            var sourceOccurrences = CountSourceOccurrences(
+                normalizedSourceText,
+                term.SourceTerm,
+                term.CaseSensitive);
             if (sourceOccurrences == 0)
             {
                 continue;
@@ -43,6 +45,23 @@ internal static class TermAlignmentMatcher
 
         return new SegmentTermAlignmentResult(matchedAny, misalignments);
     }
+
+    public static int CountSourceOccurrences(
+        string sourceText,
+        string markupTableJson,
+        string sourceTerm,
+        bool caseSensitive) => CountSourceOccurrences(
+        NormalizeSegmentText(sourceText, markupTableJson),
+        sourceTerm,
+        caseSensitive);
+
+    private static int CountSourceOccurrences(
+        string normalizedSourceText,
+        string sourceTerm,
+        bool caseSensitive) => CountOccurrences(
+        normalizedSourceText,
+        TermText.NormalizeForMatch(sourceTerm),
+        caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeSegmentText(string text, string markupTableJson)
     {

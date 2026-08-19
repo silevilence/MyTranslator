@@ -159,7 +159,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var reviewComment = modelBuilder.Entity<ReviewComment>();
         reviewComment.ToTable("ReviewComments");
         reviewComment.HasKey(entity => entity.Id);
-        reviewComment.Property(entity => entity.Severity).HasMaxLength(10).IsRequired();
+        reviewComment.Property(entity => entity.Severity)
+            .HasConversion(
+                severity => severity.ToWireValue(),
+                value => ReviewSeverityExtensions.ParseWireValue(value))
+            .HasMaxLength(10)
+            .IsRequired();
         reviewComment.Property(entity => entity.Issue).IsRequired();
         reviewComment.HasIndex(entity => new { entity.SegmentId, entity.Position });
         reviewComment.HasOne(entity => entity.Run)

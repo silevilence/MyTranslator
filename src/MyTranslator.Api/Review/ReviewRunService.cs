@@ -30,7 +30,8 @@ public sealed class ReviewRunService(
                 StatusCodes.Status422UnprocessableEntity);
         }
 
-        await using var operation = await taskOperationLock.AcquireAsync(taskId, cancellationToken);
+        await using var operation = taskOperationLock.TryAcquire(taskId)
+            ?? throw Problem("task_busy", "The task is currently processing.", StatusCodes.Status409Conflict);
         await using var transaction = await database.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);

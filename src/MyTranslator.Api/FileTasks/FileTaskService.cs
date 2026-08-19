@@ -1025,7 +1025,7 @@ public sealed class FileTaskService(
             segment.ReviewComments
                 .OrderBy(comment => comment.Position)
                 .Select(comment => new ReviewCommentResponse(
-                    comment.Severity,
+                    comment.Severity.ToWireValue(),
                     comment.Issue,
                     comment.Suggestion))
                 .ToArray());

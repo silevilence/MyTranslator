@@ -214,7 +214,7 @@ public sealed class ReviewApiTests
             "/api/terms",
             new
             {
-                sourceTerm = "translation memory",
+                sourceTerm = "Use translation memory",
                 targetTerm = "翻译记忆库",
                 sourceLanguage = "en",
                 targetLanguage = "zh-CN",
@@ -230,12 +230,16 @@ public sealed class ReviewApiTests
         var term = Assert.Single(segment.GetProperty("terms").EnumerateArray());
 
         Assert.Contains("<x", segment.GetProperty("sourceText").GetString());
-        Assert.Equal("translation memory", term.GetProperty("sourceTerm").GetString());
+        Assert.Equal("Use translation memory", term.GetProperty("sourceTerm").GetString());
         Assert.Equal("翻译记忆库", term.GetProperty("targetTerm").GetString());
         Assert.DoesNotContain("<strong>", chatClient.LastReviewRequest, StringComparison.Ordinal);
         Assert.DoesNotContain("markupTable", chatClient.LastReviewRequest, StringComparison.Ordinal);
         Assert.False(request.RootElement.TryGetProperty("translationMemory", out _));
         Assert.Contains("20", chatClient.LastReviewSystemPrompt, StringComparison.Ordinal);
+        Assert.Contains("mistranslation", chatClient.LastReviewSystemPrompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("omission", chatClient.LastReviewSystemPrompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("addition", chatClient.LastReviewSystemPrompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("automatically", chatClient.LastReviewSystemPrompt, StringComparison.OrdinalIgnoreCase);
 
         var withoutSourceResponse = await client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/review-runs",
@@ -246,6 +250,15 @@ public sealed class ReviewApiTests
         using var withoutSourceRequest = JsonDocument.Parse(chatClient.LastReviewRequest!);
         Assert.Empty(
             Assert.Single(withoutSourceRequest.RootElement.GetProperty("segments").EnumerateArray())
+                .GetProperty("terms")
+                .EnumerateArray());
+
+        var literalTaskId = await ImportTextAsync(client, "Use <x1>translation memory</x1>.");
+        await TranslateTaskAsync(client, literalTaskId);
+        await CreateAndWaitForReviewRunAsync(client, literalTaskId);
+        using var literalRequest = JsonDocument.Parse(chatClient.LastReviewRequest!);
+        Assert.Empty(
+            Assert.Single(literalRequest.RootElement.GetProperty("segments").EnumerateArray())
                 .GetProperty("terms")
                 .EnumerateArray());
     }
@@ -412,6 +425,44 @@ public sealed class ReviewApiTests
         Assert.Equal("completed", task.GetProperty("status").GetString());
     }
 
+    [Fact]
+    public async Task SegmentLocalInvalidOutputRetriesOnlyThatSegment()
+    {
+        var chatClient = new ReviewTestChatClient((reviewCall, segments) =>
+        {
+            var reviews = segments.Select((segment, index) => new
+            {
+                segmentId = segment.GetProperty("segmentId").GetGuid(),
+                comments = new object[]
+                {
+                    new
+                    {
+                        severity = "low",
+                        issue = $"Issue {index}",
+                        suggestion = reviewCall == 1 && index == 1 ? (object)123 : "Suggestion"
+                    }
+                }
+            });
+            return JsonSerializer.Serialize(new { reviews });
+        });
+        using var factory = new ApiFactory("Development", null, translationProvider: chatClient);
+        using var client = CreateClient(factory);
+        var taskId = await ImportTextAsync(client, "One\n\nTwo");
+        await TranslateTaskAsync(client, taskId);
+
+        var run = await CreateAndWaitForReviewRunAsync(client, taskId);
+        using var firstRequest = JsonDocument.Parse(chatClient.ReviewRequests[0]);
+        using var retryRequest = JsonDocument.Parse(chatClient.ReviewRequests[1]);
+        var segments = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+
+        Assert.Equal("completed", run.GetProperty("status").GetString());
+        Assert.Equal(2, firstRequest.RootElement.GetProperty("segments").GetArrayLength());
+        Assert.Equal(1, retryRequest.RootElement.GetProperty("segments").GetArrayLength());
+        Assert.All(
+            segments.GetProperty("items").EnumerateArray(),
+            segment => Assert.Single(segment.GetProperty("reviewComments").EnumerateArray()));
+    }
+
     private static HttpClient CreateClient(ApiFactory factory)
     {
         var client = factory.CreateClient();
@@ -518,6 +569,7 @@ public sealed class ReviewApiTests
 
         public string? LastReviewRequest { get; private set; }
         public string? LastReviewSystemPrompt { get; private set; }
+        public List<string> ReviewRequests { get; } = [];
 
         private readonly bool blockReviews;
         private readonly TaskCompletionSource reviewStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -547,6 +599,7 @@ public sealed class ReviewApiTests
             if (isReview)
             {
                 LastReviewRequest = userMessage;
+                ReviewRequests.Add(userMessage);
                 LastReviewSystemPrompt = messages.Last(message => message.Role == ChatRole.System).Text;
                 reviewStarted.TrySetResult();
                 if (blockReviews)
