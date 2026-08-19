@@ -50,7 +50,7 @@ public class ImportExportServiceTests
                 captured = form.ToDictionary(
                     part => part.Headers.ContentDisposition!.Name!.Trim('"'),
                     part => (
-                        part.Headers.ContentDisposition.FileName?.Trim('"'),
+                        part.Headers.ContentDisposition!.FileName?.Trim('"'),
                         part.Headers.ContentType?.MediaType,
                         part.ReadAsStringAsync().GetAwaiter().GetResult()));
                 return JsonResponse(HttpStatusCode.Created, CreateSummary());
