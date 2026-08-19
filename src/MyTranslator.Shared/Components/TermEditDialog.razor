@@ -256,13 +256,13 @@
         {
             await JS.InvokeVoidAsync("mtDialog.focus");
         }
+        catch (JSDisconnectedException)
+        {
+            // 电路已销毁（基类 JSException，须先捕获）：弹窗不复存在，无需归还
+        }
         catch (JSException)
         {
             // 焦点归还为增强项：失败不影响错误文案展示与保存流程
-        }
-        catch (JSDisconnectedException)
-        {
-            // 弹窗已随电路销毁：无需归还
         }
     }
 
