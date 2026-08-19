@@ -99,8 +99,20 @@ else
         <TranslationRunPanel @key="_summary.ExtractionRevision"
                              TaskId="TaskId"
                              ExtractionRevision="_summary.ExtractionRevision"
+                             ExternalBusy="_reviewRunActive"
+                             OnActivityChanged="OnTranslationActivityChangedAsync"
                              OnTranslationsCommitted="OnTranslationsCommittedAsync"
                              OnTaskStateChanged="OnRunTaskStateChangedAsync" />
+    </MudPaper>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+        <ReviewRunPanel @key="_summary.ExtractionRevision"
+                        TaskId="TaskId"
+                        ExtractionRevision="_summary.ExtractionRevision"
+                        ExternalBusy="_translationRunActive"
+                        OnActivityChanged="OnReviewActivityChangedAsync"
+                        OnCommentsCommitted="OnReviewCommentsCommittedAsync"
+                        OnRunStateChanged="OnRunReviewStateChangedAsync" />
     </MudPaper>
 
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
@@ -135,8 +147,34 @@ else
                                 <MudText Typo="Typo.body2">@context.TargetText</MudText>
                             }
                             @ConfirmationBadge(context.ConfirmationStatus)
+                            @if (context.ReviewComments.Count > 0)
+                            {
+                                @ReviewCountBadge(context)
+                                @if (IsSegmentCommentsExpanded(context.Id))
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.ExpandLess"
+                                                   Size="Size.Small"
+                                                   title="@Localizer["ReviewCommentsHide"]"
+                                                   aria-label="@Localizer["ReviewCommentsHide"]"
+                                                   OnClick="() => ToggleSegmentComments(context.Id)" />
+                                }
+                                else
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.ExpandMore"
+                                                   Size="Size.Small"
+                                                   title="@Localizer["ReviewCommentsShow"]"
+                                                   aria-label="@Localizer["ReviewCommentsShow"]"
+                                                   OnClick="() => ToggleSegmentComments(context.Id)" />
+                                }
+                            }
                         </div>
                     </div>
+                    @if (context.ReviewComments.Count > 0 && IsSegmentCommentsExpanded(context.Id))
+                    {
+                        <div class="mt-task-segment-comments">
+                            <ReviewPanel Comments="context.ReviewComments" />
+                        </div>
+                    }
                 </RowTemplate>
             </SegmentCursorList>
         </div>
@@ -156,6 +194,9 @@ else
     private bool _exporting;
     private int _segmentsKey;
     private SegmentCursorList? _segmentList;
+    private bool _translationRunActive;
+    private bool _reviewRunActive;
+    private HashSet<Guid> _expandedSegmentComments = [];
 
     /// <summary>任务摘要声明的公开导出条件（§4.3 capabilities.canExport）。</summary>
     private bool CanExport => _summary?.Capabilities?.CanExport == true;
@@ -190,6 +231,7 @@ else
     {
         // 重新提取后：分段 ID 全部更换、extractionRevision 递增，旧列表与游标失效，从第一页重新加载
         _summary = summary;
+        _expandedSegmentComments.Clear();
         _segmentsKey++;
     }
 
@@ -204,8 +246,45 @@ else
 
     private async Task OnRunTaskStateChangedAsync()
     {
-        // 运行进入终态或创建被互斥/配置阻断：刷新任务摘要（状态/canExport）与分段
+        // 翻译运行进入终态或创建被互斥/配置阻断：刷新任务摘要（状态/canExport）与分段
         await LoadAsync();
+        if (_segmentList is not null)
+        {
+            await _segmentList.RefreshAsync();
+        }
+    }
+
+    /// <summary>翻译运行活动状态翻转：置位互斥标记，禁用审核面板（同锁互斥，AI 审核约定 §2.4）。</summary>
+    private Task OnTranslationActivityChangedAsync(bool active)
+    {
+        _translationRunActive = active;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>审核运行活动状态翻转：置位互斥标记，禁用翻译面板（同锁互斥，AI 审核约定 §2.4）。</summary>
+    private Task OnReviewActivityChangedAsync(bool active)
+    {
+        _reviewRunActive = active;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 审核运行本轮成功提交意见的分段数增加：重新读取已加载分段，
+    /// 使逐批提交的意见出现在列表中（AI 审核约定 §12.1 第 4 步）。
+    /// </summary>
+    private async Task OnReviewCommentsCommittedAsync()
+    {
+        if (_segmentList is not null)
+        {
+            await _segmentList.RefreshAsync();
+        }
+    }
+
+    /// <summary>审核运行进入终态或创建被阻断：任务公共状态不变，仅刷新分段展示本轮意见。</summary>
+    private async Task OnRunReviewStateChangedAsync()
+    {
         if (_segmentList is not null)
         {
             await _segmentList.RefreshAsync();
@@ -215,6 +294,7 @@ else
     private async Task OnSegmentsRevisionChanged()
     {
         // 分页期间任务被重新提取（409 extraction_revision_changed）：按契约从第一页重新加载
+        _expandedSegmentComments.Clear();
         _segmentsKey++;
         await LoadAsync();
     }
@@ -246,6 +326,26 @@ else
             _exporting = false;
         }
     }
+
+    private bool IsSegmentCommentsExpanded(Guid segmentId) => _expandedSegmentComments.Contains(segmentId);
+
+    private void ToggleSegmentComments(Guid segmentId)
+    {
+        if (!_expandedSegmentComments.Remove(segmentId))
+        {
+            _expandedSegmentComments.Add(segmentId);
+        }
+    }
+
+    /// <summary>审核意见计数徽标：info 语义色三通道（颜色 + 图标 + 文字），AI 审核约定 §12.1 第 7 步。</summary>
+    private RenderFragment ReviewCountBadge(Segment segment) => __builder =>
+    {
+        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined"
+                 Icon="@Icons.Material.Filled.Forum"
+                 OnClick="() => ToggleSegmentComments(segment.Id)">
+            @Localizer["ReviewCommentCount", segment.ReviewComments.Count]
+        </MudChip>
+    };
 
     private string GetSourceDisplay()
     {
@@ -300,22 +400,20 @@ else
             return "-";
         }
 
-        return byteLength switch
-        {
-            < 1024 => $"{byteLength} B",
-            < 1024 * 1024 => $"{byteLength / 1024d:0.#} KB",
-            _ => $"{byteLength / (1024d * 1024):0.#} MB",
-        };
+        return byteLength.Value >= 1024
+            ? $"{byteLength.Value / 1024.0:0.#} KB"
+            : $"{byteLength.Value} B";
     }
 
-    private RenderFragment ConfirmationBadge(string? status) => __builder =>
+    private RenderFragment ConfirmationBadge(string? status) => status switch
     {
-        var (text, color, icon) = status switch
-        {
-            "translated" => (Localizer["ConfirmationTranslated"], Color.Info, Icons.Material.Filled.Edit),
-            "confirmed" => (Localizer["ConfirmationConfirmed"], Color.Success, Icons.Material.Filled.Verified),
-            _ => (Localizer["ConfirmationPending"], Color.Default, Icons.Material.Filled.Schedule),
-        };
-        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Text" Icon="icon">@text</MudChip>
+        "confirmed" => ConfirmationBadge(Localizer["ConfirmationConfirmed"].Value, Color.Success, Icons.Material.Filled.CheckCircle),
+        "translated" => ConfirmationBadge(Localizer["ConfirmationTranslated"].Value, Color.Info, Icons.Material.Filled.Translate),
+        _ => ConfirmationBadge(Localizer["ConfirmationPending"].Value, Color.Default, Icons.Material.Filled.Schedule),
+    };
+
+    private RenderFragment ConfirmationBadge(string text, Color color, string icon) => __builder =>
+    {
+        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon">@text</MudChip>
     };
 }

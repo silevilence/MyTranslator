@@ -27,19 +27,23 @@
     <EmbeddedResource Update="Resources\ReextractionPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.ReextractionPanel.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\ProviderModelPicker.resx">
+      <LogicalName>MyTranslator.Shared.Components.ProviderModelPicker.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\ReviewPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.ReviewPanel.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\ReviewRunPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.ReviewRunPanel.resources</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Update="Resources\TranslationRunPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.TranslationRunPanel.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\ProviderConfigPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.ProviderConfigPanel.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Update="Resources\ProviderEditDialog.resx">
-      <LogicalName>MyTranslator.Shared.Components.ProviderEditDialog.resources</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Resources\ModelEditDialog.resx">
-      <LogicalName>MyTranslator.Shared.Components.ModelEditDialog.resources</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Update="Resources\TaskStatusBadge.resx">
+      <LogicalName>MyTranslator.Shared.Components.TaskStatusBadge.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\TermsPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.TermsPanel.resources</LogicalName>

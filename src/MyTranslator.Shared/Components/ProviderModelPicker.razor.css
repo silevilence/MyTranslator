@@ -1,0 +1,4 @@
+/* 共享提供商/模型选择器（抽取自翻译面板，翻译/审核复用；色值/字号一律经主题 token） */
+.mt-provider-picker-field {
+    width: 220px;
+}

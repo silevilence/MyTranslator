@@ -13,10 +13,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Title" xml:space="preserve">
-    <value>AI 翻译</value>
+    <value>AI 审核</value>
   </data>
   <data name="Description" xml:space="preserve">
-    <value>对当前提取修订中未翻译的分段执行全自动 AI 翻译；已有译文与已确认分段不会被覆盖</value>
+    <value>对当前提取修订中全部有译文的分段发起第二轮 AI 审查；只产出审核意见，不修改译文、确认状态与任务状态</value>
   </data>
   <data name="TargetLanguageLabel" xml:space="preserve">
     <value>目标语言</value>
@@ -31,16 +31,16 @@
     <value>源语言</value>
   </data>
   <data name="SourceLanguageHelper" xml:space="preserve">
-    <value>留空表示由 AI 自动识别源语言</value>
+    <value>留空表示由 AI 自动识别源语言（此时不注入术语）</value>
   </data>
-  <data name="StartTranslation" xml:space="preserve">
-    <value>开始翻译</value>
+  <data name="StartReview" xml:space="preserve">
+    <value>开始审核</value>
   </data>
-  <data name="RetryTranslation" xml:space="preserve">
-    <value>重新翻译</value>
+  <data name="RetryReview" xml:space="preserve">
+    <value>重新审核</value>
   </data>
   <data name="RunStarted" xml:space="preserve">
-    <value>翻译已启动，可在下方查看进度</value>
+    <value>审核已启动，可在下方查看进度</value>
   </data>
   <data name="Retry" xml:space="preserve">
     <value>重试</value>
@@ -49,22 +49,22 @@
     <value>已排队</value>
   </data>
   <data name="RunProcessing" xml:space="preserve">
-    <value>翻译中</value>
+    <value>审核中</value>
   </data>
   <data name="RunCompleted" xml:space="preserve">
-    <value>翻译完成</value>
+    <value>审核完成</value>
   </data>
   <data name="RunPartialFailed" xml:space="preserve">
     <value>部分失败</value>
   </data>
   <data name="RunFailed" xml:space="preserve">
-    <value>翻译失败</value>
+    <value>审核失败</value>
   </data>
   <data name="RunUnknown" xml:space="preserve">
     <value>未知状态</value>
   </data>
   <data name="SelectionText" xml:space="preserve">
-    <value>本次运行 {0} 段待翻译，{1} 段已有译文跳过</value>
+    <value>本次运行 {0} 段待审核，{1} 段无译文跳过</value>
   </data>
   <data name="ProgressText" xml:space="preserve">
     <value>已处理 {0}/{1} 段（成功 {2} · 失败 {3}）</value>
@@ -75,11 +75,14 @@
   <data name="Percent" xml:space="preserve">
     <value>{0}%</value>
   </data>
+  <data name="CompletedNotice" xml:space="preserve">
+    <value>全部选中分段审核成功；意见已更新到分段，可在下方分段列表查看</value>
+  </data>
   <data name="FailureCount" xml:space="preserve">
-    <value>{0} 个分段翻译失败</value>
+    <value>{0} 个分段审核失败</value>
   </data>
   <data name="FailureRetryHint" xml:space="preserve">
-    <value>可重新翻译仍未翻译的分段</value>
+    <value>可重新审核全部有译文的分段（失败分段保留旧意见）</value>
   </data>
   <data name="FailureNotRetryable" xml:space="preserve">
     <value>该失败不可直接重试，请调整语言参数或修复服务端配置后再试</value>
@@ -90,22 +93,22 @@
   <data name="FailureAttempts" xml:space="preserve">
     <value>尝试 {0} 次后失败</value>
   </data>
+  <data name="FailuresTruncated" xml:space="preserve">
+    <value>仅显示前 {0} 条失败明细，完整列表可通过接口查询</value>
+  </data>
   <data name="ConfigLoadFailed" xml:space="preserve">
-    <value>AI 配置加载失败，无法选择提供商/模型；可直接开始翻译（将使用服务端默认对）或稍后重试</value>
+    <value>AI 配置加载失败，无法选择提供商/模型；可直接开始审核（将使用服务端默认对）或稍后重试</value>
   </data>
   <data name="ConfigNoProviders" xml:space="preserve">
-    <value>尚未配置任何 AI 提供商，未显式选择时无法发起翻译</value>
+    <value>尚未配置任何 AI 提供商，未显式选择时无法发起审核</value>
   </data>
   <data name="ConfigNoDefaultPair" xml:space="preserve">
-    <value>未配置默认对：不选择提供商/模型直接翻译将无法发起</value>
+    <value>未配置默认对：不选择提供商/模型直接审核将无法发起</value>
   </data>
   <data name="GoSettings" xml:space="preserve">
     <value>前往设置</value>
   </data>
   <data name="RunSelection" xml:space="preserve">
     <value>本次运行：{0} / {1}</value>
-  </data>
-  <data name="FailuresTruncated" xml:space="preserve">
-    <value>仅显示前 {0} 条失败明细，完整列表可通过接口查询</value>
   </data>
 </root>

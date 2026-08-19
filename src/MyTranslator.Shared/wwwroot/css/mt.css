@@ -4,3 +4,87 @@
 .mt-mono {
     font-family: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
 }
+
+/* 运行面板共享布局（翻译/审核运行面板同构复用；色值/字号一律经主题 token）。
+   放全局表因 Blazor CSS 隔离按组件 scope，跨组件复用类须进共享样式。 */
+.mt-run-form {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.mt-run-field {
+    width: 220px;
+}
+
+.mt-run-start {
+    margin-top: 8px;
+}
+
+.mt-run-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mt-run-progress {
+    width: 100%;
+}
+
+.mt-run-progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.mt-run-percent {
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-run-failures {
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.mt-run-failure-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mud-palette-divider-light);
+}
+
+.mt-run-failure-row:last-child {
+    border-bottom: none;
+}
+
+.mt-run-failure-order {
+    color: var(--mud-palette-text-secondary);
+    flex-shrink: 0;
+    min-width: 36px;
+}
+
+.mt-run-failure-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mt-run-config-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-run-config-icon {
+    flex-shrink: 0;
+}
+
+.mt-run-config-link {
+    flex-shrink: 0;
+}

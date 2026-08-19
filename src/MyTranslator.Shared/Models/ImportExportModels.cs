@@ -134,6 +134,12 @@ public sealed record Segment
 
     public IReadOnlyList<MarkupItem> MarkupTable { get; init; } = [];
 
+    /// <summary>
+    /// 当前有效的 AI 审核意见（docs/back/AI 审核接口约定.md §9），按严重度降序；
+    /// 无意见时为空数组；调用方须容忍兼容服务省略该字段并按空数组处理。
+    /// </summary>
+    public IReadOnlyList<ReviewComment> ReviewComments { get; init; } = [];
+
     public Chapter? Chapter { get; init; }
 }
 

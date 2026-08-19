@@ -23,6 +23,8 @@ builder.Services.AddScoped<ApiErrorMessageProvider>();
 builder.Services.AddScoped<ImportExportService>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<ProviderConfigService>();
+builder.Services.AddScoped<ReviewRunService>();
+builder.Services.AddScoped<ProviderSelectionState>();
 builder.Services.AddScoped<TermService>();
 builder.Services.AddScoped<ThemeService>();
 

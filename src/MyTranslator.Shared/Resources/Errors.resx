@@ -210,4 +210,19 @@
   <data name="term_version_conflict" xml:space="preserve">
     <value>术语已被其他修改更新，请核对最新内容后重新提交</value>
   </data>
+  <data name="review_run_not_found" xml:space="preserve">
+    <value>审核运行不存在或已失效</value>
+  </data>
+  <data name="no_segments_to_review" xml:space="preserve">
+    <value>没有可审核的分段（当前修订尚无译文）</value>
+  </data>
+  <data name="invalid_model_selection" xml:space="preserve">
+    <value>模型选择无效：需同时指定所属提供商，或留空使用默认对</value>
+  </data>
+  <data name="segment_review_failed" xml:space="preserve">
+    <value>部分分段审核失败，详情见失败列表</value>
+  </data>
+  <data name="review_interrupted" xml:space="preserve">
+    <value>审核运行被中断，已成功提交的意见已保留</value>
+  </data>
 </root>

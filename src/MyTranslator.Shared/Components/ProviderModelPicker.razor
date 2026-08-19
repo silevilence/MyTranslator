@@ -1,0 +1,222 @@
+@namespace MyTranslator.Shared.Components
+@inject ProviderConfigService Config
+@inject ProviderSelectionState SelectionState
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<ProviderModelPicker> Localizer
+@implements IDisposable
+
+<MudSelect T="string"
+           Label="@Localizer["ProviderLabel"]"
+           HelperText="@Localizer["ProviderHelper"]"
+           Placeholder="@ProviderPlaceholder"
+           Variant="Variant.Outlined"
+           Class="mt-provider-picker-field"
+           Value="@(_selectedProviderId?.ToString() ?? string.Empty)"
+           ValueChanged="OnProviderChangedAsync"
+           Disabled="Disabled || _configDisabled"
+           Clearable="true">
+    @if (_providers is not null)
+    {
+        foreach (var provider in _providers)
+        {
+            <MudSelectItem Value="@provider.Id.ToString()">@ProviderOptionLabel(provider)</MudSelectItem>
+        }
+    }
+</MudSelect>
+<MudSelect T="string"
+           Label="@Localizer["ModelLabel"]"
+           HelperText="@Localizer["ModelHelper"]"
+           Placeholder="@ModelPlaceholder"
+           Variant="Variant.Outlined"
+           Class="mt-provider-picker-field"
+           Value="@(_selectedModelId?.ToString() ?? string.Empty)"
+           ValueChanged="OnModelChangedAsync"
+           Disabled="Disabled || _configDisabled || _selectedProviderId is null"
+           Clearable="true">
+    @if (SelectedProvider is { } selected)
+    {
+        foreach (var model in selected.Models)
+        {
+            <MudSelectItem Value="@model.Id.ToString()">@ModelOptionLabel(model)</MudSelectItem>
+        }
+    }
+</MudSelect>
+
+@code {
+    private IReadOnlyList<AiProvider>? _providers;
+    private string? _configError;
+    private bool _configDisabled;
+    private Guid? _selectedProviderId;
+    private Guid? _selectedModelId;
+
+    /// <summary>任务 ID：选择按任务维度持久化，同一任务的翻译/审核面板共享（AI 审核约定 §12.1 第 1 步）。</summary>
+    [Parameter, EditorRequired]
+    public required Guid TaskId { get; set; }
+
+    /// <summary>禁用选择（父面板创建中或活动运行期间互斥）。</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>配置或选择状态变化通知；父面板据此重算配置提示与运行回显。</summary>
+    [Parameter]
+    public EventCallback OnStateChanged { get; set; }
+
+    /// <summary>已加载的提供商配置；尚未加载为 null。</summary>
+    public IReadOnlyList<AiProvider>? Providers => _providers;
+
+    /// <summary>配置加载失败时经错误码映射生成的文案；null 表示加载成功。</summary>
+    public string? ConfigError => _configError;
+
+    /// <summary>配置加载失败导致选择器禁用（语言表单不受影响）。</summary>
+    public bool ConfigDisabled => _configDisabled;
+
+    /// <summary>当前选中的提供商 ID；null 表示走默认对（三档解析 §3.1）。</summary>
+    public Guid? SelectedProviderId => _selectedProviderId;
+
+    /// <summary>当前选中的模型 ID；null 表示用所选提供商的默认模型。</summary>
+    public Guid? SelectedModelId => _selectedModelId;
+
+    /// <summary>默认提供商 + 其默认模型合成默认对（配置约定 §2.2）。</summary>
+    public bool HasDefaultPair => _providers.HasDefaultPair();
+
+    /// <summary>按 ID 从已加载配置解析提供商；未找到为 null。</summary>
+    public AiProvider? ProviderById(Guid? id) =>
+        id is null ? null : _providers?.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>当前选中的提供商（按 ID 从已加载配置解析）。</summary>
+    private AiProvider? SelectedProvider => ProviderById(_selectedProviderId);
+
+    /// <summary>提供商选择器占位文案：缺省显示默认对（交互规范 §1）；未配置时提示缺失。</summary>
+    private string ProviderPlaceholder
+    {
+        get
+        {
+            var provider = _providers.DefaultProvider();
+            var model = provider.DefaultModel();
+            return provider is null || model is null
+                ? Localizer["PlaceholderNoDefaultPair"].Value
+                : Localizer["PlaceholderDefaultPair", provider.Name, model.DisplayName].Value;
+        }
+    }
+
+    /// <summary>
+    /// 模型选择器占位文案：严格对应三档解析（§3.1）。
+    /// 未选提供商（走默认对）→ 显示默认对的默认模型；
+    /// 选中提供商（只传 providerId）→ 显示**该提供商**的默认模型，
+    /// 无默认模型时如实提示（此时提交将 422 model_not_found），不回退其他提供商的模型名。
+    /// </summary>
+    private string ModelPlaceholder
+    {
+        get
+        {
+            var model = SelectedProvider is null
+                ? _providers.DefaultProvider().DefaultModel()
+                : SelectedProvider.DefaultModel();
+            return model is null
+                ? Localizer["PlaceholderNoDefaultModel"].Value
+                : Localizer["PlaceholderDefaultModel", model.DisplayName].Value;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SelectionState.Changed += OnSelectionStateChangedAsync;
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// 加载两级配置并恢复任务选择（AI 翻译约定 §11.1 第 2/6 步）：一次 GET 内嵌 models；
+    /// 恢复的选择必须仍存在于当前配置，否则回退到缺省（默认对）。
+    /// </summary>
+    public async Task LoadAsync()
+    {
+        try
+        {
+            _providers = await Config.GetProvidersAsync();
+            _configError = null;
+            _configDisabled = false;
+        }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            // 配置加载失败不禁用语言表单，仅禁用选择器并提示
+            _configError = ErrorProvider.ForException(ex);
+            _configDisabled = true;
+        }
+
+        await ApplySelectionAsync(notify: false);
+        await OnStateChanged.InvokeAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>配置变化（如创建被 404/422 拒绝）后强制重载。</summary>
+    public Task ReloadAsync() => LoadAsync();
+
+    /// <summary>从共享状态读取并校验选择：引用的提供商/模型必须仍存在，否则保持缺省（默认对）。</summary>
+    private async Task ApplySelectionAsync(bool notify)
+    {
+        var (providerId, modelId) = await SelectionState.GetAsync(TaskId);
+        var provider = ProviderById(providerId);
+        var newProviderId = provider?.Id;
+        Guid? newModelId = null;
+        if (provider is not null && modelId is not null)
+        {
+            newModelId = provider.Models.Any(m => m.Id == modelId) ? modelId : null;
+        }
+
+        if (newProviderId == _selectedProviderId && newModelId == _selectedModelId)
+        {
+            return;
+        }
+
+        _selectedProviderId = newProviderId;
+        _selectedModelId = newModelId;
+        if (notify)
+        {
+            await OnStateChanged.InvokeAsync();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>共享选择被其他面板修改：重新校验并同步本组件（互斥期间禁用态由父面板控制）。</summary>
+    private async Task OnSelectionStateChangedAsync()
+    {
+        await ApplySelectionAsync(notify: true);
+    }
+
+    /// <summary>提供商选择变化：清空模型选择，持久化并按三档解析规则归一。</summary>
+    private async Task OnProviderChangedAsync(string? value)
+    {
+        _selectedProviderId = Guid.TryParse(value, out var id) ? id : null;
+        _selectedModelId = null;
+        await SelectionState.SetAsync(TaskId, _selectedProviderId, _selectedModelId);
+        await OnStateChanged.InvokeAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>模型选择变化：持久化；清除模型回到「该提供商默认模型」档。</summary>
+    private async Task OnModelChangedAsync(string? value)
+    {
+        _selectedModelId = Guid.TryParse(value, out var id) ? id : null;
+        await SelectionState.SetAsync(TaskId, _selectedProviderId, _selectedModelId);
+        await OnStateChanged.InvokeAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>选项文案：名称 + 默认/停用标记（不引入额外组件）。</summary>
+    private string ProviderOptionLabel(AiProvider provider)
+    {
+        var suffix = provider.IsDefault
+            ? Localizer["OptionDefaultSuffix"].Value
+            : provider.Enabled ? string.Empty : Localizer["OptionDisabledSuffix"].Value;
+        return $"{provider.Name}{suffix}";
+    }
+
+    private string ModelOptionLabel(AiModel model) => model.IsDefault
+        ? $"{model.DisplayName}（{model.ModelId}）{Localizer["OptionDefaultSuffix"].Value}"
+        : $"{model.DisplayName}（{model.ModelId}）";
+
+    public void Dispose()
+    {
+        SelectionState.Changed -= OnSelectionStateChangedAsync;
+    }
+}

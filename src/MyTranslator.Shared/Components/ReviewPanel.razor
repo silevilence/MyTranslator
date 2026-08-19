@@ -1,0 +1,55 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<ReviewPanel> Localizer
+
+<section class="mt-review-panel" aria-label="@Localizer["SectionLabel"]">
+    <MudText Typo="Typo.h2">@Localizer["Title"]</MudText>
+    @if (Comments.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["Empty"]</MudText>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            @Localizer["Hint", Comments.Count]
+        </MudText>
+        <ul class="mt-review-panel-list">
+            @foreach (var comment in Comments)
+            {
+                <li class="mt-review-panel-item">
+                    @SeverityBadge(comment.Severity)
+                    <div class="mt-review-panel-item-body">
+                        <MudText Typo="Typo.body2" Class="mt-review-panel-issue">@comment.Issue</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                            @Localizer["SuggestionLabel"]@(comment.Suggestion is null ? Localizer["NoSuggestion"].Value : comment.Suggestion)
+                        </MudText>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    /// <summary>当前有效的 AI 审核意见（docs/back/AI 审核接口约定.md §9：随分段响应下发，按严重度降序）。</summary>
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<ReviewComment> Comments { get; set; } = [];
+
+    /// <summary>
+    /// 严重度 → 唯一视觉映射（图标 + 文字双通道区分级别；颜色通道统一 info）。
+    /// 设计规范 §2.2 语义色映射表：error 专属规则违规、warning 专属 TM 告警，
+    /// AI 审核意见整体为 info 域，意见条目严重度不得跨用状态色。
+    /// 未知值按「一般」处理（§2.1 容忍未知枚举值）。
+    /// </summary>
+    private (string Text, Color Color, string Icon) SeverityVisual(string? severity) => severity switch
+    {
+        "high" => (Localizer["SeverityHigh"], Color.Info, Icons.Material.Filled.Report),
+        "low" => (Localizer["SeverityLow"], Color.Info, Icons.Material.Filled.Minimize),
+        _ => (Localizer["SeverityMedium"], Color.Info, Icons.Material.Filled.Remove),
+    };
+
+    private RenderFragment SeverityBadge(string? severity) => __builder =>
+    {
+        var (text, color, icon) = SeverityVisual(severity);
+        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon" Class="mt-review-panel-severity">@text</MudChip>
+    };
+}

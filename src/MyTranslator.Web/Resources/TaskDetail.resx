@@ -108,4 +108,13 @@
   <data name="ConfirmationConfirmed" xml:space="preserve">
     <value>已确认</value>
   </data>
+  <data name="ReviewCommentCount" xml:space="preserve">
+    <value>{0} 条意见</value>
+  </data>
+  <data name="ReviewCommentsShow" xml:space="preserve">
+    <value>展开审核意见</value>
+  </data>
+  <data name="ReviewCommentsHide" xml:space="preserve">
+    <value>收起审核意见</value>
+  </data>
 </root>
