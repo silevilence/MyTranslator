@@ -491,7 +491,7 @@ public sealed class ReviewRunProcessor(
                 : ReviewRunStatus.Failed;
             var codes = run.Failures.Select(failure => failure.Code).Distinct(StringComparer.Ordinal).ToArray();
             run.FailureCode = codes.Length == 1 ? codes[0] : "segment_review_failed";
-            run.FailureRetryable = run.Failures.Any(failure => failure.Retryable);
+            run.FailureRetryable = codes.Length > 1 || run.Failures.Any(failure => failure.Retryable);
         }
 
         run.ProcessedSegments = run.SelectedSegments;

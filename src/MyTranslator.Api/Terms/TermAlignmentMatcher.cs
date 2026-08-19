@@ -21,7 +21,7 @@ internal static class TermAlignmentMatcher
             var comparison = term.CaseSensitive
                 ? StringComparison.Ordinal
                 : StringComparison.OrdinalIgnoreCase;
-            var sourceOccurrences = CountSourceOccurrences(
+            var sourceOccurrences = CountNormalizedSourceOccurrences(
                 normalizedSourceText,
                 term.SourceTerm,
                 term.CaseSensitive);
@@ -50,12 +50,12 @@ internal static class TermAlignmentMatcher
         string sourceText,
         string markupTableJson,
         string sourceTerm,
-        bool caseSensitive) => CountSourceOccurrences(
+        bool caseSensitive) => CountNormalizedSourceOccurrences(
         NormalizeSegmentText(sourceText, markupTableJson),
         sourceTerm,
         caseSensitive);
 
-    private static int CountSourceOccurrences(
+    private static int CountNormalizedSourceOccurrences(
         string normalizedSourceText,
         string sourceTerm,
         bool caseSensitive) => CountOccurrences(

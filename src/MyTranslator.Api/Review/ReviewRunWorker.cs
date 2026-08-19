@@ -1,14 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MyTranslator.Api.Data;
-using MyTranslator.Api.Translation;
 
 namespace MyTranslator.Api.Review;
 
 public sealed class ReviewRunWorker(
     IServiceScopeFactory scopeFactory,
     ReviewRunQueue queue,
-    IOptions<TranslationOptions> options,
+    IOptions<ReviewOptions> options,
     ILogger<ReviewRunWorker> logger) : BackgroundService
 {
     public override async Task StartAsync(CancellationToken cancellationToken)

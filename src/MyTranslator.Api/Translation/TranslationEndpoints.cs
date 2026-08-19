@@ -140,7 +140,7 @@ public static class TranslationEndpoints
         if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var id))
         {
             throw new TranslationRequestException(
-                null,
+                "invalid_model_selection",
                 $"The {property} must be a UUID or null.",
                 StatusCodes.Status400BadRequest);
         }

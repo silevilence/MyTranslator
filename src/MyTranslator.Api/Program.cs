@@ -39,6 +39,7 @@ builder.Services.AddScoped<TermService>();
 builder.Services.AddScoped<TermAlignmentService>();
 builder.Services.AddSingleton<TaskOperationLock>();
 builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
+builder.Services.Configure<ReviewOptions>(builder.Configuration.GetSection("Review"));
 builder.Services.AddSingleton<TranslationRunQueue>();
 builder.Services.AddScoped<TranslationRunService>();
 builder.Services.AddScoped<TranslationRunProcessor>();

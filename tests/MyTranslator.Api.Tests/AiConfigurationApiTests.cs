@@ -324,7 +324,8 @@ public sealed class AiConfigurationApiTests
                 targetLanguage = "zh-CN",
                 providerId = "not-a-uuid"
             });
-        await AssertGenericBadRequestAsync(malformedProvider);
+        Assert.Equal(HttpStatusCode.BadRequest, malformedProvider.StatusCode);
+        Assert.Equal("invalid_model_selection", await ReadCodeAsync(malformedProvider));
 
         var modelWithoutProvider = await client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/translation-runs",
@@ -346,7 +347,8 @@ public sealed class AiConfigurationApiTests
                 providerId = Guid.NewGuid(),
                 modelId = "not-a-uuid"
             });
-        await AssertGenericBadRequestAsync(malformedModel);
+        Assert.Equal(HttpStatusCode.BadRequest, malformedModel.StatusCode);
+        Assert.Equal("invalid_model_selection", await ReadCodeAsync(malformedModel));
         Assert.Equal(
             "created",
             (await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}"))

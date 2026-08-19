@@ -3,7 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+using MyTranslator.Api.Data;
 
 namespace MyTranslator.Api.Tests;
 
@@ -278,6 +281,9 @@ public sealed class ReviewApiTests
         firstReview.EnsureSuccessStatusCode();
         var created = await firstReview.Content.ReadFromJsonAsync<JsonElement>();
         await chatClient.ReviewStarted.WaitAsync(TimeSpan.FromSeconds(5));
+        var activeResponse = await client.GetAsync(
+            $"/api/tasks/{taskId}/review-runs/{created.GetProperty("runId").GetGuid()}");
+        var activeRun = await activeResponse.Content.ReadFromJsonAsync<JsonElement>();
 
         var secondReview = await client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/review-runs",
@@ -290,9 +296,14 @@ public sealed class ReviewApiTests
         Assert.Equal("task_busy", (await secondReview.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
         Assert.Equal("task_busy", (await translation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
         Assert.Equal("task_busy", (await export.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal("1", Assert.Single(activeResponse.Headers.GetValues("Retry-After")));
+        Assert.Equal("processing", activeRun.GetProperty("status").GetString());
 
         chatClient.ReleaseReview();
-        await WaitForReviewRunAsync(client, taskId, created.GetProperty("runId").GetGuid());
+        var terminalRun = await WaitForReviewRunAsync(client, taskId, created.GetProperty("runId").GetGuid());
+        Assert.True(
+            terminalRun.GetProperty("progress").GetProperty("percent").GetDouble() >=
+            activeRun.GetProperty("progress").GetProperty("percent").GetDouble());
     }
 
     [Fact]
@@ -307,6 +318,11 @@ public sealed class ReviewApiTests
         await TranslateTaskAsync(client, taskId);
         var run = await CreateAndWaitForReviewRunAsync(client, taskId);
         var runId = run.GetProperty("runId").GetGuid();
+        await CreateAndWaitForReviewRunAsync(client, taskId);
+        var runPage = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/tasks/{taskId}/review-runs?limit=1");
+        var oldCursor = runPage.GetProperty("nextCursor").GetString();
+        Assert.NotNull(oldCursor);
 
         var previewResponse = await client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/extraction-previews",
@@ -319,11 +335,17 @@ public sealed class ReviewApiTests
         var applied = await applyResponse.Content.ReadFromJsonAsync<JsonElement>();
         var oldRun = await client.GetAsync($"/api/tasks/{taskId}/review-runs/{runId}");
         var currentSegments = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var staleCursorResponse = await client.GetAsync(
+            $"/api/tasks/{taskId}/review-runs?limit=1&cursor={Uri.EscapeDataString(oldCursor!)}");
 
         Assert.Equal(HttpStatusCode.OK, applyResponse.StatusCode);
         Assert.Equal(2, applied.GetProperty("extractionRevision").GetInt32());
         Assert.Equal("created", applied.GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.NotFound, oldRun.StatusCode);
+        await AssertProblemAsync(
+            staleCursorResponse,
+            HttpStatusCode.Conflict,
+            "extraction_revision_changed");
         Assert.Empty(
             Assert.Single(currentSegments.GetProperty("items").EnumerateArray())
                 .GetProperty("reviewComments")
@@ -463,6 +485,184 @@ public sealed class ReviewApiTests
             segment => Assert.Single(segment.GetProperty("reviewComments").EnumerateArray()));
     }
 
+    [Fact]
+    public async Task MixedNonRetryableFailuresProducePartialFailedRetryableSummary()
+    {
+        var chatClient = new ReviewTestChatClient((reviewCall, segments) =>
+        {
+            if (reviewCall == 1)
+            {
+                throw new HttpRequestException("Unauthorized", null, HttpStatusCode.Unauthorized);
+            }
+
+            if (reviewCall == 2)
+            {
+                throw new HttpRequestException("Missing model", null, HttpStatusCode.NotFound);
+            }
+
+            return ValidReviewResponse(segments);
+        });
+        using var factory = new ApiFactory("Development", null, translationProvider: chatClient);
+        using var client = CreateClient(factory);
+        await ConfigureProviderRuntimeAsync(factory, batchSize: 1, maxAttempts: 1);
+        var taskId = await ImportTextAsync(client, "One\n\nTwo\n\nThree");
+        await TranslateTaskAsync(client, taskId);
+
+        var run = await CreateAndWaitForReviewRunAsync(client, taskId);
+        var failures = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/tasks/{taskId}/review-runs/{run.GetProperty("runId").GetGuid()}/failures");
+        var failureItems = failures.GetProperty("items").EnumerateArray().ToArray();
+
+        Assert.Equal("partial_failed", run.GetProperty("status").GetString());
+        Assert.Equal(3, run.GetProperty("progress").GetProperty("processedSegments").GetInt32());
+        Assert.Equal(1, run.GetProperty("progress").GetProperty("succeededSegments").GetInt32());
+        Assert.Equal(2, run.GetProperty("progress").GetProperty("failedSegments").GetInt32());
+        Assert.Equal(100.0, run.GetProperty("progress").GetProperty("percent").GetDouble());
+        Assert.Equal("segment_review_failed", run.GetProperty("failure").GetProperty("code").GetString());
+        Assert.True(run.GetProperty("failure").GetProperty("retryable").GetBoolean());
+        Assert.Equal(
+            new[] { "llm_authentication_failed", "llm_model_unavailable" },
+            failureItems.Select(item => item.GetProperty("code").GetString()));
+        Assert.All(failureItems, item => Assert.False(item.GetProperty("retryable").GetBoolean()));
+    }
+
+    [Fact]
+    public async Task ReviewRequestValidationReturnsStableCodes()
+    {
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            translationProvider: new ReviewTestChatClient());
+        using var client = CreateClient(factory);
+        var taskId = await ImportTextAsync(client, "Hello world");
+        await TranslateTaskAsync(client, taskId);
+
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new { extractionRevision = 0, sourceLanguage = "en", targetLanguage = "zh-CN" }),
+            HttpStatusCode.BadRequest,
+            "invalid_extraction_revision");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "not a language" }),
+            HttpStatusCode.BadRequest,
+            "invalid_language_tag");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "en" }),
+            HttpStatusCode.UnprocessableEntity,
+            "unsupported_language_pair");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new { extractionRevision = 2, sourceLanguage = "en", targetLanguage = "zh-CN" }),
+            HttpStatusCode.Conflict,
+            "extraction_revision_changed");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new
+                {
+                    extractionRevision = 1,
+                    sourceLanguage = "en",
+                    targetLanguage = "zh-CN",
+                    providerId = Guid.NewGuid()
+                }),
+            HttpStatusCode.NotFound,
+            "provider_not_found");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new
+                {
+                    extractionRevision = 1,
+                    sourceLanguage = "en",
+                    targetLanguage = "zh-CN",
+                    providerId = "not-a-uuid"
+                }),
+            HttpStatusCode.BadRequest,
+            "invalid_model_selection");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new
+                {
+                    extractionRevision = 1,
+                    sourceLanguage = "en",
+                    targetLanguage = "zh-CN",
+                    modelId = "not-a-uuid"
+                }),
+            HttpStatusCode.BadRequest,
+            "invalid_model_selection");
+        await AssertProblemAsync(
+            await client.GetAsync($"/api/tasks/{taskId}/review-runs?limit=0"),
+            HttpStatusCode.BadRequest,
+            "invalid_pagination");
+        await AssertProblemAsync(
+            await client.GetAsync($"/api/tasks/{taskId}/review-runs?cursor=not-a-cursor"),
+            HttpStatusCode.BadRequest,
+            "invalid_cursor");
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var segment = await database.TranslationSegments.SingleAsync(item => item.TaskId == taskId);
+            segment.TargetText = "   ";
+            await database.SaveChangesAsync();
+        }
+
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync(
+                $"/api/tasks/{taskId}/review-runs",
+                new { extractionRevision = 1, sourceLanguage = "en", targetLanguage = "zh-CN" }),
+            HttpStatusCode.UnprocessableEntity,
+            "invalid_segment_state");
+    }
+
+    [Fact]
+    public async Task OversizedIssueAndSuggestionAreRejectedAfterConfiguredAttempts()
+    {
+        var chatClient = new ReviewTestChatClient((reviewCall, segments) =>
+        {
+            var segmentId = Assert.Single(segments).GetProperty("segmentId").GetGuid();
+            return JsonSerializer.Serialize(new
+            {
+                reviews = new[]
+                {
+                    new
+                    {
+                        segmentId,
+                        comments = new[]
+                        {
+                            new
+                            {
+                                severity = "low",
+                                issue = reviewCall == 1 ? new string('a', 2001) : "Issue",
+                                suggestion = reviewCall == 1 ? (string?)null : new string('b', 4001)
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        using var factory = new ApiFactory("Development", null, translationProvider: chatClient);
+        using var client = CreateClient(factory);
+        await ConfigureProviderRuntimeAsync(factory, batchSize: 1, maxAttempts: 1);
+        var taskId = await ImportTextAsync(client, "Hello world");
+        await TranslateTaskAsync(client, taskId);
+
+        var issueRun = await CreateAndWaitForReviewRunAsync(client, taskId);
+        var suggestionRun = await CreateAndWaitForReviewRunAsync(client, taskId);
+
+        Assert.Equal("failed", issueRun.GetProperty("status").GetString());
+        Assert.Equal("llm_response_invalid", issueRun.GetProperty("failure").GetProperty("code").GetString());
+        Assert.Equal("failed", suggestionRun.GetProperty("status").GetString());
+        Assert.Equal("llm_response_invalid", suggestionRun.GetProperty("failure").GetProperty("code").GetString());
+    }
+
     private static HttpClient CreateClient(ApiFactory factory)
     {
         var client = factory.CreateClient();
@@ -508,7 +708,7 @@ public sealed class ReviewApiTests
                 sourceLanguage = "en",
                 targetLanguage = "zh-CN"
             });
-        response.EnsureSuccessStatusCode();
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var created = await response.Content.ReadFromJsonAsync<JsonElement>();
         await WaitForTranslationRunAsync(client, taskId, created.GetProperty("runId").GetGuid());
     }
@@ -560,6 +760,38 @@ public sealed class ReviewApiTests
         response.EnsureSuccessStatusCode();
         var created = await response.Content.ReadFromJsonAsync<JsonElement>();
         return await WaitForReviewRunAsync(client, taskId, created.GetProperty("runId").GetGuid());
+    }
+
+    private static async Task ConfigureProviderRuntimeAsync(
+        ApiFactory factory,
+        int batchSize,
+        int maxAttempts)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var provider = await database.Providers.SingleAsync();
+        provider.BatchSize = batchSize;
+        provider.MaxAttempts = maxAttempts;
+        await database.SaveChangesAsync();
+    }
+
+    private static string ValidReviewResponse(JsonElement[] segments) => JsonSerializer.Serialize(new
+    {
+        reviews = segments.Select(segment => new
+        {
+            segmentId = segment.GetProperty("segmentId").GetGuid(),
+            comments = Array.Empty<object>()
+        })
+    });
+
+    private static async Task AssertProblemAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatus,
+        string expectedCode)
+    {
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(expectedCode, problem.GetProperty("code").GetString());
     }
 
     private sealed class ReviewTestChatClient : IChatClient

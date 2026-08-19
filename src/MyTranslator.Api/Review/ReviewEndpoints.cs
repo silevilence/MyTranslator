@@ -133,7 +133,7 @@ public static class ReviewEndpoints
         if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var id))
         {
             throw new ReviewRequestException(
-                null,
+                "invalid_model_selection",
                 $"The {property} must be a UUID or null.",
                 StatusCodes.Status400BadRequest);
         }

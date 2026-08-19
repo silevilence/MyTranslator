@@ -76,7 +76,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:DefaultConnection"] = _connectionString,
                 ["INITIAL_TOKEN"] = _initialToken,
-                ["Translation:MaxConcurrentRuns"] = "4"
+                ["Translation:MaxConcurrentRuns"] = "4",
+                ["Review:MaxConcurrentRuns"] = "4"
             });
         });
         builder.ConfigureServices(services =>
