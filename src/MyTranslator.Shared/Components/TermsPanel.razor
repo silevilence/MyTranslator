@@ -239,11 +239,11 @@
                 var page = await Terms.GetTermsAsync(
                     NullIfBlank(_searchText), NullIfBlank(_sourceLanguage), NullIfBlank(_targetLanguage), _cursor,
                     request.CancellationToken);
-                if (generation != _loadGeneration)
+                if (IsStaleGeneration())
                 {
-                    // 重置已发生：本响应属旧查询条件，作废；新一轮 RefreshDataAsync 会以新条件重查
-                    return new ItemsProviderResult<TermListItem>([], 0);
+                    return EmptyResult(); // 重置已发生：响应属旧查询条件，作废；新一轮以新条件重查
                 }
+
                 _cursor = page.NextCursor;
                 _noMorePages = page.NextCursor is null;
                 _hasLoaded = true;
@@ -257,25 +257,23 @@
                     }
                 }
 
-                // 仅在真实应用一页响应后播报：重置后的在途窗口里 Virtualize 可能以 0 配额
-                // 再次进入本方法（不发请求），若在方法尾统一写回会把 null 误播成"已加载 0 个"
+                // 播报只在真实应用一页响应后写回（见 IsStaleGeneration 处的机制说明）
                 _announceCount = _items.Count;
+            }
+            catch (OperationCanceledException) when (IsStaleGeneration())
+            {
+                // 重置触发的取消：过期续体直接作废，不进入下方滚动取消分支
+                return EmptyResult();
             }
             catch (OperationCanceledException)
             {
-                if (generation != _loadGeneration)
-                {
-                    // 重置触发的取消：过期续体不再写回播报状态（否则会把 null 播报成"已加载 0 个"）
-                    return new ItemsProviderResult<TermListItem>([], 0);
-                }
-
                 break; // 滚动取消：不视为错误
             }
             catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
             {
-                if (generation != _loadGeneration)
+                if (IsStaleGeneration())
                 {
-                    return new ItemsProviderResult<TermListItem>([], 0); // 旧代次失败不污染新一轮状态
+                    return EmptyResult(); // 旧代次失败不污染新一轮状态
                 }
 
                 if (_items.Count == 0)
@@ -290,11 +288,20 @@
                 break;
             }
         }
+
         // ItemsProvider 在 Virtualize 渲染周期内运行，父组件不会因字段更新自动重渲染；
         // 显式通知，使 aria-live 播报区与"加载更多"按钮随加载结果更新
         await InvokeAsync(StateHasChanged);
         var items = _items.Skip(request.StartIndex).Take(request.Count).ToArray();
         return new ItemsProviderResult<TermListItem>(items, _noMorePages ? _items.Count : _items.Count + 1);
+
+        // 局部 helper：捕获本代次后重置已发生 → 本次调用的一切结果作废。
+        // 机制：筛选/写操作触发 ReloadFromFirstPageAsync 时 ++_loadGeneration 并清空本地项；
+        // 在途请求（或被取消的续体）恢复后若沿用，会把旧条件条目/游标写回新列表（契约 §11.1.2 要求
+        // 忽略旧请求并丢弃旧游标），也会在重置窗口（Virtualize 以 0 配额重入、播报已置 null）把
+        // 空结果误播成"已加载 0 个"。
+        bool IsStaleGeneration() => generation != _loadGeneration;
+        ItemsProviderResult<TermListItem> EmptyResult() => new([], 0);
     }
 
     /// <summary>搜索词或语言筛选防抖结束：变化后丢弃旧游标与已加载项，从第一页重新加载（契约 §11.1.2）。</summary>
