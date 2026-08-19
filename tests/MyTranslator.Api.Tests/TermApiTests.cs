@@ -1,9 +1,14 @@
+using System.Collections.Concurrent;
+using System.Data.Common;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using MyTranslator.Api.Data;
 
@@ -204,6 +209,84 @@ public sealed class TermApiTests
     }
 
     [Fact]
+    public async Task TermListWithoutQueryUsesBoundedDatabasePagination()
+    {
+        var interceptor = new TermListQueryInterceptor();
+        using var factory = new ApiFactory(
+            "Development",
+            null,
+            databaseInterceptor: interceptor);
+        using var client = CreateClient(factory);
+        var older = await CreateTermAsync(client, "alpha", "甲");
+        var newer = await CreateTermAsync(client, "beta", "乙");
+        interceptor.Clear();
+
+        var response = await client.GetAsync("/api/terms?limit=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var firstItem = Assert.Single(page.GetProperty("items").EnumerateArray());
+        Assert.Equal(newer.GetProperty("id").GetGuid(), firstItem.GetProperty("id").GetGuid());
+        var command = Assert.Single(interceptor.Commands, sql =>
+            sql.Contains("FROM \"Terms\"", StringComparison.Ordinal) &&
+            sql.Contains("ORDER BY \"t\".\"UpdatedAtSortKey\" DESC", StringComparison.Ordinal));
+        Assert.Contains("LIMIT", command, StringComparison.Ordinal);
+
+        interceptor.Clear();
+        var cursor = page.GetProperty("nextCursor").GetString();
+        var nextResponse = await client.GetAsync(
+            $"/api/terms?limit=1&cursor={Uri.EscapeDataString(cursor!)}");
+        Assert.Equal(HttpStatusCode.OK, nextResponse.StatusCode);
+        var nextPage = await nextResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondItem = Assert.Single(nextPage.GetProperty("items").EnumerateArray());
+        Assert.Equal(older.GetProperty("id").GetGuid(), secondItem.GetProperty("id").GetGuid());
+        Assert.Equal(JsonValueKind.Null, nextPage.GetProperty("nextCursor").ValueKind);
+        var nextCommand = Assert.Single(interceptor.Commands, sql =>
+            sql.Contains("FROM \"Terms\"", StringComparison.Ordinal) &&
+            sql.Contains("ORDER BY \"t\".\"UpdatedAtSortKey\" DESC", StringComparison.Ordinal));
+        Assert.Contains("LIMIT", nextCommand, StringComparison.Ordinal);
+        Assert.DoesNotContain("CASE WHEN", nextCommand, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task MigratedTermSortKeysPreserveCursorPosition()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        await using var database = new AppDbContext(options);
+        var migrator = database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20260818000000_AddTerms");
+
+        var newestId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var olderId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var legacyOffset = TimeSpan.FromHours(8);
+        var newestUpdatedAt = new DateTimeOffset(2026, 8, 19, 18, 0, 0, 500, legacyOffset);
+        var olderUpdatedAt = new DateTimeOffset(2026, 8, 19, 17, 0, 0, 400, legacyOffset);
+        await InsertLegacyTermAsync(database, newestId, "newest", newestUpdatedAt);
+        await InsertLegacyTermAsync(database, olderId, "older", olderUpdatedAt);
+        await migrator.MigrateAsync();
+
+        var service = new MyTranslator.Api.Terms.TermService(database);
+        var firstPage = await service.ListAsync(null, null, null, 1, null, CancellationToken.None);
+        var firstItem = Assert.Single(firstPage.Items);
+        var secondPage = await service.ListAsync(
+            null,
+            null,
+            null,
+            1,
+            firstPage.NextCursor,
+            CancellationToken.None);
+        var secondItem = Assert.Single(secondPage.Items);
+
+        Assert.Equal(newestId, firstItem.Id);
+        Assert.Equal(olderId, secondItem.Id);
+        Assert.Null(secondPage.NextCursor);
+    }
+
+    [Fact]
     public async Task SourceTermUniquenessIgnoresCaseWithinLanguagePair()
     {
         using var factory = new ApiFactory();
@@ -386,6 +469,19 @@ public sealed class TermApiTests
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    private static Task InsertLegacyTermAsync(
+        AppDbContext database,
+        Guid id,
+        string sourceTerm,
+        DateTimeOffset updatedAt) => database.Database.ExecuteSqlInterpolatedAsync($"""
+        INSERT INTO "Terms"
+            ("Id", "SourceTerm", "SourceTermKey", "TargetTerm", "SourceLanguage",
+             "TargetLanguage", "Notes", "CaseSensitive", "Version", "CreatedAt", "UpdatedAt")
+        VALUES
+            ({id}, {sourceTerm}, {sourceTerm.ToUpperInvariant()}, '目标术语', 'en',
+             'zh-CN', NULL, 0, 1, {updatedAt}, {updatedAt});
+        """);
+
     private static async Task<Guid> ImportMarkdownAsync(HttpClient client, string text)
     {
         using var request = new MultipartFormDataContent();
@@ -437,5 +533,31 @@ public sealed class TermApiTests
                         ? "你好 <x1>World</x1>。"
                         : "接口"))
                 .ToArray());
+    }
+
+    private sealed class TermListQueryInterceptor : DbCommandInterceptor
+    {
+        public ConcurrentQueue<string> Commands { get; } = new();
+
+        public void Clear() => Commands.Clear();
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result)
+        {
+            Commands.Enqueue(command.CommandText);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Enqueue(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
     }
 }

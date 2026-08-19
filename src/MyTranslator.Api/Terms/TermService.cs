@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,24 @@ public sealed class TermService(AppDbContext database)
             termQuery = termQuery.Where(term => term.TargetLanguage == normalizedTargetLanguage);
         }
 
+        var position = cursor is null
+            ? null
+            : TermCursor.Decode(
+                cursor,
+                normalizedQuery,
+                normalizedSourceLanguage,
+                normalizedTargetLanguage);
+        if (normalizedQuery is null)
+        {
+            return await ListWithoutQueryAsync(
+                termQuery,
+                normalizedSourceLanguage,
+                normalizedTargetLanguage,
+                limit,
+                position,
+                cancellationToken);
+        }
+
         var terms = await termQuery.ToListAsync(cancellationToken);
         var scored = new List<ScoredTerm>(terms.Count);
         foreach (var term in terms)
@@ -49,36 +68,19 @@ public sealed class TermService(AppDbContext database)
             }
         }
 
-        IOrderedEnumerable<ScoredTerm> ordered = normalizedQuery is null
-            ? scored.OrderByDescending(item => item.Term.UpdatedAt).ThenBy(item => item.Term.Id)
-            : scored.OrderByDescending(item => item.MatchScore)
-                .ThenByDescending(item => item.Term.UpdatedAt)
-                .ThenBy(item => item.Term.Id);
-
-        var position = cursor is null
-            ? null
-            : TermCursor.Decode(
-                cursor,
-                normalizedQuery,
-                normalizedSourceLanguage,
-                normalizedTargetLanguage);
+        var ordered = scored.OrderByDescending(item => item.MatchScore)
+            .ThenByDescending(item => item.Term.UpdatedAt)
+            .ThenBy(item => item.Term.Id);
         var afterCursor = position is null
             ? ordered
-            : ordered.Where(item => IsAfter(item, position, normalizedQuery is not null));
+            : ordered.Where(item => IsAfter(item, position));
         var rows = afterCursor.Take(limit + 1).ToList();
-        var hasNextPage = rows.Count > limit;
-        rows = rows.Take(limit).ToList();
-        var items = rows.Select(ToListResponse).ToArray();
-        var nextCursor = hasNextPage
-            ? TermCursor.Encode(
-                normalizedQuery,
-                normalizedSourceLanguage,
-                normalizedTargetLanguage,
-                rows[^1].MatchScore,
-                rows[^1].Term.UpdatedAt,
-                rows[^1].Term.Id)
-            : null;
-        return new TermPage(items, nextCursor);
+        return CreatePage(
+            rows,
+            normalizedQuery,
+            normalizedSourceLanguage,
+            normalizedTargetLanguage,
+            limit);
     }
 
     public async Task<TermResponse> CreateAsync(
@@ -111,7 +113,8 @@ public sealed class TermService(AppDbContext database)
             CaseSensitive = request.CaseSensitive,
             Version = 1,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            UpdatedAtSortKey = TermSortKey.From(now)
         };
         database.Terms.Add(term);
         try
@@ -177,6 +180,7 @@ public sealed class TermService(AppDbContext database)
         term.CaseSensitive = request.CaseSensitive;
         term.Version++;
         term.UpdatedAt = DateTimeOffset.UtcNow;
+        term.UpdatedAtSortKey = TermSortKey.From(term.UpdatedAt);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -241,35 +245,88 @@ public sealed class TermService(AppDbContext database)
             new Dictionary<string, object?> { ["conflictingTermId"] = conflictingId });
     }
 
-    internal static TermResponse ToResponse(Term term) => new(
-        term.Id,
-        term.SourceTerm,
-        term.TargetTerm,
-        term.SourceLanguage,
-        term.TargetLanguage,
-        term.Notes,
-        term.CaseSensitive,
-        term.Version,
-        term.CreatedAt,
-        term.UpdatedAt);
-
-    private static TermListItemResponse ToListResponse(ScoredTerm item) => new(
-        item.Term.Id,
-        item.Term.SourceTerm,
-        item.Term.TargetTerm,
-        item.Term.SourceLanguage,
-        item.Term.TargetLanguage,
-        item.Term.Notes,
-        item.Term.CaseSensitive,
-        item.Term.Version,
-        item.Term.CreatedAt,
-        item.Term.UpdatedAt,
-        item.MatchScore,
-        item.MatchedField);
-
-    private static bool IsAfter(ScoredTerm item, TermCursorPosition position, bool hasQuery)
+    private static async Task<TermPage> ListWithoutQueryAsync(
+        IQueryable<Term> termQuery,
+        string? sourceLanguage,
+        string? targetLanguage,
+        int limit,
+        TermCursorPosition? position,
+        CancellationToken cancellationToken)
     {
-        if (hasQuery && item.MatchScore != position.MatchScore)
+        if (position is not null)
+        {
+            var updatedAtSortKey = TermSortKey.From(position.UpdatedAt);
+            termQuery = termQuery.Where(term =>
+                string.Compare(term.UpdatedAtSortKey, updatedAtSortKey) < 0 ||
+                term.UpdatedAtSortKey == updatedAtSortKey && term.Id.CompareTo(position.TermId) > 0);
+        }
+
+        var terms = await termQuery
+            .OrderByDescending(term => term.UpdatedAtSortKey)
+            .ThenBy(term => term.Id)
+            .Take(limit + 1)
+            .ToListAsync(cancellationToken);
+        var rows = terms
+            .Select(term => new ScoredTerm(term, null, null))
+            .ToList();
+        return CreatePage(rows, null, sourceLanguage, targetLanguage, limit);
+    }
+
+    private static TermPage CreatePage(
+        List<ScoredTerm> rows,
+        string? query,
+        string? sourceLanguage,
+        string? targetLanguage,
+        int limit)
+    {
+        var hasNextPage = rows.Count > limit;
+        rows = rows.Take(limit).ToList();
+        var items = rows.Select(ToListResponse).ToArray();
+        var nextCursor = hasNextPage
+            ? TermCursor.Encode(
+                query,
+                sourceLanguage,
+                targetLanguage,
+                rows[^1].MatchScore,
+                rows[^1].Term.UpdatedAt,
+                rows[^1].Term.Id)
+            : null;
+        return new TermPage(items, nextCursor);
+    }
+
+    internal static TermResponse ToResponse(Term term) => new()
+    {
+        Id = term.Id,
+        SourceTerm = term.SourceTerm,
+        TargetTerm = term.TargetTerm,
+        SourceLanguage = term.SourceLanguage,
+        TargetLanguage = term.TargetLanguage,
+        Notes = term.Notes,
+        CaseSensitive = term.CaseSensitive,
+        Version = term.Version,
+        CreatedAt = term.CreatedAt,
+        UpdatedAt = term.UpdatedAt
+    };
+
+    private static TermListItemResponse ToListResponse(ScoredTerm item) => new()
+    {
+        Id = item.Term.Id,
+        SourceTerm = item.Term.SourceTerm,
+        TargetTerm = item.Term.TargetTerm,
+        SourceLanguage = item.Term.SourceLanguage,
+        TargetLanguage = item.Term.TargetLanguage,
+        Notes = item.Term.Notes,
+        CaseSensitive = item.Term.CaseSensitive,
+        Version = item.Term.Version,
+        CreatedAt = item.Term.CreatedAt,
+        UpdatedAt = item.Term.UpdatedAt,
+        MatchScore = item.MatchScore,
+        MatchedField = item.MatchedField
+    };
+
+    private static bool IsAfter(ScoredTerm item, TermCursorPosition position)
+    {
+        if (item.MatchScore != position.MatchScore)
         {
             return item.MatchScore < position.MatchScore;
         }
@@ -450,3 +507,13 @@ internal static class TermSearch
 }
 
 internal sealed record ScoredTerm(Term Term, double? MatchScore, string? MatchedField);
+
+internal static class TermSortKey
+{
+    // Keep the format and original offset identical to EF Core SQLite's
+    // DateTimeOffset text encoding so migrated and newly written keys are equal.
+    private const string Format = "yyyy-MM-dd HH:mm:ss.FFFFFFFzzz";
+
+    public static string From(DateTimeOffset value) =>
+        value.ToString(Format, CultureInfo.InvariantCulture);
+}

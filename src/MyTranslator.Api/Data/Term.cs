@@ -13,4 +13,5 @@ public sealed class Term
     public int Version { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    public string UpdatedAtSortKey { get; set; } = null!;
 }

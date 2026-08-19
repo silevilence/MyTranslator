@@ -139,6 +139,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         term.Property(entity => entity.SourceLanguage).HasMaxLength(50).IsRequired();
         term.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
         term.Property(entity => entity.Notes).HasMaxLength(4000);
+        term.Property(entity => entity.UpdatedAtSortKey).HasMaxLength(40).IsRequired();
         term.Property(entity => entity.Version).IsConcurrencyToken();
         term.HasIndex(entity => new
         {
@@ -146,6 +147,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.TargetLanguage,
             entity.SourceTermKey
         }).IsUnique();
-        term.HasIndex(entity => new { entity.UpdatedAt, entity.Id });
+        term.HasIndex(entity => new { entity.UpdatedAtSortKey, entity.Id })
+            .IsDescending(true, false);
     }
 }

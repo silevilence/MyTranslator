@@ -236,6 +236,11 @@ namespace MyTranslator.Api.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("UpdatedAtSortKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("INTEGER");
@@ -245,7 +250,8 @@ namespace MyTranslator.Api.Data.Migrations
                     b.HasIndex("SourceLanguage", "TargetLanguage", "SourceTermKey")
                         .IsUnique();
 
-                    b.HasIndex("UpdatedAt", "Id");
+                    b.HasIndex("UpdatedAtSortKey", "Id")
+                        .IsDescending(true, false);
 
                     b.ToTable("Terms", (string)null);
                 });

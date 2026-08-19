@@ -17,31 +17,25 @@ public sealed record UpdateTermRequest(
     bool CaseSensitive,
     int Version);
 
-public record TermResponse(
-    Guid Id,
-    string SourceTerm,
-    string TargetTerm,
-    string SourceLanguage,
-    string TargetLanguage,
-    string? Notes,
-    bool CaseSensitive,
-    int Version,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+public record TermResponse
+{
+    public Guid Id { get; init; }
+    public string SourceTerm { get; init; } = string.Empty;
+    public string TargetTerm { get; init; } = string.Empty;
+    public string SourceLanguage { get; init; } = string.Empty;
+    public string TargetLanguage { get; init; } = string.Empty;
+    public string? Notes { get; init; }
+    public bool CaseSensitive { get; init; }
+    public int Version { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; }
+}
 
-public sealed record TermListItemResponse(
-    Guid Id,
-    string SourceTerm,
-    string TargetTerm,
-    string SourceLanguage,
-    string TargetLanguage,
-    string? Notes,
-    bool CaseSensitive,
-    int Version,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt,
-    double? MatchScore,
-    string? MatchedField);
+public sealed record TermListItemResponse : TermResponse
+{
+    public double? MatchScore { get; init; }
+    public string? MatchedField { get; init; }
+}
 
 public sealed record TermPage(IReadOnlyList<TermListItemResponse> Items, string? NextCursor);
 
