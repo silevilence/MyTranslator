@@ -246,13 +246,24 @@
         await RestoreDialogFocusAsync();
     }
 
-    /// <summary>将焦点归还弹窗首个输入框；失败静默忽略，不阻断错误展示。</summary>
-    private Task RestoreDialogFocusAsync()
+    /// <summary>
+    /// 将焦点归还弹窗容器（mtDialog.focus，命名互操作；与 mtStorage/mtDownload 同约定）。
+    /// 失败（组件销毁、JS 未就绪）静默忽略，不阻断错误展示。
+    /// </summary>
+    private async Task RestoreDialogFocusAsync()
     {
-        const string script =
-            "var el = document.querySelector('.mud-dialog');" +
-            "if (el) { el.focus(); }";
-        return JS.InvokeVoidAsync("eval", script).AsTask();
+        try
+        {
+            await JS.InvokeVoidAsync("mtDialog.focus");
+        }
+        catch (JSException)
+        {
+            // 焦点归还为增强项：失败不影响错误文案展示与保存流程
+        }
+        catch (JSDisconnectedException)
+        {
+            // 弹窗已随电路销毁：无需归还
+        }
     }
 
     /// <summary>

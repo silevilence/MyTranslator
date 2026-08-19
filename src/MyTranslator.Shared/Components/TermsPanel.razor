@@ -203,8 +203,8 @@
     /// <summary>行级操作锁：编辑/删除提交期间禁用该行操作，防重复提交。</summary>
     private Guid? _busyId;
 
-    /// <summary>已加载条数，供 aria-live 状态区播报。</summary>
-    private int _announceCount;
+    /// <summary>最近一次成功加载的条数；null（未完成首次加载）不播报，避免首屏误报"已加载 0 个"。</summary>
+    private int? _announceCount;
 
     /// <summary>加载代次：筛选变化使旧代次响应过期，防止旧条件数据写入新列表（契约 §2.3）。</summary>
     private int _loadGeneration;
@@ -223,9 +223,14 @@
         || !string.IsNullOrWhiteSpace(_sourceLanguage)
         || !string.IsNullOrWhiteSpace(_targetLanguage);
 
-    /// <summary>Virtualize 数据提供器：按需拉取游标页并缓存；滚动取消不视为错误。</summary>
+    /// <summary>
+    /// Virtualize 数据提供器：按需拉取游标页并缓存；滚动取消不视为错误。
+    /// 每次响应写回前校验加载代次：筛选/写操作触发重置后，在途旧请求的响应整体丢弃，
+    /// 不写回条目与游标（契约 §11.1.2：条件变化后忽略旧请求并丢弃旧游标，避免旧游标 + 新条件触发 400 invalid_cursor）。
+    /// </summary>
     private async ValueTask<ItemsProviderResult<TermListItem>> ProvideItemsAsync(ItemsProviderRequest request)
     {
+        var generation = _loadGeneration;
         var need = request.StartIndex + request.Count;
         while (_items.Count < need && !_noMorePages && _loadError is null && _moreError is null)
         {
@@ -234,6 +239,12 @@
                 var page = await Terms.GetTermsAsync(
                     NullIfBlank(_searchText), NullIfBlank(_sourceLanguage), NullIfBlank(_targetLanguage), _cursor,
                     request.CancellationToken);
+                if (generation != _loadGeneration)
+                {
+                    // 重置已发生：本响应属旧查询条件，作废；新一轮 RefreshDataAsync 会以新条件重查
+                    return new ItemsProviderResult<TermListItem>([], 0);
+                }
+
                 _cursor = page.NextCursor;
                 _noMorePages = page.NextCursor is null;
                 _hasLoaded = true;
@@ -253,6 +264,11 @@
             }
             catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
             {
+                if (generation != _loadGeneration)
+                {
+                    return new ItemsProviderResult<TermListItem>([], 0); // 旧代次失败不污染新一轮状态
+                }
+
                 if (_items.Count == 0)
                 {
                     _loadError = ErrorProvider.ForException(ex);
@@ -267,6 +283,9 @@
         }
 
         _announceCount = _items.Count;
+        // ItemsProvider 在 Virtualize 渲染周期内运行，父组件不会因字段更新自动重渲染；
+        // 显式通知，使 aria-live 播报区与"加载更多"按钮随加载结果更新
+        await InvokeAsync(StateHasChanged);
         var items = _items.Skip(request.StartIndex).Take(request.Count).ToArray();
         return new ItemsProviderResult<TermListItem>(items, _noMorePages ? _items.Count : _items.Count + 1);
     }
@@ -311,6 +330,7 @@
         _hasLoaded = false;
         _loadError = null;
         _moreError = null;
+        _announceCount = null;
     }
 
     /// <summary>手动"加载更多"：Virtualize 已按需拉取，此处仅触发补一页（保持按钮语义与失败重试入口）。</summary>
