@@ -80,7 +80,7 @@
 | 只传 `providerId` | 该提供商的默认模型 |
 | 都传 | 精确指定，`modelId` 必须属于该提供商 |
 
-只传 `modelId` 不属于合法选择形状，返回 `400 invalid_model_selection`。解析成功后，运行资源回显实际使用且恒非空的 `providerId` / `modelId`；运行内重试沿用同一选择。
+只传 `modelId` 不属于合法选择形状，`providerId`/`modelId` 不是合法 UUID 时同样返回 `400 invalid_model_selection`。解析成功后，运行资源回显实际使用且恒非空的 `providerId` / `modelId`；运行内重试沿用同一选择。
 
 配置不可用的 HTTP 状态和错误码复用《AI 配置管理接口约定》：`provider_not_found`、`model_not_found`、`provider_disabled`、`llm_not_configured`。与翻译运行不同，任何配置失败均不得修改任务公共状态。
 
@@ -468,7 +468,7 @@ LLM 必须按分段 ID 返回结构化结果；请求批次中的每个分段恰
 |---|---|---|
 | 400 | `invalid_language_tag` | 语言字段缺失或不是合法 BCP 47 标签 |
 | 400 | `invalid_extraction_revision` | `extractionRevision` 缺失、类型错误或小于 `1` |
-| 400 | `invalid_model_selection` | 只传 `modelId`，没有用于确定所属关系的 `providerId` |
+| 400 | `invalid_model_selection` | 只传 `modelId` 没有配套 `providerId`，或 `providerId`/`modelId` 不是合法 UUID |
 | 400 | `invalid_cursor` | 游标不可解析或不属于当前资源 |
 | 400 | `invalid_pagination` | `limit` 不在 `1..200` 范围内 |
 | 404 | `task_not_found` | 任务不存在 |
