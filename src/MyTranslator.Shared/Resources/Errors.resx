@@ -178,7 +178,7 @@
     <value>AI 模型不可用或无权访问，请检查服务端配置</value>
   </data>
   <data name="llm_response_invalid" xml:space="preserve">
-    <value>AI 返回结果无效，已放弃该批译文</value>
+    <value>AI 返回结果无效，该批次已放弃并重试</value>
   </data>
   <data name="placeholder_integrity_violation" xml:space="preserve">
     <value>AI 译文破坏了占位符标记，未保存</value>

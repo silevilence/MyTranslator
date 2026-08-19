@@ -19,20 +19,12 @@ public sealed record ReviewRunPoll(ReviewRun Run, int? RetryAfterSeconds);
 /// 审核意见本身随分段响应下发（§9），不单独查询。
 /// 接口地址经配置 <c>Api:BaseUrl</c> 注入；非成功响应统一抛出
 /// <see cref="ApiErrorException"/>，由页面经 <see cref="ApiErrorMessageProvider"/> 映射文案。
-/// </summary>
-public class ReviewRunService
+public class ReviewRunService : RunApiClientBase
 {
-    private readonly ApiClient _api;
-    private readonly string _baseUrl;
-
     public ReviewRunService(ApiClient api, IConfiguration config)
+        : base(api, config)
     {
-        _api = api;
-        _baseUrl = config["Api:BaseUrl"] ?? string.Empty;
     }
-
-    /// <summary>拼接接口地址：配置了 <c>Api:BaseUrl</c> 时指向后端，否则使用页面同源相对路径。</summary>
-    private string ApiUrl(string path) => _baseUrl + path;
 
     /// <summary>
     /// 创建审核运行（§4）。<paramref name="sourceLanguage"/> 为 null 或空白表示由 LLM 自动识别（不注入术语）；
@@ -64,9 +56,9 @@ public class ReviewRunService
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
-        using var response = await _api.SendAsync(request, cancellationToken);
+        using var response = await Api.SendAsync(request, cancellationToken);
         var run = await ReadResultAsync<ReviewRun>(response, cancellationToken);
-        return new ReviewRunPoll(run, TranslationRunService.ParseRetryAfter(response.Headers.RetryAfter));
+        return new ReviewRunPoll(run, ParseRetryAfter(response.Headers.RetryAfter));
     }
 
     /// <summary>查询审核运行（§5）。活动运行响应携带 Retry-After，调用方据此安排轮询。</summary>
@@ -75,11 +67,11 @@ public class ReviewRunService
         Guid runId,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/review-runs/{runId}",
             cancellationToken);
         var run = await ReadResultAsync<ReviewRun>(response, cancellationToken);
-        return new ReviewRunPoll(run, TranslationRunService.ParseRetryAfter(response.Headers.RetryAfter));
+        return new ReviewRunPoll(run, ParseRetryAfter(response.Headers.RetryAfter));
     }
 
     /// <summary>列出当前提取修订的审核运行（§6），按 createdAt 降序；limit 范围 1..200。</summary>
@@ -89,7 +81,7 @@ public class ReviewRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/review-runs{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<ReviewRunPage>(response, cancellationToken);
@@ -103,28 +95,9 @@ public class ReviewRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/review-runs/{runId}/failures{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<ReviewFailurePage>(response, cancellationToken);
-    }
-
-    /// <summary>游标分页查询串：首页只带 limit，翻页附加转义后的不透明游标（§2.5）。</summary>
-    private static string PageQuery(int limit, string? cursor)
-    {
-        return cursor is null
-            ? $"?limit={limit}"
-            : $"?limit={limit}&cursor={Uri.EscapeDataString(cursor)}";
-    }
-
-    private static async Task<T> ReadResultAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        if (!response.IsSuccessStatusCode)
-        {
-            throw await ApiErrorException.FromResponseAsync(response, cancellationToken);
-        }
-
-        return await response.Content.ReadFromJsonAsync<T>(ImportJson.Options, cancellationToken)
-            ?? throw new InvalidOperationException($"接口响应缺少 {typeof(T).Name} 内容");
     }
 }

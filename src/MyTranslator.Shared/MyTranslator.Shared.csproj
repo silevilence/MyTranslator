@@ -36,6 +36,9 @@
     <EmbeddedResource Update="Resources\ReviewRunPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.ReviewRunPanel.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\RunPanelStrings.resx">
+      <LogicalName>MyTranslator.Shared.Resources.RunPanelStrings.resources</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Update="Resources\TranslationRunPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.TranslationRunPanel.resources</LogicalName>
     </EmbeddedResource>

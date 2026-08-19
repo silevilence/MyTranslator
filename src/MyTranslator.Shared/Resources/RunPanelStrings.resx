@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="RunQueued" xml:space="preserve">
+    <value>已排队</value>
+  </data>
+  <data name="RunProcessing" xml:space="preserve">
+    <value>进行中</value>
+  </data>
+  <data name="RunCompleted" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="RunPartialFailed" xml:space="preserve">
+    <value>部分失败</value>
+  </data>
+  <data name="RunFailed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="RunUnknown" xml:space="preserve">
+    <value>未知状态</value>
+  </data>
+</root>

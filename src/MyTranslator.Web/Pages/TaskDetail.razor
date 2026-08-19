@@ -147,7 +147,7 @@ else
                                 <MudText Typo="Typo.body2">@context.TargetText</MudText>
                             }
                             @ConfirmationBadge(context.ConfirmationStatus)
-                            @if (context.ReviewComments.Count > 0)
+                            @if (CommentsOf(context).Count > 0)
                             {
                                 @ReviewCountBadge(context)
                                 @if (IsSegmentCommentsExpanded(context.Id))
@@ -169,10 +169,10 @@ else
                             }
                         </div>
                     </div>
-                    @if (context.ReviewComments.Count > 0 && IsSegmentCommentsExpanded(context.Id))
+                    @if (CommentsOf(context).Count > 0 && IsSegmentCommentsExpanded(context.Id))
                     {
                         <div class="mt-task-segment-comments">
-                            <ReviewPanel Comments="context.ReviewComments" />
+                            <ReviewPanel Comments="CommentsOf(context)" />
                         </div>
                     }
                 </RowTemplate>
@@ -343,9 +343,14 @@ else
         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined"
                  Icon="@Icons.Material.Filled.Forum"
                  OnClick="() => ToggleSegmentComments(segment.Id)">
-            @Localizer["ReviewCommentCount", segment.ReviewComments.Count]
+            @Localizer["ReviewCommentCount", CommentsOf(segment).Count]
         </MudChip>
     };
+
+
+    /// <summary>分段当前有效意见；服务端显式 null 时按空处理（契约 §9 禁止 null，防御兼容服务）。</summary>
+    private static IReadOnlyList<ReviewComment> CommentsOf(Segment segment) =>
+        segment.ReviewComments ?? [];
 
     private string GetSourceDisplay()
     {
@@ -408,9 +413,10 @@ else
     private RenderFragment ConfirmationBadge(string? status) => status switch
     {
         "confirmed" => ConfirmationBadge(Localizer["ConfirmationConfirmed"].Value, Color.Success, Icons.Material.Filled.CheckCircle),
-        "translated" => ConfirmationBadge(Localizer["ConfirmationTranslated"].Value, Color.Info, Icons.Material.Filled.Translate),
+        "translated" => ConfirmationBadge(Localizer["ConfirmationTranslated"].Value, Color.Default, Icons.Material.Filled.Translate),
         _ => ConfirmationBadge(Localizer["ConfirmationPending"].Value, Color.Default, Icons.Material.Filled.Schedule),
     };
+
 
     private RenderFragment ConfirmationBadge(string text, Color color, string icon) => __builder =>
     {

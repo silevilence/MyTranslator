@@ -147,14 +147,15 @@ public class ReviewRunServiceTests
             _ =>
             {
                 var response = JsonResponse(HttpStatusCode.Accepted, CreateRun());
-                response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(1));
+                response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(2));
                 return response;
             },
             out _);
 
         var poll = await service.CreateRunAsync(TaskId, 1, null, "zh-CN");
 
-        Assert.Equal(1, poll.RetryAfterSeconds);
+        // Sp3：创建响应 Retry-After 是首个轮询间隔来源（面板经 OnCreateSucceededAsync 应用）
+        Assert.Equal(2, poll.RetryAfterSeconds);
     }
 
     [Fact]

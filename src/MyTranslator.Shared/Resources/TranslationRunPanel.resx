@@ -45,24 +45,6 @@
   <data name="Retry" xml:space="preserve">
     <value>重试</value>
   </data>
-  <data name="RunQueued" xml:space="preserve">
-    <value>已排队</value>
-  </data>
-  <data name="RunProcessing" xml:space="preserve">
-    <value>翻译中</value>
-  </data>
-  <data name="RunCompleted" xml:space="preserve">
-    <value>翻译完成</value>
-  </data>
-  <data name="RunPartialFailed" xml:space="preserve">
-    <value>部分失败</value>
-  </data>
-  <data name="RunFailed" xml:space="preserve">
-    <value>翻译失败</value>
-  </data>
-  <data name="RunUnknown" xml:space="preserve">
-    <value>未知状态</value>
-  </data>
   <data name="SelectionText" xml:space="preserve">
     <value>本次运行 {0} 段待翻译，{1} 段已有译文跳过</value>
   </data>
@@ -107,5 +89,8 @@
   </data>
   <data name="FailuresTruncated" xml:space="preserve">
     <value>仅显示前 {0} 条失败明细，完整列表可通过接口查询</value>
+  </data>
+  <data name="NoFailures" xml:space="preserve">
+    <value>暂无失败明细</value>
   </data>
 </root>

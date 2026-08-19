@@ -20,19 +20,12 @@ public sealed record TranslationRunPoll(TranslationRun Run, int? RetryAfterSecon
 /// 接口地址经配置 <c>Api:BaseUrl</c> 注入；非成功响应统一抛出
 /// <see cref="ApiErrorException"/>，由页面经 <see cref="ApiErrorMessageProvider"/> 映射文案。
 /// </summary>
-public class TranslationRunService
+public class TranslationRunService : RunApiClientBase
 {
-    private readonly ApiClient _api;
-    private readonly string _baseUrl;
-
     public TranslationRunService(ApiClient api, IConfiguration config)
+        : base(api, config)
     {
-        _api = api;
-        _baseUrl = config["Api:BaseUrl"] ?? string.Empty;
     }
-
-    /// <summary>拼接接口地址：配置了 <c>Api:BaseUrl</c> 时指向后端，否则使用页面同源相对路径。</summary>
-    private string ApiUrl(string path) => _baseUrl + path;
 
     /// <summary>
     /// 创建翻译运行（§4）。<paramref name="sourceLanguage"/> 为 null 或空白表示由 LLM 自动识别；
@@ -64,7 +57,7 @@ public class TranslationRunService
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
-        using var response = await _api.SendAsync(request, cancellationToken);
+        using var response = await Api.SendAsync(request, cancellationToken);
         var run = await ReadResultAsync<TranslationRun>(response, cancellationToken);
         return new TranslationRunPoll(run, ParseRetryAfter(response.Headers.RetryAfter));
     }
@@ -75,7 +68,7 @@ public class TranslationRunService
         Guid runId,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs/{runId}",
             cancellationToken);
         var run = await ReadResultAsync<TranslationRun>(response, cancellationToken);
@@ -89,7 +82,7 @@ public class TranslationRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<TranslationRunPage>(response, cancellationToken);
@@ -103,48 +96,9 @@ public class TranslationRunService
         string? cursor,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _api.GetAsync(
+        using var response = await Api.GetAsync(
             $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs/{runId}/failures{PageQuery(limit, cursor)}",
             cancellationToken);
         return await ReadResultAsync<TranslationFailurePage>(response, cancellationToken);
-    }
-
-    /// <summary>游标分页查询串：首页只带 limit，翻页附加转义后的不透明游标（§2.5）。</summary>
-    private static string PageQuery(int limit, string? cursor)
-    {
-        return cursor is null
-            ? $"?limit={limit}"
-            : $"?limit={limit}&cursor={Uri.EscapeDataString(cursor)}";
-    }
-
-    private static async Task<T> ReadResultAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        if (!response.IsSuccessStatusCode)
-        {
-            throw await ApiErrorException.FromResponseAsync(response, cancellationToken);
-        }
-
-        return await response.Content.ReadFromJsonAsync<T>(ImportJson.Options, cancellationToken)
-            ?? throw new InvalidOperationException($"接口响应缺少 {typeof(T).Name} 内容");
-    }
-
-    /// <summary>
-    /// 解析 Retry-After：优先 Delta 秒数，回退 Date 时间点；缺失或无法解析返回 null。
-    /// 调用方负责按 §5 将有效轮询间隔下界钳制为 1 秒。
-    /// </summary>
-    internal static int? ParseRetryAfter(RetryConditionHeaderValue? retryAfter)
-    {
-        if (retryAfter?.Delta is { } delta)
-        {
-            return Math.Max(1, (int)Math.Ceiling(delta.TotalSeconds));
-        }
-
-        if (retryAfter?.Date is { } date)
-        {
-            var seconds = (int)Math.Ceiling((date - DateTimeOffset.UtcNow).TotalSeconds);
-            return Math.Max(1, seconds);
-        }
-
-        return null;
     }
 }
