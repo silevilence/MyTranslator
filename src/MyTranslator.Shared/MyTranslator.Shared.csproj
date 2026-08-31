@@ -54,6 +54,12 @@
     <EmbeddedResource Update="Resources\TermEditDialog.resx">
       <LogicalName>MyTranslator.Shared.Components.TermEditDialog.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\TmComparisonPanel.resx">
+      <LogicalName>MyTranslator.Shared.Components.TmComparisonPanel.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\DiffViewer.resx">
+      <LogicalName>MyTranslator.Shared.Components.DiffViewer.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

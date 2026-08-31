@@ -225,4 +225,37 @@
   <data name="review_interrupted" xml:space="preserve">
     <value>审核运行被中断，已成功提交的意见已保留</value>
   </data>
+  <data name="invalid_tm_batch" xml:space="preserve">
+    <value>历史译文录入批次无效（数量须为 1..500）</value>
+  </data>
+  <data name="invalid_tm_source_text" xml:space="preserve">
+    <value>历史源文文本无效（缺失、纯空白或过长）</value>
+  </data>
+  <data name="invalid_tm_target_text" xml:space="preserve">
+    <value>历史译文文本无效（缺失、纯空白或过长）</value>
+  </data>
+  <data name="invalid_tm_markup_table" xml:space="preserve">
+    <value>标记表数据不合法</value>
+  </data>
+  <data name="invalid_match_limit" xml:space="preserve">
+    <value>匹配数量参数无效</value>
+  </data>
+  <data name="invalid_segment_version" xml:space="preserve">
+    <value>分段版本无效，请刷新页面后重试</value>
+  </data>
+  <data name="tm_entry_not_found" xml:space="preserve">
+    <value>历史译文条目不存在或已被删除</value>
+  </data>
+  <data name="segment_not_found" xml:space="preserve">
+    <value>分段不存在或已因重新提取失效</value>
+  </data>
+  <data name="segment_version_conflict" xml:space="preserve">
+    <value>分段已被其他更新修改，请刷新后重试</value>
+  </data>
+  <data name="tm_placeholder_integrity_violation" xml:space="preserve">
+    <value>源文与译文占位符不一致</value>
+  </data>
+  <data name="tm_language_pair_required" xml:space="preserve">
+    <value>缺少明确语言对，无法确认分段</value>
+  </data>
 </root>

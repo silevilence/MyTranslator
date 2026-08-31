@@ -15,6 +15,7 @@ using MyTranslator.Api.Rules;
 using MyTranslator.Api.AiConfiguration;
 using MyTranslator.Api.Terms;
 using MyTranslator.Api.Review;
+using MyTranslator.Api.TranslationMemory;
 
 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -37,6 +38,7 @@ builder.Services.AddScoped<TaskListService>();
 builder.Services.AddScoped<AiConfigurationService>();
 builder.Services.AddScoped<TermService>();
 builder.Services.AddScoped<TermAlignmentService>();
+builder.Services.AddScoped<TranslationMemoryService>();
 builder.Services.AddSingleton<TaskOperationLock>();
 builder.Services.Configure<TranslationOptions>(builder.Configuration.GetSection("Translation"));
 builder.Services.Configure<ReviewOptions>(builder.Configuration.GetSection("Review"));
@@ -157,6 +159,7 @@ app.MapFileTaskEndpoints();
 app.MapTranslationEndpoints();
 app.MapReviewEndpoints();
 app.MapTermEndpoints();
+app.MapTranslationMemoryEndpoints();
 
 app.Run();
 

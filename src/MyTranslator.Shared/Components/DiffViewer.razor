@@ -1,0 +1,120 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<DiffViewer> Localizer
+
+<div class="mt-diff-viewer" role="group" aria-label="@Localizer["SectionLabel"]">
+    <div class="mt-diff-column">
+        <MudText Typo="Typo.caption" Class="mt-diff-column-title">@Localizer["CurrentLabel"]</MudText>
+        <div class="mt-diff-text mt-mono">
+            @if (_currentChunks.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["NoCurrentText"]</MudText>
+            }
+            else
+            {
+                @foreach (var chunk in _currentChunks)
+                {
+                    <span class="@DiffClass(chunk)">@chunk.Text</span>
+                }
+            }
+        </div>
+    </div>
+    <div class="mt-diff-column">
+        <MudText Typo="Typo.caption" Class="mt-diff-column-title">@Localizer["ReferenceLabel"]</MudText>
+        <div class="mt-diff-text mt-mono">
+            @foreach (var chunk in _referenceChunks)
+            {
+                <span class="@DiffClass(chunk)">@chunk.Text</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<DiffChunk> _currentChunks = [];
+    private IReadOnlyList<DiffChunk> _referenceChunks = [];
+    private string _currentText = string.Empty;
+    private string _referenceText = string.Empty;
+    private IReadOnlyList<MarkupItem> _currentMarkup = [];
+    private IReadOnlyList<MarkupItem> _referenceMarkup = [];
+
+    /// <summary>是否已完成首次计算（避免首轮空输入误判为"未变化"而跳过首次渲染）。</summary>
+    private bool _computed;
+
+    /// <summary>本渲染周期输入是否变化；由 OnParametersSet 每周期精确赋值，供 ShouldRender 判定（输入未变时跳过渲染）。</summary>
+    private bool _shouldRender = true;
+
+    /// <summary>当前（已保存）译文。</summary>
+    [Parameter, EditorRequired]
+    public required string CurrentText { get; set; }
+
+    /// <summary>当前译文对应的标记表。</summary>
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<MarkupItem> CurrentMarkupTable { get; set; }
+
+    /// <summary>历史译文。</summary>
+    [Parameter, EditorRequired]
+    public required string ReferenceText { get; set; }
+
+    /// <summary>历史译文对应的标记表。</summary>
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<MarkupItem> ReferenceMarkupTable { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        // 仅当任一输入变化时重算差分（审查标准维度五：确认每次渲染必要）。
+        // 标记表按内容比较（record 值相等），防止同引用原地变更漏检；每次 OnParametersSet 都精确刷新 _shouldRender。
+        var changed = !InputsUnchanged(
+            CurrentText, CurrentMarkupTable, ReferenceText, ReferenceMarkupTable,
+            _currentText, _currentMarkup, _referenceText, _referenceMarkup, _computed);
+        _shouldRender = changed;
+        if (!changed)
+        {
+            return;
+        }
+
+        _computed = true;
+        _currentText = CurrentText;
+        _referenceText = ReferenceText;
+        _currentMarkup = CurrentMarkupTable;
+        _referenceMarkup = ReferenceMarkupTable;
+
+        var chunks = TextDiffEngine.Compute(CurrentText, CurrentMarkupTable, ReferenceText, ReferenceMarkupTable);
+        // 并排视图：当前列展示相同 + 新增，参考列展示相同 + 删除
+        _currentChunks = chunks.Where(chunk => chunk.Kind != DiffChunkKind.Removed).ToArray();
+        _referenceChunks = chunks.Where(chunk => chunk.Kind != DiffChunkKind.Inserted).ToArray();
+    }
+
+    protected override bool ShouldRender() => _shouldRender;
+
+    /// <summary>
+    /// 输入是否与上次计算一致：文本按值、标记表按内容（record 值相等）比较；
+    /// <paramref name="computed"/> 为 false（尚未首次计算）时视为变化，保证首轮必定渲染。
+    /// 提取为纯函数便于组件级逻辑测试。
+    /// </summary>
+    internal static bool InputsUnchanged(
+        string currentText, IReadOnlyList<MarkupItem> currentMarkup,
+        string referenceText, IReadOnlyList<MarkupItem> referenceMarkup,
+        string cachedCurrentText, IReadOnlyList<MarkupItem> cachedCurrentMarkup,
+        string cachedReferenceText, IReadOnlyList<MarkupItem> cachedReferenceMarkup,
+        bool computed)
+        => computed
+           && cachedCurrentText == currentText
+           && cachedReferenceText == referenceText
+           && cachedCurrentMarkup.SequenceEqual(currentMarkup)
+           && cachedReferenceMarkup.SequenceEqual(referenceMarkup);
+
+    /// <summary>
+    /// 差异块样式：仅视觉呈现（TM 约定 §9.1 第 3 步），不表达任何领域状态语义；
+    /// 新增=下划线、删除=删除线，占位符引用叠加等宽引用样式。
+    /// </summary>
+    private static string DiffClass(DiffChunk chunk)
+    {
+        var marker = chunk.Kind switch
+        {
+            DiffChunkKind.Inserted => "mt-diff-inserted",
+            DiffChunkKind.Removed => "mt-diff-removed",
+            _ => string.Empty,
+        };
+        return chunk.IsMarkup ? $"mt-diff-markup {marker}".Trim() : marker;
+    }
+}

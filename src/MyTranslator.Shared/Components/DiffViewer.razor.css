@@ -1,0 +1,47 @@
+/* 差异对比视图（组件规范 §3 DiffViewer）。视觉仅用于呈现，不表达领域状态语义；
+   颜色一律经主题 CSS 变量，禁止硬编码色值。 */
+
+.mt-diff-viewer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.mt-diff-column {
+    min-width: 0;
+}
+
+.mt-diff-column-title {
+    margin-bottom: 4px;
+}
+
+.mt-diff-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.7;
+    padding: 8px 12px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    background-color: var(--mud-palette-background);
+    min-height: 48px;
+}
+
+/* 占位符引用：等宽（mt-mono 已注入）+ 主色引用样式，随差异标记叠加 */
+.mt-diff-markup {
+    color: var(--mud-palette-primary);
+    background-color: var(--mud-palette-background-gray);
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+/* 视觉差异标记：新增=下划线，删除=删除线；中性灰底 + 变形不做状态色 */
+.mt-diff-inserted {
+    background-color: var(--mud-palette-background-gray);
+    text-decoration: underline;
+}
+
+.mt-diff-removed {
+    background-color: var(--mud-palette-background-gray);
+    text-decoration: line-through;
+    color: var(--mud-palette-text-secondary);
+}

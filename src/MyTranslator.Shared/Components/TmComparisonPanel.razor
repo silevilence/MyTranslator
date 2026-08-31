@@ -1,0 +1,263 @@
+@namespace MyTranslator.Shared.Components
+@inject TmComparisonService Tm
+@inject ApiErrorMessageProvider ErrorProvider
+@inject IStringLocalizer<TmComparisonPanel> Localizer
+
+@if (HasDirtyEdit)
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["DirtyHint"]</MudText>
+}
+else if (!LanguagesReady)
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["LanguageRequiredHint"]</MudText>
+}
+else if (_error is not null)
+{
+    <ErrorBanner Message="@_error" RetryText="@Localizer["Retry"]" OnRetry="LoadAsync" />
+}
+else if (_loading || _result is null)
+{
+    <MudSkeleton Width="100%" Height="48px" />
+    <MudSkeleton Width="100%" Height="96px" Class="mt-2" />
+}
+else if (_result.Items.Count == 0)
+{
+    <EmptyState Icon="@Icons.Material.Filled.History"
+                Title="@Localizer["EmptyTitle"]"
+                Description="@Localizer["EmptyDescription"]" />
+}
+else
+{
+    @if (_result.DifferenceWarning is { HasWarning: true } warning)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-tm-warning">
+            <div class="mt-tm-warning-body">
+                <MudText Typo="Typo.body1" Class="mt-tm-warning-title">
+                    <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Class="mt-tm-warning-icon" />
+                    @Localizer["WarningTitle"]
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @Localizer["WarningDetail", FormatPercent(warning.TargetDifference), FormatPercent(warning.SourceMatchScore)]
+                </MudText>
+            </div>
+        </MudAlert>
+    }
+
+    <ul class="mt-tm-list">
+        @foreach (var item in _result.Items)
+        {
+            <li class="mt-tm-item">
+                <div class="mt-tm-item-head">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mt-tm-score">
+                        @Localizer["MatchScore", FormatPercent(item.SourceMatchScore)]
+                    </MudChip>
+                    @if (item.TargetDifference is { } difference)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-tm-difference">
+                            @Localizer["TargetDifference", FormatPercent(difference)]
+                        </MudText>
+                    }
+                    @if (item.CreatedAt is { } createdAt)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @Localizer["CreatedAt", createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")]
+                        </MudText>
+                    }
+                    <div class="mt-tm-item-actions">
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Compare"
+                                   Disabled="@string.IsNullOrEmpty(Segment.TargetText)"
+                                   Class="mt-tm-diff-toggle"
+                                   OnClick="() => ToggleDiff(item.EntryId)">
+                            @(IsDiffOpen(item.EntryId) ? Localizer["CollapseDiff"] : Localizer["ExpandDiff"])
+                        </MudButton>
+                    </div>
+                </div>
+                <div class="mt-tm-item-block">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Localizer["HistorySourceLabel"]</MudText>
+                    <SegmentMarkupViewer Text="@(item.SourceText ?? string.Empty)" MarkupTable="@item.MarkupTable" />
+                </div>
+                <div class="mt-tm-item-block">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Localizer["HistoryTargetLabel"]</MudText>
+                    <MudText Typo="Typo.body2" Class="mt-mono">@(item.TargetText ?? string.Empty)</MudText>
+                </div>
+                @if (IsDiffOpen(item.EntryId) && Segment.TargetText is not null)
+                {
+                    <div class="mt-tm-diff">
+                        <DiffViewer CurrentText="Segment.TargetText"
+                                    CurrentMarkupTable="Segment.MarkupTable"
+                                    ReferenceText="@(item.TargetText ?? string.Empty)"
+                                    ReferenceMarkupTable="item.MarkupTable" />
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private TmComparisonResponse? _result;
+    private string? _error;
+    private bool _loading;
+    private Guid? _diffEntryId;
+    private int _loadGeneration;
+
+    /// <summary>最近一次已发出的请求参数；参数完全一致时不重复请求。</summary>
+    private (int Revision, Guid SegmentId, int Version, LanguagePair Language)? _lastKey;
+
+    /// <summary>任务 ID。</summary>
+    [Parameter, EditorRequired]
+    public required Guid TaskId { get; set; }
+
+    /// <summary>调用方当前看到的提取修订；与分段列表为同一次读取。</summary>
+    [Parameter, EditorRequired]
+    public required int ExtractionRevision { get; set; }
+
+    /// <summary>当前分段（版本用于乐观并发校验；译文为 null 时仅展示历史参考）。</summary>
+    [Parameter, EditorRequired]
+    public required Segment Segment { get; set; }
+
+    /// <summary>明确的语言对；未完整提供时显示提示且不发起请求（TM 约定 §6.1）。</summary>
+    [Parameter]
+    public LanguagePair Language { get; set; } = new(null, null);
+
+    /// <summary>分段存在未保存修改时置位：不发起对比、不展示旧服务端告警（TM 约定 §9.1 第 2/6 步）。</summary>
+    [Parameter]
+    public bool HasDirtyEdit { get; set; }
+
+    /// <summary>409 extraction_revision_changed：分段与游标已失效，父级应丢弃缓存并从第一页重新加载。</summary>
+    [Parameter]
+    public EventCallback OnRevisionChanged { get; set; }
+
+    /// <summary>409 segment_version_conflict：分段已被其他方更新，父级应重新读取当前分段。</summary>
+    [Parameter]
+    public EventCallback OnSegmentStale { get; set; }
+
+    private bool LanguagesReady => Language.IsComplete;
+
+    protected override void OnParametersSet()
+    {
+        if (HasDirtyEdit)
+        {
+            // 脏标记：不把旧服务端告警显示为当前结论（§9.1 第 6 步）；作废在途请求
+            if (_loading || _result is not null || _error is not null)
+            {
+                _loadGeneration++;
+                _loading = false;
+                _result = null;
+                _error = null;
+                _diffEntryId = null;
+            }
+
+            // 脏态结束（保存/取消编辑）时即使分段版本等 key 未变也强制重载：
+            // 否则 _lastKey 命中并提前返回，面板将停留在已清空的骨架状态
+            _lastKey = null;
+            return;
+        }
+
+        if (!LanguagesReady)
+        {
+            return;
+        }
+
+        var key = (ExtractionRevision, Segment.Id, Segment.Version, Language);
+        if (_lastKey == key)
+        {
+            return;
+        }
+
+        _lastKey = key;
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (HasDirtyEdit || !LanguagesReady)
+        {
+            return;
+        }
+
+        // 代次守卫：参数连续变化时丢弃过期响应（与运行面板同一约定）
+        var generation = ++_loadGeneration;
+        _loading = true;
+        _error = null;
+        _result = null;
+        _diffEntryId = null;
+        try
+        {
+            var result = await Tm.GetSegmentComparisonAsync(
+                TaskId,
+                Segment.Id,
+                ExtractionRevision,
+                Segment.Version,
+                Language.SourceLanguage!.Trim(),
+                Language.TargetLanguage!.Trim(),
+                cancellationToken: default);
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            _result = result;
+            // 默认展开第一条（服务端排序最高相似）的逐字对比
+            _diffEntryId = result.Items.Count > 0 ? result.Items[0].EntryId : null;
+        }
+        catch (ApiErrorException ex) when (ex.Code == "extraction_revision_changed")
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            // 契约 §9.1 第 7 步：丢弃结果与旧缓存，由父级从任务与分段第一页重新加载
+            if (OnRevisionChanged.HasDelegate)
+            {
+                await OnRevisionChanged.InvokeAsync();
+            }
+        }
+        catch (ApiErrorException ex) when (ex.Code == "segment_version_conflict")
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            // 契约 §9.1 第 7 步：重新读取当前分段；新版本作为参数到达后自动重新请求
+            if (OnSegmentStale.HasDelegate)
+            {
+                await OnSegmentStale.InvokeAsync();
+            }
+        }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            _error = ErrorProvider.ForException(ex);
+        }
+        finally
+        {
+            if (generation == _loadGeneration)
+            {
+                _loading = false;
+                // 生命周期启动的等待不会自动触发重渲染（与运行面板同一约定）：显式刷新
+                StateHasChanged();
+            }
+        }
+    }
+
+    private bool IsDiffOpen(Guid entryId) => _diffEntryId == entryId;
+
+    private void ToggleDiff(Guid entryId)
+    {
+        _diffEntryId = _diffEntryId == entryId ? null : entryId;
+    }
+
+    /// <summary>0..1 相似度/差异分数 → 百分比文案（仅展示服务端返回数值，不做任何计算）。</summary>
+    private static string FormatPercent(double? score)
+    {
+        return score is null ? "-" : $"{score.Value * 100:0.##}%";
+    }
+}

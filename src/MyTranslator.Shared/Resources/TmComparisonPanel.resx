@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="LanguageRequiredHint" xml:space="preserve">
+    <value>请先在上方设置源/目标语言，再查看历史翻译对比</value>
+  </data>
+  <data name="DirtyHint" xml:space="preserve">
+    <value>该分段存在未保存修改，暂不展示历史对比；保存后将自动重新对比</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>暂无相似历史译文</value>
+  </data>
+  <data name="EmptyDescription" xml:space="preserve">
+    <value>当前源文未匹配到相似度达门槛的历史译文；该结果不是错误，可稍后重新发起对比</value>
+  </data>
+  <data name="WarningTitle" xml:space="preserve">
+    <value>TM 差异过大</value>
+  </data>
+  <data name="WarningDetail" xml:space="preserve">
+    <value>当前译文与高置信参考历史译文差异 {0}（源文相似度 {1}），该告警仅供参考，请核对译法</value>
+  </data>
+  <data name="MatchScore" xml:space="preserve">
+    <value>源文相似度 {0}</value>
+  </data>
+  <data name="TargetDifference" xml:space="preserve">
+    <value>译文差异 {0}</value>
+  </data>
+  <data name="CreatedAt" xml:space="preserve">
+    <value>录入于 {0}</value>
+  </data>
+  <data name="ExpandDiff" xml:space="preserve">
+    <value>查看逐字对比</value>
+  </data>
+  <data name="CollapseDiff" xml:space="preserve">
+    <value>收起对比</value>
+  </data>
+  <data name="HistorySourceLabel" xml:space="preserve">
+    <value>历史源文</value>
+  </data>
+  <data name="HistoryTargetLabel" xml:space="preserve">
+    <value>历史译文</value>
+  </data>
+</root>

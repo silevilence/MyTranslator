@@ -451,6 +451,72 @@ namespace MyTranslator.Api.Data.Migrations
                     b.ToTable("Terms", (string)null);
                 });
 
+            modelBuilder.Entity("MyTranslator.Api.Data.TranslationMemoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedAtSortKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MarkupTableJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OriginExtractionRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("OriginSegmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OriginTaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetLanguage")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentKey")
+                        .IsUnique();
+
+                    b.HasIndex("SourceLanguage", "TargetLanguage", "CreatedAtSortKey", "Id")
+                        .IsDescending(false, false, true, false);
+
+                    b.ToTable("TranslationMemoryEntries", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationSegment", b =>
                 {
                     b.Property<Guid>("Id")

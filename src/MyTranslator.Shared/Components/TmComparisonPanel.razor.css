@@ -1,0 +1,64 @@
+/* 历史翻译对比面板（组件规范 §3）。颜色经主题 CSS 变量，禁止硬编码色值。 */
+
+.mt-tm-warning {
+    margin-bottom: 12px;
+}
+
+.mt-tm-warning-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mt-tm-warning-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.mt-tm-warning-icon {
+    color: var(--mud-palette-warning);
+}
+
+.mt-tm-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.mt-tm-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--mud-palette-divider-light);
+}
+
+.mt-tm-item:last-child {
+    border-bottom: none;
+}
+
+.mt-tm-item-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mt-tm-score {
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-tm-difference {
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-tm-item-actions {
+    margin-left: auto;
+}
+
+.mt-tm-item-block {
+    margin-top: 6px;
+}
+
+.mt-tm-diff {
+    margin-top: 10px;
+}

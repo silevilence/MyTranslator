@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MyTranslator.Api.Data;
+using MyTranslator.Api.Text;
 using MyTranslator.Api.Translation;
 
 namespace MyTranslator.Api.Terms;
@@ -410,30 +411,7 @@ internal static class TermText
         return NormalizeForMatch(trimmed).ToUpperInvariant();
     }
 
-    public static string NormalizeForMatch(string value)
-    {
-        var normalized = value.Normalize(NormalizationForm.FormC);
-        var result = new StringBuilder(normalized.Length);
-        var pendingSpace = false;
-        foreach (var rune in normalized.EnumerateRunes())
-        {
-            if (Rune.IsWhiteSpace(rune))
-            {
-                pendingSpace = result.Length > 0;
-                continue;
-            }
-
-            if (pendingSpace)
-            {
-                result.Append(' ');
-                pendingSpace = false;
-            }
-
-            result.Append(rune.ToString());
-        }
-
-        return result.ToString();
-    }
+    public static string NormalizeForMatch(string value) => TextSimilarity.NormalizeForMatch(value);
 }
 
 internal static class TermSearch
@@ -476,33 +454,7 @@ internal static class TermSearch
             return 0.8;
         }
 
-        var candidateRunes = candidate.EnumerateRunes().ToArray();
-        var queryRunes = query.EnumerateRunes().ToArray();
-        var maximumLength = Math.Max(candidateRunes.Length, queryRunes.Length);
-        return maximumLength == 0
-            ? 1.0
-            : 1.0 - (double)LevenshteinDistance(candidateRunes, queryRunes) / maximumLength;
-    }
-
-    private static int LevenshteinDistance(Rune[] left, Rune[] right)
-    {
-        var previous = Enumerable.Range(0, right.Length + 1).ToArray();
-        var current = new int[right.Length + 1];
-        for (var leftIndex = 1; leftIndex <= left.Length; leftIndex++)
-        {
-            current[0] = leftIndex;
-            for (var rightIndex = 1; rightIndex <= right.Length; rightIndex++)
-            {
-                var substitution = left[leftIndex - 1] == right[rightIndex - 1] ? 0 : 1;
-                current[rightIndex] = Math.Min(
-                    Math.Min(current[rightIndex - 1] + 1, previous[rightIndex] + 1),
-                    previous[rightIndex - 1] + substitution);
-            }
-
-            (previous, current) = (current, previous);
-        }
-
-        return previous[right.Length];
+        return TextSimilarity.LevenshteinScore(candidate, query);
     }
 }
 

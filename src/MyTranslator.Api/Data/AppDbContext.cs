@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<AiProvider> Providers => Set<AiProvider>();
     public DbSet<AiModel> Models => Set<AiModel>();
     public DbSet<Term> Terms => Set<Term>();
+    public DbSet<TranslationMemoryEntry> TranslationMemoryEntries => Set<TranslationMemoryEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -222,5 +223,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         }).IsUnique();
         term.HasIndex(entity => new { entity.UpdatedAtSortKey, entity.Id })
             .IsDescending(true, false);
+
+        var translationMemoryEntry = modelBuilder.Entity<TranslationMemoryEntry>();
+        translationMemoryEntry.ToTable("TranslationMemoryEntries");
+        translationMemoryEntry.HasKey(entity => entity.Id);
+        translationMemoryEntry.Property(entity => entity.ContentKey).HasMaxLength(64).IsRequired();
+        translationMemoryEntry.Property(entity => entity.SourceText).IsRequired();
+        translationMemoryEntry.Property(entity => entity.TargetText).IsRequired();
+        translationMemoryEntry.Property(entity => entity.SourceLanguage).HasMaxLength(50).IsRequired();
+        translationMemoryEntry.Property(entity => entity.TargetLanguage).HasMaxLength(50).IsRequired();
+        translationMemoryEntry.Property(entity => entity.MarkupTableJson).IsRequired();
+        translationMemoryEntry.Property(entity => entity.Origin).HasMaxLength(30).IsRequired();
+        translationMemoryEntry.Property(entity => entity.CreatedAtSortKey).HasMaxLength(40).IsRequired();
+        translationMemoryEntry.HasIndex(entity => entity.ContentKey).IsUnique();
+        translationMemoryEntry.HasIndex(entity => new
+        {
+            entity.SourceLanguage,
+            entity.TargetLanguage,
+            entity.CreatedAtSortKey,
+            entity.Id
+        }).IsDescending(false, false, true, false);
     }
 }

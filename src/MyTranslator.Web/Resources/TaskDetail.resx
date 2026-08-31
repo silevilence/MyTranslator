@@ -117,4 +117,22 @@
   <data name="ReviewCommentsHide" xml:space="preserve">
     <value>收起审核意见</value>
   </data>
+  <data name="TmCompareTitle" xml:space="preserve">
+    <value>历史翻译对比</value>
+  </data>
+  <data name="TmLanguagePairLabel" xml:space="preserve">
+    <value>历史对比语言对</value>
+  </data>
+  <data name="TmSourceLanguageLabel" xml:space="preserve">
+    <value>源语言</value>
+  </data>
+  <data name="TmTargetLanguageLabel" xml:space="preserve">
+    <value>目标语言</value>
+  </data>
+  <data name="TmLanguageHint" xml:space="preserve">
+    <value>历史对比需要明确源/目标语言（BCP 47），两者不得相同；修改后按回车或点击别处生效</value>
+  </data>
+  <data name="TmLanguagesEqualError" xml:space="preserve">
+    <value>源语言与目标语言不得相同</value>
+  </data>
 </root>

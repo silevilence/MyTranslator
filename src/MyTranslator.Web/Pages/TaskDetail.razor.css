@@ -66,3 +66,20 @@
     padding: 4px 12px 12px 60px;
     background: var(--mud-palette-surface);
 }
+
+.mt-task-tm-languages {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.mt-task-tm-language-field {
+    width: 180px;
+}
+
+.mt-task-segment-tm {
+    padding: 4px 12px 12px 60px;
+    background: var(--mud-palette-surface);
+}
