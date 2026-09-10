@@ -77,8 +77,10 @@ public static class TextDiffEngine
     {
         var current = Tokenize(currentText ?? string.Empty, currentMarkupTable);
         var reference = Tokenize(referenceText ?? string.Empty, referenceMarkupTable);
-        var ops = ShortestEditScript(current, reference);
-        return MergeChunks(current, reference, ops);
+        // a = 参考（旧）→ b = 当前（新）：Inserted 即「仅当前译文存在」，Removed 即「仅参考译文存在」，
+        // 与 DiffChunkKind 注释、DiffViewer 的列过滤与样式映射保持一致。
+        var ops = ShortestEditScript(reference, current);
+        return MergeChunks(reference, current, ops);
     }
 
     /// <summary>把 token 列表中的普通文本段切分为 ASCII 单词（字母/数字连续）与单字符 token。</summary>

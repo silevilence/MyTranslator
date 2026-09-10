@@ -24,13 +24,15 @@ else if (_result.Items.Count == 0)
 {
     <EmptyState Icon="@Icons.Material.Filled.History"
                 Title="@Localizer["EmptyTitle"]"
-                Description="@Localizer["EmptyDescription"]" />
+                Description="@Localizer["EmptyDescription"]"
+                ActionText="@Localizer["RefreshComparison"]"
+                OnAction="ReloadAsync" />
 }
 else
 {
     @if (_result.DifferenceWarning is { HasWarning: true } warning)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-tm-warning">
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-tm-warning" role="alert">
             <div class="mt-tm-warning-body">
                 <MudText Typo="Typo.body1" Class="mt-tm-warning-title">
                     <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Class="mt-tm-warning-icon" />
@@ -84,7 +86,7 @@ else
                 @if (IsDiffOpen(item.EntryId) && Segment.TargetText is not null)
                 {
                     <div class="mt-tm-diff">
-                        <DiffViewer CurrentText="Segment.TargetText"
+                        <DiffViewer CurrentText="@(Segment.TargetText ?? string.Empty)"
                                     CurrentMarkupTable="Segment.MarkupTable"
                                     ReferenceText="@(item.TargetText ?? string.Empty)"
                                     ReferenceMarkupTable="item.MarkupTable" />
@@ -168,6 +170,13 @@ else
 
         _lastKey = key;
         _ = LoadAsync();
+    }
+
+    /// <summary>空态主行动：忽略参数缓存重新发起对比（TM 约定 §9.1 第 5 步的空态不阻断重试）。</summary>
+    private async Task ReloadAsync()
+    {
+        _lastKey = null;
+        await LoadAsync();
     }
 
     private async Task LoadAsync()

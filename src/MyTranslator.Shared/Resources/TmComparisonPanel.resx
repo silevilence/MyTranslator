@@ -27,6 +27,9 @@
   <data name="EmptyDescription" xml:space="preserve">
     <value>当前源文未匹配到相似度达门槛的历史译文；该结果不是错误，可稍后重新发起对比</value>
   </data>
+  <data name="RefreshComparison" xml:space="preserve">
+    <value>重新对比</value>
+  </data>
   <data name="WarningTitle" xml:space="preserve">
     <value>TM 差异过大</value>
   </data>

@@ -18,11 +18,13 @@ public class TextDiffEngineTests
     private static IReadOnlyList<DiffChunk> Compute(string current, string reference) =>
         TextDiffEngine.Compute(current, EmptyMarkup, reference, EmptyMarkup);
 
-    private static string ReconstructA(IEnumerable<DiffChunk> chunks) =>
-        string.Concat(chunks.Where(c => c.Kind != DiffChunkKind.Inserted).Select(c => c.Text));
-
-    private static string ReconstructB(IEnumerable<DiffChunk> chunks) =>
+    /// <summary>当前译文 = 相同 + 新增（Inserted）块。</summary>
+    private static string ReconstructCurrent(IEnumerable<DiffChunk> chunks) =>
         string.Concat(chunks.Where(c => c.Kind != DiffChunkKind.Removed).Select(c => c.Text));
+
+    /// <summary>参考（历史）译文 = 相同 + 删除（Removed）块。</summary>
+    private static string ReconstructReference(IEnumerable<DiffChunk> chunks) =>
+        string.Concat(chunks.Where(c => c.Kind != DiffChunkKind.Inserted).Select(c => c.Text));
 
     private static int DiffCost(IEnumerable<DiffChunk> chunks) =>
         chunks.Where(c => c.Kind != DiffChunkKind.Equal).Sum(c => c.TokenCount);
@@ -39,23 +41,23 @@ public class TextDiffEngineTests
     }
 
     [Fact]
-    public void 当前较短_末尾插入()
+    public void 当前较短_参考多余部分标记为删除()
     {
         var chunks = Compute("使用翻译", "使用翻译记忆库");
 
         Assert.Equal(DiffChunkKind.Equal, chunks[0].Kind);
         Assert.Equal("使用翻译", chunks[0].Text);
-        Assert.Equal(DiffChunkKind.Inserted, chunks[1].Kind);
+        Assert.Equal(DiffChunkKind.Removed, chunks[1].Kind);
         Assert.Equal("记忆库", chunks[1].Text);
     }
 
     [Fact]
-    public void 参考较长_末尾删除()
+    public void 当前较长_当前多余部分标记为新增()
     {
         var chunks = Compute("使用翻译记忆库", "使用翻译");
 
         Assert.Equal(DiffChunkKind.Equal, chunks[0].Kind);
-        Assert.Equal(DiffChunkKind.Removed, chunks[1].Kind);
+        Assert.Equal(DiffChunkKind.Inserted, chunks[1].Kind);
         Assert.Equal("记忆库", chunks[1].Text);
     }
 
@@ -67,8 +69,8 @@ public class TextDiffEngineTests
         Assert.Equal(new[] { DiffChunkKind.Equal, DiffChunkKind.Removed, DiffChunkKind.Inserted, DiffChunkKind.Equal },
             chunks.Select(c => c.Kind).ToArray());
         Assert.Equal("Use translation ", chunks[0].Text);
-        Assert.Equal("memory", chunks[1].Text);
-        Assert.Equal("history", chunks[2].Text);
+        Assert.Equal("history", chunks[1].Text);
+        Assert.Equal("memory", chunks[2].Text);
     }
 
     [Fact]
@@ -78,8 +80,8 @@ public class TextDiffEngineTests
 
         Assert.Equal(new[] { DiffChunkKind.Equal, DiffChunkKind.Removed, DiffChunkKind.Inserted, DiffChunkKind.Equal },
             chunks.Select(c => c.Kind).ToArray());
-        Assert.Equal("内存", chunks[1].Text);
-        Assert.Equal("记忆", chunks[2].Text);
+        Assert.Equal("记忆", chunks[1].Text);
+        Assert.Equal("内存", chunks[2].Text);
     }
 
     [Fact]
@@ -88,9 +90,9 @@ public class TextDiffEngineTests
         var markup = PairedMarkup();
         var chunks = TextDiffEngine.Compute("Use <x1>TM</x1>.", [markup], "使用<x1>TM库</x1>。", [markup]);
 
-        // 重构校验：非插入块拼接 == 当前文本；非删除块拼接 == 参考文本
-        Assert.Equal("Use <x1>TM</x1>.", ReconstructA(chunks));
-        Assert.Equal("使用<x1>TM库</x1>。", ReconstructB(chunks));
+        // 重构校验：当前译文 == 相同 + 新增块；参考译文 == 相同 + 删除块
+        Assert.Equal("Use <x1>TM</x1>.", ReconstructCurrent(chunks));
+        Assert.Equal("使用<x1>TM库</x1>。", ReconstructReference(chunks));
 
         // 占位符引用整体标记，且不拆分：Equal "<x1>" / "</x1>" 各为一等宽块
         var markupEquals = chunks.Where(c => c.IsMarkup).Select(c => c.Text).ToArray();
@@ -115,29 +117,34 @@ public class TextDiffEngineTests
     [Fact]
     public void 空侧_整体插入或删除()
     {
-        var inserted = Compute("", "abc");
-        var removed = Compute("abc", "");
+        var referenceOnly = Compute("", "abc");
+        var currentOnly = Compute("abc", "");
 
-        Assert.Equal(DiffChunkKind.Inserted, Assert.Single(inserted).Kind);
-        Assert.Equal("abc", Assert.Single(inserted).Text);
-        Assert.Equal(DiffChunkKind.Removed, Assert.Single(removed).Kind);
+        Assert.Equal(DiffChunkKind.Removed, Assert.Single(referenceOnly).Kind);
+        Assert.Equal("abc", Assert.Single(referenceOnly).Text);
+        Assert.Equal(DiffChunkKind.Inserted, Assert.Single(currentOnly).Kind);
+        Assert.Equal("abc", Assert.Single(currentOnly).Text);
         Assert.Empty(Compute("", ""));
     }
 
     [Fact]
     public void 超限退化_整段替换()
     {
-        var a = Enumerable.Range(0, 1300).Select(i => $"t{i}").ToArray();
-        var b = Enumerable.Range(0, 1300).Select(i => $"u{i}").ToArray();
-        var chunks = TextDiffEngine.Compute(string.Join(" ", a), EmptyMarkup, string.Join(" ", b), EmptyMarkup);
-        var aTokens = TextDiffEngine.Tokenize(string.Join(" ", a), EmptyMarkup).Count;
-        var bTokens = TextDiffEngine.Tokenize(string.Join(" ", b), EmptyMarkup).Count;
+        var currentTokens = Enumerable.Range(0, 1300).Select(i => $"t{i}").ToArray();
+        var referenceTokens = Enumerable.Range(0, 1300).Select(i => $"u{i}").ToArray();
+        var chunks = TextDiffEngine.Compute(
+            string.Join(" ", currentTokens), EmptyMarkup,
+            string.Join(" ", referenceTokens), EmptyMarkup);
+        var currentCount = TextDiffEngine.Tokenize(string.Join(" ", currentTokens), EmptyMarkup).Count;
+        var referenceCount = TextDiffEngine.Tokenize(string.Join(" ", referenceTokens), EmptyMarkup).Count;
 
         Assert.Equal(2, chunks.Count);
         Assert.Equal(DiffChunkKind.Removed, chunks[0].Kind);
         Assert.Equal(DiffChunkKind.Inserted, chunks[1].Kind);
-        Assert.Equal(aTokens, chunks[0].TokenCount);
-        Assert.Equal(bTokens, chunks[1].TokenCount);
+        Assert.Equal(referenceCount, chunks[0].TokenCount);
+        Assert.Equal(currentCount, chunks[1].TokenCount);
+        Assert.Equal(string.Join(" ", referenceTokens), ReconstructReference(chunks));
+        Assert.Equal(string.Join(" ", currentTokens), ReconstructCurrent(chunks));
     }
 
     [Theory]
@@ -152,8 +159,8 @@ public class TextDiffEngineTests
         var markup = PairedMarkup();
         var chunks = TextDiffEngine.Compute(current, [markup], reference, [markup]);
 
-        Assert.Equal(current, ReconstructA(chunks));
-        Assert.Equal(reference, ReconstructB(chunks));
+        Assert.Equal(current, ReconstructCurrent(chunks));
+        Assert.Equal(reference, ReconstructReference(chunks));
     }
 
     [Fact]
@@ -171,8 +178,8 @@ public class TextDiffEngineTests
 
             var chunks = Compute(current, reference);
 
-            Assert.Equal(current, ReconstructA(chunks));
-            Assert.Equal(reference, ReconstructB(chunks));
+            Assert.Equal(current, ReconstructCurrent(chunks));
+            Assert.Equal(reference, ReconstructReference(chunks));
 
             var lcs = LcsCount(
                 currentTokens.Select(t => t.Text).ToList(),
