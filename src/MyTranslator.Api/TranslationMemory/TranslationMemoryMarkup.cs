@@ -1,9 +1,9 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
+using MyTranslator.Api.Text;
 
 namespace MyTranslator.Api.TranslationMemory;
 
-internal static partial class TranslationMemoryMarkup
+internal static class TranslationMemoryMarkup
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -77,7 +77,7 @@ internal static partial class TranslationMemoryMarkup
     {
         using var document = JsonDocument.Parse(markupTableJson);
         var known = RegisteredTokens(document.RootElement);
-        return PlaceholderPattern().Replace(
+        return PlaceholderReferences.Pattern().Replace(
             text,
             match => known.Contains(match.Value) ? " " : match.Value);
     }
@@ -87,16 +87,13 @@ internal static partial class TranslationMemoryMarkup
         string? targetText,
         IReadOnlyList<CanonicalMarkupItem> items)
     {
-        var required = items.SelectMany(item => item.Kind == "paired"
-                ? new[] { $"<x{item.Id}>", $"</x{item.Id}>" }
-                : new[] { $"<x{item.Id}/>" })
+        var declarations = items
+            .Select(item => new PlaceholderReferences.Declaration(item.Id, item.Kind == "paired"))
             .ToArray();
-        var known = required.ToHashSet(StringComparer.Ordinal);
-        var sourceReferences = PlaceholderPattern().Matches(sourceText)
-            .Select(match => match.Value)
-            .Where(known.Contains)
-            .ToArray();
-        if (!HaveSameCounts(sourceReferences, required))
+        var required = PlaceholderReferences.RequiredReferences(declarations);
+        var registered = required.ToHashSet(StringComparer.Ordinal);
+        var sourceReferences = PlaceholderReferences.RegisteredReferences(sourceText, registered);
+        if (!PlaceholderReferences.HaveSameCounts(sourceReferences, required))
         {
             throw PlaceholderViolation();
         }
@@ -108,10 +105,7 @@ internal static partial class TranslationMemoryMarkup
             return;
         }
 
-        var targetReferences = PlaceholderPattern().Matches(targetText)
-            .Select(match => match.Value)
-            .Where(known.Contains)
-            .ToArray();
+        var targetReferences = PlaceholderReferences.RegisteredReferences(targetText, registered);
         if (!sourceReferences.SequenceEqual(targetReferences, StringComparer.Ordinal))
         {
             throw PlaceholderViolation();
@@ -154,26 +148,9 @@ internal static partial class TranslationMemoryMarkup
         }
     }
 
-    private static HashSet<string> RegisteredTokens(JsonElement markupTable) => markupTable
-        .EnumerateArray()
-        .SelectMany(item => item.GetProperty("kind").GetString() == "paired"
-            ? new[]
-            {
-                $"<x{item.GetProperty("id").GetInt32()}>",
-                $"</x{item.GetProperty("id").GetInt32()}>"
-            }
-            : new[] { $"<x{item.GetProperty("id").GetInt32()}/>" })
+    private static HashSet<string> RegisteredTokens(JsonElement markupTable) => PlaceholderReferences
+        .RequiredReferences(markupTable.EnumerateArray().Select(PlaceholderReferences.DeclarationOf))
         .ToHashSet(StringComparer.Ordinal);
-
-    private static bool HaveSameCounts(IEnumerable<string> left, IEnumerable<string> right)
-    {
-        var leftCounts = left.GroupBy(value => value, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-        var rightCounts = right.GroupBy(value => value, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-        return leftCounts.Count == rightCounts.Count &&
-               leftCounts.All(pair => rightCounts.TryGetValue(pair.Key, out var count) && count == pair.Value);
-    }
 
     private static string? OptionalString(JsonElement item, string property)
     {
@@ -199,9 +176,6 @@ internal static partial class TranslationMemoryMarkup
         "tm_placeholder_integrity_violation",
         "Source and target placeholder references must match the markup table.",
         StatusCodes.Status422UnprocessableEntity);
-
-    [GeneratedRegex(@"</?x[1-9][0-9]*/?>", RegexOptions.CultureInvariant)]
-    private static partial Regex PlaceholderPattern();
 
     private sealed record CanonicalMarkupItem(
         int Id,

@@ -160,6 +160,28 @@ public sealed class FileImportApiTests(ApiFactory factory) : IClassFixture<ApiFa
     }
 
     [Fact]
+    public async Task StrayEndTagDoesNotConsumeTheWaitingOpenElement()
+    {
+        const string html = "<html><body><p>First </b>paragraph here.</p></body></html>";
+        using var client = CreateClient();
+        using var request = CreateFileRequest(html, "stray.html", "text/html", "html");
+
+        var createResponse = await client.PostAsync("/api/tasks/imports/file", request);
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("taskId").GetGuid();
+        var page = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var segment = Assert.Single(page.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("<x1>First <x2/>paragraph here.</x1>", segment.GetProperty("sourceText").GetString());
+        var markup = segment.GetProperty("markupTable");
+        Assert.Equal("paired", markup[0].GetProperty("kind").GetString());
+        Assert.Equal("<p>", markup[0].GetProperty("openingText").GetString());
+        Assert.Equal("</p>", markup[0].GetProperty("closingText").GetString());
+        Assert.Equal("standalone", markup[1].GetProperty("kind").GetString());
+        Assert.Equal("</b>", markup[1].GetProperty("originalText").GetString());
+    }
+
+    [Fact]
     public async Task MalformedHtmlProducesBalancedPlaceholders()
     {
         const string html = "<html><body><p>Hello <b>bold</p></body></html>";

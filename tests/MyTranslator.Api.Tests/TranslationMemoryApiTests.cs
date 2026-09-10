@@ -3,6 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MyTranslator.Api.Data;
 
 namespace MyTranslator.Api.Tests;
 
@@ -351,6 +354,72 @@ public sealed class TranslationMemoryApiTests
         var literal = await literalResponse.Content.ReadFromJsonAsync<JsonElement>();
         var literalMatch = Assert.Single(literal.GetProperty("items").EnumerateArray());
         Assert.InRange(literalMatch.GetProperty("sourceMatchScore").GetDouble(), 0.89, 0.90);
+    }
+
+    /// <summary>
+    /// §6.1 读路径不校验服务端已存标记表：修复前抽取实现写下的 paired 缺 closingText 的历史数据
+    /// 仍应能参与对比，不得返回调用方无法修正的 4xx。
+    /// </summary>
+    [Fact]
+    public async Task SegmentComparisonToleratesStoredMarkupTableDefects()
+    {
+        using var factory = new ApiFactory();
+        using var client = CreateClient(factory);
+        var createEntryResponse = await client.PostAsJsonAsync(
+            "/api/tm/entries",
+            new { items = new[] { Entry("Use translation memory.", "使用翻译记忆库。", "zh-CN") } });
+        Assert.Equal(HttpStatusCode.Created, createEntryResponse.StatusCode);
+        var taskId = await ImportMarkdownAsync(client, "Use translation memory.");
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var stored = await database.TranslationSegments.FirstAsync(item => item.TaskId == taskId);
+            stored.MarkupTableJson =
+                """[{"id":1,"kind":"paired","openingText":"<p>","closingText":null,"originalText":null,"meaning":"HTML p 标签"}]""";
+            await database.SaveChangesAsync();
+        }
+
+        var segments = await client.GetFromJsonAsync<JsonElement>($"/api/tasks/{taskId}/segments");
+        var segment = Assert.Single(segments.GetProperty("items").EnumerateArray());
+        var response = await client.GetAsync(
+            $"/api/tasks/{taskId}/segments/{segment.GetProperty("id").GetGuid()}/tm-comparison" +
+            $"?extractionRevision=1&segmentVersion={segment.GetProperty("version").GetInt32()}&sourceLanguage=en&targetLanguage=zh-CN");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var comparison = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var match = Assert.Single(comparison.GetProperty("items").EnumerateArray());
+        Assert.Equal(1.0, match.GetProperty("sourceMatchScore").GetDouble());
+    }
+
+    /// <summary>
+    /// 打分长度预筛的边界：相似度上界为「较短长度 / 较长长度」，恰好高于门槛时仍须返回该匹配，
+    /// 低于门槛时才允许短路（不得把 0.70 附近的匹配筛掉）。
+    /// </summary>
+    [Fact]
+    public async Task LengthPreFilterKeepsMatchAtTheThresholdBoundary()
+    {
+        using var factory = new ApiFactory();
+        using var client = CreateClient(factory);
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/tm/entries",
+            new
+            {
+                items = new[]
+                {
+                    Entry("abcdefghijklmn", "上界 0.7143。", "zh-CN"),
+                    Entry("abcdefghijklmnop", "上界 0.6250。", "zh-CN")
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var response = await client.GetAsync(
+            "/api/tm/entries?sourceLanguage=en&targetLanguage=zh-CN&query=abcdefghij");
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var match = Assert.Single(page.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("abcdefghijklmn", match.GetProperty("sourceText").GetString());
+        Assert.Equal(0.7143, match.GetProperty("sourceMatchScore").GetDouble());
     }
 
     private static object Entry(string sourceText, string targetText, string targetLanguage) => new

@@ -420,18 +420,39 @@ internal static partial class HtmlExtraction
         builder.Append(raw, position, raw.Length - position);
     }
 
+    /// <summary>
+    /// 弹栈查找与结束标签同名的开始标签：命中时连同其上方仍在栈中的项一并弹出（与
+    /// <see cref="BuildElementRanges"/> 的 <c>FindLastIndex</c>/<c>RemoveRange</c> 策略一致，
+    /// 保证两遍对配对关系的判断相同）；未命中时不改变栈——游离结束标签按 standalone 处理，
+    /// 不得吞掉仍在等待闭合的开始标签，否则该开始标签的 <c>closingText</c> 永远为空。
+    /// </summary>
     private static (string Name, int Id)? PopOpening(Stack<(string Name, int Id)> openings, string name)
     {
-        while (openings.Count > 0)
+        var matchIndex = -1;
+        var index = 0;
+        foreach (var candidate in openings)
         {
-            var candidate = openings.Pop();
             if (candidate.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             {
-                return candidate;
+                matchIndex = index;
+                break;
             }
+
+            index++;
         }
 
-        return null;
+        if (matchIndex < 0)
+        {
+            return null;
+        }
+
+        (string Name, int Id)? match = null;
+        for (var depth = 0; depth <= matchIndex; depth++)
+        {
+            match = openings.Pop();
+        }
+
+        return match;
     }
 
     private static string EntityMeaning(string entity) => entity.Equals("&nbsp;", StringComparison.OrdinalIgnoreCase)

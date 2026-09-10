@@ -291,6 +291,7 @@ curl "http://localhost:5199/api/tasks/4d898d78-1f24-47e9-8e30-adcee716c13d/segme
 - 请求版本不是分段当前版本时返回 `409 segment_version_conflict`，`errors` 含 `requestedVersion` 和 `currentVersion`。
 - `targetText = null` 时仍返回源文匹配，所有目标差异字段为 `null`，且不产生差异告警。
 - 本接口只比较已保存译文。前端存在脏标记时应先保存；不得把本地未保存文本与服务端结论混合展示为当前告警。
+- 本接口读取服务端已保存的标记表，不执行 §2.2 的写入路径校验：服务端数据的形状缺陷不改变匹配、差异与告警语义，也不产生本文未定义的 `4xx`；§2.2 的校验只约束调用方提交的录入与确认内容。
 
 ### 6.2 POST /api/tm/comparisons
 

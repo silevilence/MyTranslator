@@ -72,10 +72,6 @@ public static class TranslationMemoryEndpoints
                     CancellationToken cancellationToken) =>
                     Results.Ok(await service.CompareAsync(
                         ParseComparison(body),
-                        null,
-                        null,
-                        null,
-                        null,
                         cancellationToken)))
             .WithName("CompareTranslationMemoryText")
             .WithTags("Translation Memory");

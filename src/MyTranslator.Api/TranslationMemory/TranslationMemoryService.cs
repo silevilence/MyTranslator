@@ -145,7 +145,8 @@ public sealed class TranslationMemoryService(AppDbContext database)
                     entry.SourceText,
                     query,
                     entry.MarkupTableJson,
-                    "[]")))
+                    "[]",
+                    MinimumSourceMatchScore)))
             .Where(item => item.SourceMatchScore >= MinimumSourceMatchScore));
         var afterCursor = position is null
             ? scored
@@ -180,46 +181,65 @@ public sealed class TranslationMemoryService(AppDbContext database)
         await database.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<TranslationMemoryComparisonResponse> CompareAsync(
+    /// <summary>
+    /// 通用文本对比（§6.2）。请求正文的标记表按写入路径校验（§2.2），不合法即拒绝。
+    /// </summary>
+    public Task<TranslationMemoryComparisonResponse> CompareAsync(
         TranslationMemoryComparisonRequest request,
-        Guid? taskId,
-        Guid? segmentId,
-        int? extractionRevision,
-        int? segmentVersion,
+        CancellationToken cancellationToken) => CompareCoreAsync(
+        request.SourceText,
+        request.TargetText,
+        request.SourceLanguage,
+        request.TargetLanguage,
+        request.Limit,
+        TranslationMemoryMarkup.ValidateAndCanonicalize(request.MarkupTable, request.SourceText, request.TargetText),
+        binding: null,
+        cancellationToken);
+
+    /// <summary>
+    /// 对比实现。标记表不在此处校验：通用对比传入写入路径校验结果；任务分段对比传入服务端已存标记表
+    /// ——§6.1 是对已提交数据的只读快照，历史数据的形状缺陷（如 paired 缺 <c>closingText</c>）
+    /// 不应让只读对比返回调用方无法修正的 4xx。
+    /// </summary>
+    private async Task<TranslationMemoryComparisonResponse> CompareCoreAsync(
+        string sourceText,
+        string? targetText,
+        string sourceLanguage,
+        string targetLanguage,
+        int limit,
+        string markupTableJson,
+        SegmentBinding? binding,
         CancellationToken cancellationToken)
     {
-        var requestMarkupTableJson = TranslationMemoryMarkup.ValidateAndCanonicalize(
-            request.MarkupTable,
-            request.SourceText,
-            request.TargetText);
         var entries = await database.TranslationMemoryEntries.AsNoTracking()
             .Where(entry =>
-                entry.SourceLanguage == request.SourceLanguage &&
-                entry.TargetLanguage == request.TargetLanguage)
+                entry.SourceLanguage == sourceLanguage &&
+                entry.TargetLanguage == targetLanguage)
             .ToListAsync(cancellationToken);
         var matches = OrderScoredEntries(entries.Select(entry => new ScoredEntry(
                 entry,
                 TranslationMemoryText.Similarity(
-                    request.SourceText,
+                    sourceText,
                     entry.SourceText,
-                    requestMarkupTableJson,
-                    entry.MarkupTableJson)))
+                    markupTableJson,
+                    entry.MarkupTableJson,
+                    MinimumSourceMatchScore)))
             .Where(item => item.SourceMatchScore >= MinimumSourceMatchScore))
-            .Take(request.Limit)
-            .Select(item => ToMatchResponse(item, request.TargetText, requestMarkupTableJson))
+            .Take(limit)
+            .Select(item => ToMatchResponse(item, targetText, markupTableJson))
             .ToArray();
-        var reference = request.TargetText is null
+        var reference = targetText is null
             ? null
             : matches.FirstOrDefault(item => item.SourceMatchScore >= WarningSourceMatchScore);
         var hasWarning = reference?.TargetDifference > WarningTargetDifference;
 
         return new TranslationMemoryComparisonResponse(
-            taskId,
-            segmentId,
-            extractionRevision,
-            segmentVersion,
-            request.SourceLanguage,
-            request.TargetLanguage,
+            binding?.TaskId,
+            binding?.SegmentId,
+            binding?.ExtractionRevision,
+            binding?.SegmentVersion,
+            sourceLanguage,
+            targetLanguage,
             new TranslationMemoryThresholds(
                 MinimumSourceMatchScore,
                 WarningSourceMatchScore,
@@ -305,19 +325,14 @@ public sealed class TranslationMemoryService(AppDbContext database)
                 });
         }
 
-        using var markup = JsonDocument.Parse(segment.MarkupTableJson);
-        var response = await CompareAsync(
-            new TranslationMemoryComparisonRequest(
-                segment.SourceText,
-                segment.TargetText,
-                sourceLanguage,
-                targetLanguage,
-                markup.RootElement.Clone(),
-                limit),
-            taskId,
-            segmentId,
-            extractionRevision,
-            segmentVersion,
+        var response = await CompareCoreAsync(
+            segment.SourceText,
+            segment.TargetText,
+            sourceLanguage,
+            targetLanguage,
+            limit,
+            segment.MarkupTableJson,
+            new SegmentBinding(taskId, segmentId, extractionRevision, segmentVersion),
             cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return response;
@@ -462,4 +477,11 @@ public sealed class TranslationMemoryService(AppDbContext database)
         string ContentKey);
 
     private sealed record ScoredEntry(TranslationMemoryEntry Entry, double? SourceMatchScore);
+
+    /// <summary>任务分段对比的绑定字段；通用文本对比为 <c>null</c>（响应中对应字段回显为 null，§6.3）。</summary>
+    private sealed record SegmentBinding(
+        Guid TaskId,
+        Guid SegmentId,
+        int ExtractionRevision,
+        int SegmentVersion);
 }
