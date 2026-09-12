@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="List" xml:space="preserve"><value>分段列表</value></data>
+  <data name="Select" xml:space="preserve"><value>选择</value></data>
+  <data name="Source" xml:space="preserve"><value>原文</value></data>
+  <data name="Target" xml:space="preserve"><value>译文与状态</value></data>
+  <data name="SelectSegment" xml:space="preserve"><value>选择分段 {0}</value></data>
+  <data name="Segment" xml:space="preserve"><value>分段 {0}</value></data>
+  <data name="Dirty" xml:space="preserve"><value>未保存</value></data>
+  <data name="pending" xml:space="preserve"><value>待翻译</value></data>
+  <data name="translated" xml:space="preserve"><value>已翻译</value></data>
+  <data name="confirmed" xml:space="preserve"><value>已确认</value></data>
+  <data name="Reviews" xml:space="preserve"><value>{0} 条审核意见</value></data>
+  <data name="Empty" xml:space="preserve"><value>暂无可译分段。</value></data>
+</root>
+

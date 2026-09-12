@@ -1,0 +1,58 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<SegmentList> L
+
+@* TODO(frontend-formal): 此处仅验证列表/多选/键盘接口；正式前端按 docs/front 设计规范细化行密度和视觉。 *@
+<div tabindex="0" @onkeydown="OnKeyDown" aria-label="@L["List"]">
+    <MudTable T="Segment" Items="Items" Dense="true" Hover="true" Virtualize="true" Height="480px" FixedHeader="true">
+        <HeaderContent><MudTh>@L["Select"]</MudTh><MudTh>@L["Source"]</MudTh><MudTh>@L["Target"]</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudCheckBox T="bool" Value="SelectedIds.Contains(context.Id)" Disabled="Disabled"
+                             ValueChanged="value => OnToggle.InvokeAsync(context.Id)" aria-label="@L["SelectSegment", context.Order]" />
+            </MudTd>
+            <MudTd>
+                <MudButton OnClick="() => OnSelect.InvokeAsync(context)" Disabled="Disabled"
+                           Color="@(CurrentId == context.Id ? Color.Primary : Color.Default)" Variant="Variant.Text">
+                    @L["Segment", context.Order]
+                    @if (CurrentId == context.Id && Dirty) { <span aria-label="@L["Dirty"]">●</span> }
+                </MudButton>
+                <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)" MarkupTable="context.MarkupTable" />
+                @if (context.Chapter is { } chapter) { <MudText Typo="Typo.caption">@(chapter.Title ?? chapter.ResourcePath)</MudText> }
+            </MudTd>
+            <MudTd>
+                <SegmentMarkupViewer Text="@(context.TargetText ?? string.Empty)" MarkupTable="context.MarkupTable" />
+                <MudChip T="string" Size="Size.Small" Color="@(context.ConfirmationStatus == "confirmed" ? Color.Success : Color.Default)"
+                         Icon="@(context.ConfirmationStatus == "confirmed" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Pending)">
+                    @L[context.ConfirmationStatus ?? "pending"]
+                </MudChip>
+                @if (context.ReviewComments.Count > 0)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Comment">@L["Reviews", context.ReviewComments.Count]</MudChip>
+                }
+                @if (Diagnostics is not null) { @Diagnostics(context) }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>@L["Empty"]</MudText></NoRecordsContent>
+    </MudTable>
+</div>
+
+@code {
+    /// <summary>当前已加载分段，列表虚拟化。</summary>
+    [Parameter] public IReadOnlyList<Segment> Items { get; set; } = [];
+    /// <summary>当前编辑分段。</summary>
+    [Parameter] public Guid? CurrentId { get; set; }
+    /// <summary>批量选中 ID。</summary>
+    [Parameter] public HashSet<Guid> SelectedIds { get; set; } = [];
+    /// <summary>当前草稿脏标记。</summary>
+    [Parameter] public bool Dirty { get; set; }
+    /// <summary>操作期间禁止切换。</summary>
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>选中一行编辑。</summary>
+    [Parameter] public EventCallback<Segment> OnSelect { get; set; }
+    /// <summary>切换批量选择。</summary>
+    [Parameter] public EventCallback<Guid> OnToggle { get; set; }
+    /// <summary>列表范围键盘事件。</summary>
+    [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+    /// <summary>增强阶段的规则等标记扩展。</summary>
+    [Parameter] public RenderFragment<Segment>? Diagnostics { get; set; }
+}

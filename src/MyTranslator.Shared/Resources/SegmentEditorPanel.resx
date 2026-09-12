@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="SelectFirst" xml:space="preserve"><value>请选择分段开始编辑。</value></data>
+  <data name="Segment" xml:space="preserve"><value>编辑分段 {0}</value></data>
+  <data name="Dirty" xml:space="preserve"><value>未保存</value></data>
+  <data name="ProtectedHint" xml:space="preserve"><value>占位符只读；在标记之间填写译文。标记含义同时显示在下方。</value></data>
+  <data name="TextPart" xml:space="preserve"><value>译文文本 {0}</value></data>
+  <data name="Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="Unconfirm" xml:space="preserve"><value>取消确认</value></data>
+  <data name="Clear" xml:space="preserve"><value>清空译文</value></data>
+</root>
+

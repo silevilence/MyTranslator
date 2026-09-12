@@ -1,0 +1,10 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<KeyboardHelp> L
+
+<MudDialog>
+    <DialogContent><MudText>@L["Keys"]</MudText></DialogContent>
+    <DialogActions><MudButton OnClick="() => Dialog.Close()">@L["Close"]</MudButton></DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = null!;
+}

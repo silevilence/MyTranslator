@@ -27,6 +27,7 @@ builder.Services.AddScoped<ReviewRunService>();
 builder.Services.AddScoped<ProviderSelectionState>();
 builder.Services.AddScoped<TermService>();
 builder.Services.AddScoped<TmComparisonService>();
+builder.Services.AddScoped<SegmentEditingService>();
 builder.Services.AddScoped<ThemeService>();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

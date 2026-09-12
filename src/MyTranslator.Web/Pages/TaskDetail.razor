@@ -96,20 +96,20 @@ else
     </MudPaper>
 
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
-        <TranslationRunPanel @key="_summary.ExtractionRevision"
+        <TranslationRunPanel @key="(TaskId, _summary.ExtractionRevision)"
                              TaskId="TaskId"
                              ExtractionRevision="_summary.ExtractionRevision"
-                             ExternalBusy="_reviewRunActive"
+                             ExternalBusy="_reviewRunActive || _editorDirty"
                              OnActivityChanged="OnTranslationActivityChangedAsync"
                              OnTranslationsCommitted="OnTranslationsCommittedAsync"
                              OnTaskStateChanged="OnRunTaskStateChangedAsync" />
     </MudPaper>
 
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
-        <ReviewRunPanel @key="_summary.ExtractionRevision"
+        <ReviewRunPanel @key="(TaskId, _summary.ExtractionRevision)"
                         TaskId="TaskId"
                         ExtractionRevision="_summary.ExtractionRevision"
-                        ExternalBusy="_translationRunActive"
+                        ExternalBusy="_translationRunActive || _editorDirty"
                         OnActivityChanged="OnReviewActivityChangedAsync"
                         OnCommentsCommitted="OnReviewCommentsCommittedAsync"
                         OnRunStateChanged="OnRunReviewStateChangedAsync" />
@@ -145,84 +145,15 @@ else
         </div>
 
         <div class="mt-task-segments">
-            <SegmentCursorList @ref="_segmentList"
-                               @key="_segmentsKey"
-                               LoadPage="LoadSegmentsAsync"
-                               OnRevisionChanged="OnSegmentsRevisionChanged">
-                <RowTemplate>
-                    <div class="mt-task-segment-row">
-                        <code class="mt-mono mt-task-segment-order">@context.Order</code>
-                        <div class="mt-task-segment-source">
-                            <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)"
-                                                 MarkupTable="@context.MarkupTable" />
-                            @if (context.Chapter is { } chapter)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                                    @Localizer["ChapterTitle", chapter.Title ?? chapter.ResourcePath ?? chapter.Id.ToString()]
-                                </MudText>
-                            }
-                        </div>
-                        <div class="mt-task-segment-side">
-                            @if (string.IsNullOrEmpty(context.TargetText))
-                            {
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["TargetEmpty"]</MudText>
-                            }
-                            else
-                            {
-                                <MudText Typo="Typo.body2">@context.TargetText</MudText>
-                            }
-                            @ConfirmationBadge(context.ConfirmationStatus)
-                            <MudIconButton Icon="@Icons.Material.Filled.Compare"
-                                           Size="Size.Small"
-                                           Color="@(IsExpanded(_expandedSegmentTm, context.Id) ? Color.Primary : Color.Default)"
-                                           title="@Localizer["TmCompareTitle"]"
-                                           aria-label="@Localizer["TmCompareTitle"]"
-                                           OnClick="() => ToggleExpansion(_expandedSegmentTm, context.Id)" />
-                            @if (CommentsOf(context).Count > 0)
-                            {
-                                @ReviewCountBadge(context)
-                                @if (IsExpanded(_expandedSegmentComments, context.Id))
-                                {
-                                    <MudIconButton Icon="@Icons.Material.Filled.ExpandLess"
-                                                   Size="Size.Small"
-                                                   title="@Localizer["ReviewCommentsHide"]"
-                                                   aria-label="@Localizer["ReviewCommentsHide"]"
-                                                   OnClick="() => ToggleExpansion(_expandedSegmentComments, context.Id)" />
-                                }
-                                else
-                                {
-                                    <MudIconButton Icon="@Icons.Material.Filled.ExpandMore"
-                                                   Size="Size.Small"
-                                                   title="@Localizer["ReviewCommentsShow"]"
-                                                   aria-label="@Localizer["ReviewCommentsShow"]"
-                                                   OnClick="() => ToggleExpansion(_expandedSegmentComments, context.Id)" />
-                                }
-                            }
-                        </div>
-                    </div>
-                    @if (CommentsOf(context).Count > 0 && IsExpanded(_expandedSegmentComments, context.Id))
-                    {
-                        <div class="mt-task-segment-comments">
-                            <ReviewPanel Comments="CommentsOf(context)" />
-                        </div>
-                    }
-                    @if (IsExpanded(_expandedSegmentTm, context.Id))
-                    {
-                        <div class="mt-task-segment-tm">
-                            <TmComparisonPanel TaskId="TaskId"
-                                               ExtractionRevision="_summary.ExtractionRevision"
-                                               Segment="context"
-                                               Language="@_tmLanguage"
-                                               OnRevisionChanged="OnTmRevisionChanged"
-                                               OnSegmentStale="OnTmSegmentStale" />
-                        </div>
-                    }
-                </RowTemplate>
-            </SegmentCursorList>
+            <TranslationEditor @ref="_segmentList" @key="(TaskId, _segmentsKey, _summary.ExtractionRevision)"
+                               TaskId="TaskId" ExtractionRevision="_summary.ExtractionRevision"
+                               Language="_tmLanguage" Busy="_translationRunActive || _reviewRunActive"
+                               OnSaved="LoadAsync" OnRevisionChanged="OnSegmentsRevisionChanged"
+                               OnDirtyChanged="dirty => _editorDirty = dirty" />
         </div>
     </MudPaper>
 
-    @if (_summary.Capabilities?.CanReextract == true)
+    @if (_summary.Capabilities?.CanReextract == true && !_editorDirty && !_translationRunActive && !_reviewRunActive)
     {
         <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
             <ReextractionPanel TaskId="@TaskId" OnApplied="OnReextractionApplied" />
@@ -235,11 +166,11 @@ else
     private string? _loadError;
     private bool _exporting;
     private int _segmentsKey;
-    private SegmentCursorList? _segmentList;
+    private TranslationEditor? _segmentList;
     private bool _translationRunActive;
     private bool _reviewRunActive;
-    private HashSet<Guid> _expandedSegmentComments = [];
-    private HashSet<Guid> _expandedSegmentTm = [];
+    private bool _editorDirty;
+    private Guid? _loadedTaskId;
 
     /// <summary>历史对比语言对输入框值；失焦提交后才作用于对比请求，避免输入中间态触发请求。</summary>
     private string _tmSourceLanguageInput = string.Empty;
@@ -254,13 +185,22 @@ else
     private string? _tmLanguageError;
 
     /// <summary>任务摘要声明的公开导出条件（§4.3 capabilities.canExport）。</summary>
-    private bool CanExport => _summary?.Capabilities?.CanExport == true;
+    private bool CanExport => _summary?.Capabilities?.CanExport == true && !_editorDirty && !_translationRunActive && !_reviewRunActive;
 
     [Parameter]
     public Guid TaskId { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
+        if (_loadedTaskId == TaskId) return;
+        _loadedTaskId = TaskId;
+        _summary = null;
+        _editorDirty = false;
+        _translationRunActive = false;
+        _reviewRunActive = false;
+        _tmLanguage = new(null, null);
+        _tmSourceLanguageInput = string.Empty;
+        _tmTargetLanguageInput = "zh-CN";
         // 历史对比语言对按任务持久化，刷新后恢复上次输入（与 ProviderSelectionStore 同一前端约定）
         var pair = await TaskLanguagePairStore.LoadAsync(Js, TaskId);
         if (pair.SourceLanguage is not null || pair.TargetLanguage is not null)
@@ -286,16 +226,11 @@ else
         }
     }
 
-    private Task<SegmentPage> LoadSegmentsAsync(string? cursor, CancellationToken cancellationToken)
-    {
-        return Import.GetSegmentsAsync(TaskId, cursor, cancellationToken);
-    }
-
     private async Task OnReextractionApplied(TaskSummary summary)
     {
         // 重新提取后：分段 ID 全部更换、extractionRevision 递增，旧列表与游标失效，从第一页重新加载
         _summary = summary;
-        _expandedSegmentComments.Clear();
+
         _segmentsKey++;
     }
 
@@ -358,25 +293,9 @@ else
     private async Task OnSegmentsRevisionChanged()
     {
         // 分页期间任务被重新提取（409 extraction_revision_changed）：按契约从第一页重新加载
-        _expandedSegmentComments.Clear();
+
         _segmentsKey++;
         await LoadAsync();
-    }
-
-    /// <summary>TM 对比遇到 409 extraction_revision_changed：丢弃对比缓存与展开状态，从第一页重新加载（TM 约定 §9.1 第 7 步）。</summary>
-    private async Task OnTmRevisionChanged()
-    {
-        _expandedSegmentTm.Clear();
-        await OnSegmentsRevisionChanged();
-    }
-
-    /// <summary>TM 对比遇到 409 segment_version_conflict：重新读取当前分段（TM 约定 §9.1 第 7 步）；新版本到达后面板自动重新请求。</summary>
-    private async Task OnTmSegmentStale()
-    {
-        if (_segmentList is not null)
-        {
-            await _segmentList.RefreshAsync();
-        }
     }
 
     private async Task ExportAsync()
@@ -404,16 +323,6 @@ else
         finally
         {
             _exporting = false;
-        }
-    }
-
-    private static bool IsExpanded(HashSet<Guid> set, Guid segmentId) => set.Contains(segmentId);
-
-    private static void ToggleExpansion(HashSet<Guid> set, Guid segmentId)
-    {
-        if (!set.Remove(segmentId))
-        {
-            set.Add(segmentId);
         }
     }
 
@@ -459,21 +368,6 @@ else
         _tmLanguage = normalized;
         return TaskLanguagePairStore.SaveAsync(Js, TaskId, normalized);
     }
-
-    /// <summary>审核意见计数徽标：info 语义色三通道（颜色 + 图标 + 文字），AI 审核约定 §12.1 第 7 步。</summary>
-    private RenderFragment ReviewCountBadge(Segment segment) => __builder =>
-    {
-        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined"
-                 Icon="@Icons.Material.Filled.Forum"
-                 OnClick="() => ToggleExpansion(_expandedSegmentComments, segment.Id)">
-            @Localizer["ReviewCommentCount", CommentsOf(segment).Count]
-        </MudChip>
-    };
-
-
-    /// <summary>分段当前有效意见；服务端显式 null 时按空处理（契约 §9 禁止 null，防御兼容服务）。</summary>
-    private static IReadOnlyList<ReviewComment> CommentsOf(Segment segment) =>
-        segment.ReviewComments ?? [];
 
     private string GetSourceDisplay()
     {
@@ -533,16 +427,4 @@ else
             : $"{byteLength.Value} B";
     }
 
-    private RenderFragment ConfirmationBadge(string? status) => status switch
-    {
-        "confirmed" => ConfirmationBadge(Localizer["ConfirmationConfirmed"].Value, Color.Success, Icons.Material.Filled.CheckCircle),
-        "translated" => ConfirmationBadge(Localizer["ConfirmationTranslated"].Value, Color.Default, Icons.Material.Filled.Translate),
-        _ => ConfirmationBadge(Localizer["ConfirmationPending"].Value, Color.Default, Icons.Material.Filled.Schedule),
-    };
-
-
-    private RenderFragment ConfirmationBadge(string text, Color color, string icon) => __builder =>
-    {
-        <MudChip T="string" Size="Size.Small" Color="color" Variant="Variant.Outlined" Icon="icon">@text</MudChip>
-    };
 }

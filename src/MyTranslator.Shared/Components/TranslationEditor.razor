@@ -1,0 +1,265 @@
+@namespace MyTranslator.Shared.Components
+@implements IAsyncDisposable
+@inject ImportExportService Import
+@inject SegmentEditingService Editing
+@inject ApiErrorMessageProvider Errors
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IJSRuntime Js
+@inject IStringLocalizer<TranslationEditor> L
+
+<NavigationLock ConfirmExternalNavigation="IsDirty" OnBeforeInternalNavigation="BeforeNavigationAsync" />
+<div id="@_elementId" tabindex="0" @onkeydown="HandleShortcutsAsync">
+    @* TODO(frontend-formal): 当前固定双栏用于功能验证；按 docs/front/设计规范 §4.3 补拖拽分栏、比例持久化和视觉精修验收。 *@
+    <MudStack Row="true" Spacing="2" Class="my-3">
+        <MudButton OnClick="() => RunAsync(() => BatchAsync(true))" Disabled="Locked || _selected.Count == 0">@L["BatchConfirm", _selected.Count]</MudButton>
+        <MudButton OnClick="() => RunAsync(() => BatchAsync(false))" Disabled="Locked || _selected.Count == 0">@L["BatchUnconfirm"]</MudButton>
+        <MudButton OnClick="SelectLoaded" Disabled="Locked">@L["SelectLoaded"]</MudButton>
+        <MudButton OnClick="DiscardAndRefreshAsync" Disabled="_working || Busy">@L["Refresh"]</MudButton>
+        <MudButton OnClick="ShowHelpAsync" StartIcon="@Icons.Material.Filled.Keyboard">@L["Help"]</MudButton>
+        @if (_working) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+    </MudStack>
+    @if (_error is not null) { <ErrorBanner Message="@_error" OnRetry="RetryAsync" /> }
+    @if (_loading) { <MudSkeleton Height="300px" /> }
+    else
+    {
+        <div class="editor-columns">
+            <div>
+                <SegmentList Items="_items" CurrentId="_draft?.Original.Id" SelectedIds="_selected" Dirty="IsDirty" Disabled="Locked"
+                             OnSelect="SelectAsync" OnToggle="Toggle" OnKeyDown="ListKeyAsync" />
+                @if (_nextCursor is not null)
+                {
+                    <MudButton OnClick="() => RunAsync(LoadMoreAsync)" Disabled="Locked">@L["LoadMore"]</MudButton>
+                }
+            </div>
+            <MudPaper Outlined="true" Elevation="0" Class="pa-3">
+                <SegmentEditorPanel @ref="_panel" Draft="_draft" Disabled="Locked" OnChange="DraftChangedAsync"
+                    OnSave="SaveAsync" OnConfirm="ConfirmCurrentAsync"
+                    OnUnconfirm="UnconfirmCurrentAsync" OnClear="ClearAsync" OnKeyDown="EditorKeyAsync">
+                    <References Context="segment">
+                        <TmComparisonPanel TaskId="TaskId" ExtractionRevision="ExtractionRevision" Segment="segment" Language="Language"
+                                           OnRevisionChanged="RefreshAsync" OnSegmentStale="RefreshAsync" />
+                    </References>
+                </SegmentEditorPanel>
+            </MudPaper>
+        </div>
+    }
+    <div aria-live="polite" class="mt-2"><MudText Typo="Typo.caption">@L["Loaded", _items.Count, _total]</MudText></div>
+</div>
+
+@code {
+    /// <summary>任务标识；宿主以任务和提取修订作为组件 key。</summary>
+    [Parameter] public Guid TaskId { get; set; }
+    /// <summary>当前提取修订。</summary>
+    [Parameter] public int ExtractionRevision { get; set; }
+    /// <summary>确认和参考信息所用明确语言对。</summary>
+    [Parameter] public LanguagePair Language { get; set; } = new(null, null);
+    /// <summary>后台翻译/审核活动期间禁止人工编辑。</summary>
+    [Parameter] public bool Busy { get; set; }
+    /// <summary>保存成功通知宿主刷新摘要与进度。</summary>
+    [Parameter] public EventCallback OnSaved { get; set; }
+    /// <summary>提取修订改变后刷新宿主，丢弃草稿前有确认。</summary>
+    [Parameter] public EventCallback OnRevisionChanged { get; set; }
+    /// <summary>脏草稿阻止宿主发起翻译/重提取等操作。</summary>
+    [Parameter] public EventCallback<bool> OnDirtyChanged { get; set; }
+
+    private readonly string _elementId = "editor-" + Guid.NewGuid().ToString("N");
+    private readonly CancellationTokenSource _lifetime = new();
+    private List<Segment> _items = [];
+    private readonly HashSet<Guid> _selected = [];
+    private SegmentDraft? _draft;
+    private SegmentEditorPanel? _panel;
+    private string? _nextCursor;
+    private string? _error;
+    private int _total;
+    private bool _loading = true;
+    private bool _working;
+    private bool _refreshPending;
+    private bool _stale;
+    private bool _disposed;
+    private Func<Task>? _retry;
+    private bool IsDirty => _draft?.IsDirty == true;
+    private bool Locked => _working || Busy || _stale;
+
+    protected override Task OnInitializedAsync() => RunAsync(ReloadCoreAsync);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await Js.InvokeVoidAsync("mtEditor.attach", _elementId);
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_working || _disposed) return;
+        _working = true;
+        _error = null;
+        _retry = action;
+        try { await action(); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) when (exception is ApiErrorException or HttpRequestException)
+        {
+            _error = Errors.ForException(exception);
+            Snackbar.Add(_error, Severity.Error);
+        }
+        finally { _working = false; _loading = false; }
+        if (!_disposed)
+        {
+            await OnDirtyChanged.InvokeAsync(IsDirty);
+            StateHasChanged();
+            if (_refreshPending) { _refreshPending = false; await RefreshAsync(); }
+        }
+    }
+
+    private Task RetryAsync() => RunAsync(_retry ?? ReloadCoreAsync);
+    private Task SaveAsync() => RunAsync(() => SaveCoreAsync());
+    private Task ConfirmCurrentAsync() => RunAsync(() => SaveCoreAsync("confirmed"));
+    private Task UnconfirmCurrentAsync() => RunAsync(() => SaveCoreAsync("translated"));
+
+    public Task RefreshAsync()
+    {
+        if (_working) { _refreshPending = true; return Task.CompletedTask; }
+        return RunAsync(ReloadCoreAsync);
+    }
+
+    private async Task ReloadCoreAsync()
+    {
+        var rows = new List<Segment>();
+        string? cursor = null;
+        do
+        {
+            var page = await Import.GetSegmentsAsync(TaskId, cursor, _lifetime.Token);
+            if (page.ExtractionRevision != ExtractionRevision)
+            {
+                _stale = true;
+                _error = Errors.ForError(409, "extraction_revision_changed");
+                if (!IsDirty) await OnRevisionChanged.InvokeAsync();
+                return;
+            }
+            rows.AddRange(page.Items);
+            _total = page.TotalCount;
+            cursor = page.NextCursor;
+        } while (cursor is not null && rows.Count < _items.Count);
+        _items = rows;
+        _nextCursor = cursor;
+        _selected.IntersectWith(rows.Select(row => row.Id));
+        if (!IsDirty)
+        {
+            var current = rows.FirstOrDefault(row => row.Id == _draft?.Original.Id) ?? rows.FirstOrDefault();
+            _draft = current is null ? null : new(current);
+        }
+        else if (rows.FirstOrDefault(row => row.Id == _draft!.Original.Id)?.Version != _draft!.Original.Version)
+            _error = Errors.ForError(409, "segment_version_conflict");
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_nextCursor is null) return;
+        var page = await Import.GetSegmentsAsync(TaskId, _nextCursor, _lifetime.Token);
+        if (page.ExtractionRevision != ExtractionRevision) { await ReloadCoreAsync(); return; }
+        _items.AddRange(page.Items.Where(row => _items.All(existing => existing.Id != row.Id)));
+        _nextCursor = page.NextCursor;
+        _total = page.TotalCount;
+    }
+
+    private Task SelectAsync(Segment segment) => RunAsync(async () =>
+    {
+        if (Busy || _stale) return;
+        await SaveCoreAsync();
+        _draft = new(_items.First(row => row.Id == segment.Id));
+    });
+
+    private async Task SaveCoreAsync(string? status = null, bool clear = false)
+    {
+        if (_draft is null || Busy || _stale || (!IsDirty && status is null && !clear)) return;
+        var target = clear ? null : _draft.TargetText;
+        // 普通编辑使旧确认失效，必须重新明确确认；不把编辑动作当作人工验收。
+        status ??= target is null ? "pending" : IsDirty ? "translated" : _draft.Original.ConfirmationStatus ?? "translated";
+        if (clear) status = "pending";
+        if (target is null && _draft.Original.TargetText is not null && !clear && !await ConfirmAsync(L["ClearPrompt"]))
+            throw new OperationCanceledException();
+        var saved = await Editing.SaveAsync(TaskId, _draft.Original.Id,
+            new(ExtractionRevision, _draft.Original.Version, target, status, Language.SourceLanguage, Language.TargetLanguage), _lifetime.Token);
+        Replace(saved);
+        _draft = new(saved);
+        await OnDirtyChanged.InvokeAsync(false);
+        await OnSaved.InvokeAsync();
+        Snackbar.Add(L["Saved"], Severity.Success);
+    }
+
+    private async Task BatchAsync(bool confirmed)
+    {
+        if (Busy || _stale) return;
+        await SaveCoreAsync();
+        var rows = _items.Where(row => _selected.Contains(row.Id)).ToArray();
+        if (rows.Length is < 1 or > 200) { _error = Errors.ForError(400, "invalid_segment_batch"); return; }
+        var saved = await Editing.ConfirmAsync(TaskId, new(ExtractionRevision, confirmed,
+            rows.Select(row => new SegmentVersion(row.Id, row.Version)).ToArray(), Language.SourceLanguage, Language.TargetLanguage), _lifetime.Token);
+        foreach (var row in saved) Replace(row);
+        if (_draft is not null) _draft = new(_items.First(row => row.Id == _draft.Original.Id));
+        await OnSaved.InvokeAsync();
+        Snackbar.Add(L["Saved"], Severity.Success);
+    }
+
+    private void Replace(Segment segment)
+    {
+        var index = _items.FindIndex(row => row.Id == segment.Id);
+        if (index >= 0) _items[index] = segment;
+    }
+    private void Toggle(Guid id) { if (!_selected.Remove(id)) _selected.Add(id); }
+    private void SelectLoaded()
+    {
+        if (_selected.Count == _items.Count) _selected.Clear();
+        else { _selected.Clear(); _selected.UnionWith(_items.Take(200).Select(row => row.Id)); }
+    }
+    private Task DraftChangedAsync() => OnDirtyChanged.InvokeAsync(IsDirty);
+    private async Task ClearAsync()
+    {
+        if (!Locked && await ConfirmAsync(L["ClearPrompt"])) await RunAsync(() => SaveCoreAsync(clear: true));
+    }
+    private async Task DiscardAndRefreshAsync()
+    {
+        if (_working || Busy || IsDirty && !await ConfirmAsync(L["DiscardPrompt"])) return;
+        _draft = null;
+        await OnDirtyChanged.InvokeAsync(false);
+        if (_stale) { await OnRevisionChanged.InvokeAsync(); return; }
+        await RefreshAsync();
+    }
+    private async Task<bool> ConfirmAsync(string message)
+    {
+        var dialog = await Dialogs.ShowAsync<ConfirmDialog>(L["ConfirmTitle"], new DialogParameters<ConfirmDialog>
+            { { x => x.Message, message } }, new DialogOptions { CloseOnEscapeKey = true });
+        return await dialog.Result is { Canceled: false, Data: true };
+    }
+    private async Task BeforeNavigationAsync(Microsoft.AspNetCore.Components.Routing.LocationChangingContext context)
+    {
+        if (IsDirty && !await ConfirmAsync(L["DiscardPrompt"])) context.PreventNavigation();
+    }
+    private Task ShowHelpAsync() => Dialogs.ShowAsync<KeyboardHelp>(L["Help"], new DialogOptions { CloseOnEscapeKey = true });
+    private Task EditorKeyAsync(KeyboardEventArgs args) => args.CtrlKey || args.Key == "F2" ? HandleShortcutsAsync(args) : Task.CompletedTask;
+    private Task ListKeyAsync(KeyboardEventArgs args) => args.Key switch
+    {
+        "ArrowUp" => MoveAsync(-1), "ArrowDown" => MoveAsync(1), _ => Task.CompletedTask
+    };
+    private async Task HandleShortcutsAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "?") { await ShowHelpAsync(); return; }
+        if (args.Key == "F2" && _panel is not null) { await _panel.FocusAsync(); return; }
+        if (Locked) return;
+        if (args.CtrlKey && args.Key.Equals("s", StringComparison.OrdinalIgnoreCase)) await RunAsync(() => SaveCoreAsync());
+        if (args.CtrlKey && args.Key == "Enter") await RunAsync(async () => { await SaveCoreAsync("confirmed"); await MoveCoreAsync(1); });
+    }
+    private Task MoveAsync(int delta) => Locked ? Task.CompletedTask : RunAsync(async () => { await SaveCoreAsync(); await MoveCoreAsync(delta); });
+    private async Task MoveCoreAsync(int delta)
+    {
+        var index = _items.FindIndex(row => row.Id == _draft?.Original.Id) + delta;
+        if (index >= _items.Count && _nextCursor is not null) await LoadMoreAsync();
+        if (index >= 0 && index < _items.Count) _draft = new(_items[index]);
+    }
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        await _lifetime.CancelAsync();
+        _lifetime.Dispose();
+        try { await Js.InvokeVoidAsync("mtEditor.detach", _elementId); }
+        catch (JSDisconnectedException) { }
+    }
+}

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -250,12 +250,24 @@
     <value>分段不存在或已因重新提取失效</value>
   </data>
   <data name="segment_version_conflict" xml:space="preserve">
-    <value>分段已被其他更新修改，请刷新后重试</value>
+    <value>分段已被修改，请保留草稿并刷新。</value>
   </data>
   <data name="tm_placeholder_integrity_violation" xml:space="preserve">
     <value>源文与译文占位符不一致</value>
   </data>
   <data name="tm_language_pair_required" xml:space="preserve">
     <value>缺少明确语言对，无法确认分段</value>
+  </data>
+  <data name="missing_translation">
+    <value>译文缺失。</value>
+  </data>
+  <data name="invalid_confirmation_status">
+    <value>译文与确认状态不一致。</value>
+  </data>
+  <data name="invalid_request_body">
+    <value>请求内容无效，请检查输入。</value>
+  </data>
+  <data name="invalid_segment_batch">
+    <value>请选择 1 至 200 个不重复分段。</value>
   </data>
 </root>

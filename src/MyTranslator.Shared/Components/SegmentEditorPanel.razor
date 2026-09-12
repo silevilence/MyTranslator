@@ -1,0 +1,64 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<SegmentEditorPanel> L
+
+@* TODO(frontend-formal): 将多文本框占位符保护编辑替换为正式内联编辑器，保留只读标记、草稿和版本保护。 *@
+<div @ref="_panel" tabindex="-1" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
+    @if (Draft is null) { <MudText>@L["SelectFirst"]</MudText> }
+    else
+    {
+        <MudText Typo="Typo.h2">@L["Segment", Draft.Original.Order] @if (Draft.IsDirty) { <span aria-label="@L["Dirty"]">●</span> }</MudText>
+        <SegmentMarkupViewer Text="@(Draft.Original.SourceText ?? string.Empty)" MarkupTable="Draft.Original.MarkupTable" />
+        <MudText Typo="Typo.caption">@L["ProtectedHint"]</MudText>
+        @for (var index = 0; index < Draft.Parts.Count; index++)
+        {
+            var partIndex = index;
+            var part = Draft.Parts[index];
+            if (part.Markup is not null)
+            {
+                <SegmentMarkupViewer Text="@part.Text" MarkupTable="Draft.Original.MarkupTable" />
+                <MudText Typo="Typo.caption">@(part.Markup.Item?.Meaning ?? part.Markup.Item?.OriginalText ?? part.Markup.Item?.OpeningText)</MudText>
+            }
+            else
+            {
+                <MudTextField T="string" Value="@part.Text" ValueChanged="value => ChangeAsync(partIndex, value)" Immediate="true"
+                              Label="@L["TextPart", index + 1]" Variant="Variant.Outlined" Lines="2" Disabled="Disabled" Class="my-2" />
+            }
+        }
+        <MudStack Row="true" Spacing="2" Class="my-3">
+            <MudButton OnClick="OnSave" Disabled="Disabled" Variant="Variant.Filled" Color="Color.Primary">@L["Save"]</MudButton>
+            <MudButton OnClick="OnConfirm" Disabled="Disabled || Draft.TargetText is null" StartIcon="@Icons.Material.Filled.Check">@L["Confirm"]</MudButton>
+            <MudButton OnClick="OnUnconfirm" Disabled="@(Disabled || Draft.Original.ConfirmationStatus != "confirmed")">@L["Unconfirm"]</MudButton>
+            <MudButton OnClick="OnClear" Disabled="Disabled || Draft.TargetText is null" Color="Color.Error">@L["Clear"]</MudButton>
+        </MudStack>
+        <ReviewPanel Comments="Draft.Original.ReviewComments" />
+        @if (References is not null) { @References(Draft.Original) }
+    }
+</div>
+
+@code {
+    private ElementReference _panel;
+    /// <summary>当前不可变分段快照与可编辑草稿。</summary>
+    [Parameter] public SegmentDraft? Draft { get; set; }
+    /// <summary>提交/运行期间禁用编辑。</summary>
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>草稿内容变化通知。</summary>
+    [Parameter] public EventCallback OnChange { get; set; }
+    /// <summary>保存草稿。</summary>
+    [Parameter] public EventCallback OnSave { get; set; }
+    /// <summary>保存并确认。</summary>
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    /// <summary>取消确认。</summary>
+    [Parameter] public EventCallback OnUnconfirm { get; set; }
+    /// <summary>清空译文，父组件负责危险操作确认。</summary>
+    [Parameter] public EventCallback OnClear { get; set; }
+    /// <summary>编辑区快捷键，不处理普通方向键和问号输入。</summary>
+    [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+    /// <summary>详情参考区扩展。</summary>
+    [Parameter] public RenderFragment<Segment>? References { get; set; }
+    public Task FocusAsync() => _panel.FocusAsync().AsTask();
+    private async Task ChangeAsync(int index, string? text)
+    {
+        Draft!.SetText(index, text);
+        await OnChange.InvokeAsync();
+    }
+}

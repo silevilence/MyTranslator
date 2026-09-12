@@ -24,6 +24,10 @@
 
   <!-- 组件 resx：LogicalName 与组件类型全名一致（组件规范 §5） -->
   <ItemGroup>
+    <EmbeddedResource Update="Resources\SegmentList.resx"><LogicalName>MyTranslator.Shared.Components.SegmentList.resources</LogicalName></EmbeddedResource>
+    <EmbeddedResource Update="Resources\SegmentEditorPanel.resx"><LogicalName>MyTranslator.Shared.Components.SegmentEditorPanel.resources</LogicalName></EmbeddedResource>
+    <EmbeddedResource Update="Resources\TranslationEditor.resx"><LogicalName>MyTranslator.Shared.Components.TranslationEditor.resources</LogicalName></EmbeddedResource>
+    <EmbeddedResource Update="Resources\KeyboardHelp.resx"><LogicalName>MyTranslator.Shared.Components.KeyboardHelp.resources</LogicalName></EmbeddedResource>
     <EmbeddedResource Update="Resources\ReextractionPanel.resx">
       <LogicalName>MyTranslator.Shared.Components.ReextractionPanel.resources</LogicalName>
     </EmbeddedResource>
