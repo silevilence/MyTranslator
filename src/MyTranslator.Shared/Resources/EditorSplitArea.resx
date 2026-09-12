@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Splitter" xml:space="preserve"><value>分栏比例：左右方向键调整，或拖拽分隔条</value></data>
+</root>

@@ -1,34 +1,61 @@
 @namespace MyTranslator.Shared.Components
 @inject IStringLocalizer<SegmentEditorPanel> L
 
-@* TODO(frontend-formal): 将多文本框占位符保护编辑替换为正式内联编辑器，保留只读标记、草稿和版本保护。 *@
-<div @ref="_panel" tabindex="-1" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
-    @if (Draft is null) { <MudText>@L["SelectFirst"]</MudText> }
+<div @ref="_panel" tabindex="-1" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true" class="mt-seg-panel">
+    @if (Draft is null)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.Translate" Title="@L["SelectFirst"]" />
+    }
     else
     {
-        <MudText Typo="Typo.h2">@L["Segment", Draft.Original.Order] @if (Draft.IsDirty) { <span aria-label="@L["Dirty"]">●</span> }</MudText>
-        <SegmentMarkupViewer Text="@(Draft.Original.SourceText ?? string.Empty)" MarkupTable="Draft.Original.MarkupTable" />
-        <MudText Typo="Typo.caption">@L["ProtectedHint"]</MudText>
-        @for (var index = 0; index < Draft.Parts.Count; index++)
-        {
-            var partIndex = index;
-            var part = Draft.Parts[index];
-            if (part.Markup is not null)
-            {
-                <SegmentMarkupViewer Text="@part.Text" MarkupTable="Draft.Original.MarkupTable" />
-                <MudText Typo="Typo.caption">@(part.Markup.Item?.Meaning ?? part.Markup.Item?.OriginalText ?? part.Markup.Item?.OpeningText)</MudText>
-            }
-            else
-            {
-                <MudTextField T="string" Value="@part.Text" ValueChanged="value => ChangeAsync(partIndex, value)" Immediate="true"
-                              Label="@L["TextPart", index + 1]" Variant="Variant.Outlined" Lines="2" Disabled="Disabled" Class="my-2" />
-            }
-        }
-        <MudStack Row="true" Spacing="2" Class="my-3">
-            <MudButton OnClick="OnSave" Disabled="Disabled" Variant="Variant.Filled" Color="Color.Primary">@L["Save"]</MudButton>
-            <MudButton OnClick="OnConfirm" Disabled="Disabled || Draft.TargetText is null" StartIcon="@Icons.Material.Filled.Check">@L["Confirm"]</MudButton>
-            <MudButton OnClick="OnUnconfirm" Disabled="@(Disabled || Draft.Original.ConfirmationStatus != "confirmed")">@L["Unconfirm"]</MudButton>
-            <MudButton OnClick="OnClear" Disabled="Disabled || Draft.TargetText is null" Color="Color.Error">@L["Clear"]</MudButton>
+        <div class="mt-seg-head">
+            <MudText Typo="Typo.h2" Class="mt-seg-head-title">
+                @L["Segment", Draft.Original.Order] @if (Draft.IsDirty) { <span class="mt-seg-dirty" aria-label="@L["Dirty"]">●</span> }
+            </MudText>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(Draft.Original.ConfirmationStatus == "confirmed" ? Color.Success : Color.Default)"
+                     Icon="@(Draft.Original.ConfirmationStatus == "confirmed" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Pending)">
+                @L[Draft.Original.ConfirmationStatus ?? "pending"]
+            </MudChip>
+        </div>
+        <section class="mt-seg-source" aria-label="@L["SourceLabel"]">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-area-label">@L["SourceLabel"]</MudText>
+            <div class="mt-seg-source-text">
+                <SegmentMarkupViewer Text="@(Draft.Original.SourceText ?? string.Empty)" MarkupTable="Draft.Original.MarkupTable" />
+            </div>
+        </section>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-hint">@L["ProtectedHint"]</MudText>
+        <div class="mt-seg-surface" role="group" aria-label="@L["TargetLabel"]">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-area-label">@L["TargetLabel"]</MudText>
+            <div class="mt-seg-surface-flow">
+                @for (var index = 0; index < Draft.Parts.Count; index++)
+                {
+                    var partIndex = index;
+                    var part = Draft.Parts[index];
+                    if (part.Markup is not null)
+                    {
+                        <span class="mt-seg-chip" aria-hidden="true">
+                            <SegmentMarkupViewer Text="@part.Text" MarkupTable="Draft.Original.MarkupTable" />
+                        </span>
+                    }
+                    else
+                    {
+                        <MudTextField T="string" Value="@part.Text" ValueChanged="value => ChangeAsync(partIndex, value)" Immediate="true"
+                                      Lines="1" MaxLines="14" Sizing="InputSizing.Auto" Variant="Variant.Text" Disabled="Disabled"
+                                      Class="mt-seg-input" aria-label="@L["TextPart", EditableOrdinal(index)]" />
+                    }
+                }
+            </div>
+        </div>
+        <MudStack Row="true" Spacing="2" Class="mt-seg-actions">
+            <MudButton OnClick="OnSave" Disabled="Disabled" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save">@L["Save"]</MudButton>
+            <MudButton OnClick="OnConfirm" Disabled="Disabled || Draft.TargetText is null" Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Check">@L["Confirm"]</MudButton>
+            <MudButton OnClick="OnUnconfirm" Disabled="@(Disabled || Draft.Original.ConfirmationStatus != "confirmed")"
+                       Variant="Variant.Outlined">@L["Unconfirm"]</MudButton>
+            <MudButton OnClick="OnClear" Disabled="Disabled || Draft.TargetText is null" Variant="Variant.Text" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.DeleteOutline">@L["Clear"]</MudButton>
         </MudStack>
         <ReviewPanel Comments="Draft.Original.ReviewComments" />
         @if (References is not null) { @References(Draft.Original) }
@@ -56,6 +83,18 @@
     /// <summary>详情参考区扩展。</summary>
     [Parameter] public RenderFragment<Segment>? References { get; set; }
     public Task FocusAsync() => _panel.FocusAsync().AsTask();
+
+    /// <summary>编辑面文本框的序号：按可编辑间隙顺序编号，占位符不占号，读屏标签连续。</summary>
+    private int EditableOrdinal(int index)
+    {
+        var ordinal = 0;
+        for (var i = 0; i <= index; i++)
+        {
+            if (Draft!.Parts[i].Markup is null) ordinal++;
+        }
+        return ordinal;
+    }
+
     private async Task ChangeAsync(int index, string? text)
     {
         Draft!.SetText(index, text);

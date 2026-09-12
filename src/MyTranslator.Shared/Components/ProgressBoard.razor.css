@@ -1,0 +1,32 @@
+/* 进度看板（组件规范 §3 ProgressBoard 契约；色值/字号一律经主题 token，禁止硬编码）
+   标签与进度条是 Mud 组件输出，作用域属性只落在组件自身的普通元素上，须以 ::deep 下钻 */
+
+.mt-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    min-width: 0;
+}
+
+.mt-progress-status {
+    margin-bottom: 2px;
+}
+
+.mt-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.mt-progress-row ::deep .mt-progress-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-progress-row ::deep .mt-progress-bar {
+    flex: 1;
+    min-width: 80px;
+}

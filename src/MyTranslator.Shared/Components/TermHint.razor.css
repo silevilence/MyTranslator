@@ -1,0 +1,41 @@
+/* 术语提示侧栏（组件规范 §3 TermHint 契约；info 语义；色值/字号一律经主题 token，禁止硬编码）
+   挂在 Mud 组件输出元素上的类以最近普通祖先元素 ::deep 下钻 */
+
+.mt-term-hint {
+    margin: 12px 0;
+    min-width: 0;
+}
+
+.mt-term-hint ::deep .mt-term-hint-title {
+    margin-bottom: 4px;
+}
+
+.mt-term-hint-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mt-term-hint-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    background: var(--mud-palette-surface);
+}
+
+.mt-term-hint-item ::deep .mt-term-hint-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.mt-term-hint-body {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}

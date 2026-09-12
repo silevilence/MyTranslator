@@ -1,0 +1,12 @@
+/* 违规徽标容器（error 三通道；色值/字号一律经主题 token，禁止硬编码）
+   定位提示经 MudTooltip 传送门渲染在组件子树之外，无法作用域化，不做额外样式 */
+
+.mt-violation {
+    display: inline-flex;
+    cursor: help;
+}
+
+.mt-violation:focus-visible {
+    outline: 2px solid var(--mud-palette-error);
+    outline-offset: 2px;
+}

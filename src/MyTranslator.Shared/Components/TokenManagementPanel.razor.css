@@ -1,0 +1,15 @@
+/* Token 管理页布局（一次性凭据展示、撤销确认等行为契约不变；色值/字号一律经主题 token，禁止硬编码）
+   页面根为普通 div.mt-token-page，挂在 Mud 组件输出元素上的类以 ::deep 下钻 */
+
+::deep .mt-token-name {
+    max-width: 420px;
+}
+
+::deep .mt-token-once {
+    margin-bottom: 12px;
+}
+
+::deep .mt-token-value {
+    max-width: 640px;
+    margin-bottom: 12px;
+}

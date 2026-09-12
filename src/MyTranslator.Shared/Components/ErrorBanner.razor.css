@@ -9,7 +9,7 @@
     gap: 16px;
 }
 
-.mt-error-banner-message {
+.mt-error-banner-row ::deep .mt-error-banner-message {
     flex: 1 1 auto;
     min-width: 0;
 }

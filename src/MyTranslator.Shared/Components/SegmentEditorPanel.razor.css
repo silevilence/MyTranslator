@@ -1,0 +1,73 @@
+/* 分段编辑面板（组件规范 §3；色值/字号一律经主题 token，禁止硬编码）
+   挂在 Mud 组件输出元素上的类以面板根（普通 div.mt-seg-panel）::deep 下钻 */
+
+.mt-seg-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mt-seg-head ::deep .mt-seg-head-title {
+    margin-right: auto;
+}
+
+.mt-seg-dirty {
+    color: var(--mud-palette-text-secondary);
+    margin-left: 4px;
+}
+
+/* 原文对照区：只读，与译文编辑区同宽等距 */
+.mt-seg-source {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    background-color: var(--mud-palette-background-gray);
+}
+
+.mt-seg-source ::deep .mt-seg-area-label,
+.mt-seg-surface ::deep .mt-seg-area-label {
+    margin-bottom: 2px;
+}
+
+.mt-seg-source-text {
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+}
+
+.mt-seg-panel ::deep .mt-seg-hint {
+    margin: 6px 0 4px;
+}
+
+/* 译文编辑面：单一连续区域，占位符芯片与无边框文本输入内联混排。
+   占位符由 Draft 部件模型物理保护（只读芯片），文本只落在可编辑间隙。 */
+.mt-seg-surface {
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    padding: 8px 12px 2px;
+    margin-bottom: 12px;
+}
+
+.mt-seg-surface-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 6px;
+}
+
+.mt-seg-chip {
+    flex: 0 0 auto;
+    line-height: 28px;
+}
+
+.mt-seg-surface ::deep .mt-seg-input {
+    flex: 1 1 140px;
+    min-width: 96px;
+    margin-bottom: 6px;
+}
+
+.mt-seg-panel ::deep .mt-seg-actions {
+    margin-top: 4px;
+    margin-bottom: 12px;
+}

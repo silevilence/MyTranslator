@@ -68,6 +68,12 @@
     <EmbeddedResource Update="Resources\DiffViewer.resx">
       <LogicalName>MyTranslator.Shared.Components.DiffViewer.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\RuleViolationBadge.resx">
+      <LogicalName>MyTranslator.Shared.Components.RuleViolationBadge.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\EditorSplitArea.resx">
+      <LogicalName>MyTranslator.Shared.Components.EditorSplitArea.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

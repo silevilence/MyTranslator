@@ -1,0 +1,65 @@
+/* 可拖拽分割面板（设计规范 §4.1/§4.3；色值/字号一律经主题 token，禁止硬编码） */
+
+/* 侧栏分栏：列表列宽由 --mt-split 驱动，拖拽/键盘在 JS 与宿主组件侧更新该变量 */
+.mt-split {
+    display: grid;
+    grid-template-columns: minmax(0, var(--mt-split, 50%)) 10px minmax(0, 1fr);
+}
+
+.mt-split-pane {
+    min-width: 0;
+    min-height: 0;
+}
+
+/* 分栏把手：可见焦点 + 拖拽手感；语义由 role=separator 声明 */
+.mt-split-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: col-resize;
+    touch-action: none;
+    border-radius: 2px;
+}
+
+.mt-split-grip {
+    width: 2px;
+    height: 48px;
+    border-radius: 1px;
+    background-color: var(--mud-palette-lines-default);
+}
+
+.mt-split-divider:hover .mt-split-grip,
+.mt-split-divider:focus-visible .mt-split-grip {
+    background-color: var(--mud-palette-primary);
+}
+
+.mt-split-divider:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+/* 拖拽中：全局禁选避免文字被选中 */
+:global(body.mt-split-dragging) {
+    cursor: col-resize;
+    user-select: none;
+}
+
+/* 紧凑断点（≤1280px）：详情下叠，分栏把手隐藏（设计规范 §4.1） */
+.mt-split-stacked {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 16px;
+}
+
+.mt-split-stacked .mt-split-divider {
+    display: none;
+}
+
+/* 折叠详情列：仅列表占满整行 */
+.mt-split-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.mt-split-collapsed .mt-split-divider,
+.mt-split-collapsed .mt-split-detail {
+    display: none;
+}

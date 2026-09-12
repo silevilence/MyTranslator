@@ -1,14 +1,38 @@
 @namespace MyTranslator.Shared.Components
 @inject ApiErrorMessageProvider Errors
+@inject IStringLocalizer<RuleViolationBadge> L
 
-@* TODO(frontend-formal): 正式行内违规定位可替换此功能徽标，保留 error 三通道与后端版本绑定。 *@
+@* 违规徽标：error 三通道（红+图标+文字）；tooltip 提供后端定位（字段/偏移/长度），版本绑定由父级诊断服务负责 *@
 @foreach (var violation in Violations)
 {
-    <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small">
-        @Errors.ForFailureCode(violation.Code)
-    </MudChip>
+    <MudTooltip Placement="Placement.Top" Duration="150">
+        <ChildContent>
+            <span class="mt-violation" tabindex="0" aria-label="@Describe(violation)">
+                <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small">
+                    @Errors.ForFailureCode(violation.Code)
+                </MudChip>
+            </span>
+        </ChildContent>
+        <TooltipContent>
+            <span class="mt-violation-tooltip">@Describe(violation)</span>
+        </TooltipContent>
+    </MudTooltip>
 }
 @code {
     /// <summary>当前分段版本的规则违规。</summary>
     [Parameter] public IReadOnlyList<RuleFinding> Violations { get; set; } = [];
+
+    /// <summary>违规说明 = 失败码文案 + 定位；整段定位（length=0）不声称字符位置（规则检查契约 §2）。</summary>
+    private string Describe(RuleFinding violation)
+    {
+        var field = violation.Field switch
+        {
+            "targetText" => L["FieldTarget"].Value,
+            "sourceText" => L["FieldSource"].Value,
+            _ => violation.Field,
+        };
+        return violation.Length > 0
+            ? string.Format(L["LocationAt"].Value, field, violation.Offset, violation.Length)
+            : string.Format(L["LocationSegment"].Value, field);
+    }
 }

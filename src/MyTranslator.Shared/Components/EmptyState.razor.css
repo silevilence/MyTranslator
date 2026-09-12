@@ -8,10 +8,10 @@
     text-align: center;
 }
 
-.mt-empty-state-icon {
+.mt-empty-state ::deep .mt-empty-state-icon {
     opacity: 0.38;
 }
 
-.mt-empty-state-action {
+.mt-empty-state ::deep .mt-empty-state-action {
     margin-top: 4px;
 }

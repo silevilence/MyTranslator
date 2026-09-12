@@ -18,7 +18,7 @@
     background: var(--mud-palette-surface);
 }
 
-.mt-review-panel-severity {
+.mt-review-panel-item ::deep .mt-review-panel-severity {
     flex-shrink: 0;
 }
 
@@ -28,6 +28,6 @@
     overflow-wrap: anywhere;
 }
 
-.mt-review-panel-issue {
+.mt-review-panel-item-body ::deep .mt-review-panel-issue {
     white-space: pre-wrap;
 }

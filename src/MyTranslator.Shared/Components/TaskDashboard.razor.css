@@ -1,4 +1,5 @@
-/* 任务列表页布局（色值/字号一律经主题 token，禁止硬编码） */
+/* 任务列表页布局（色值/字号一律经主题 token，禁止硬编码）
+   挂在 Mud 组件输出元素上的类以最近的普通祖先元素 ::deep 下钻 */
 .mt-tasklist-header {
     display: flex;
     align-items: flex-start;
@@ -57,18 +58,18 @@
     min-width: 0;
 }
 
-.mt-task-row-name {
+.mt-task-row-head ::deep .mt-task-row-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.mt-task-row-meta {
+.mt-task-row-main ::deep .mt-task-row-meta {
     display: block;
     margin-top: 4px;
 }
 
-.mt-task-row-url {
+.mt-task-row-main ::deep .mt-task-row-url {
     display: block;
     margin-top: 2px;
     overflow: hidden;
@@ -76,28 +77,12 @@
     white-space: nowrap;
 }
 
-.mt-task-row-progress {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-    max-width: 480px;
-}
-
-.mt-task-row-progress-bar {
-    flex: 1;
-}
-
-.mt-task-row-progress-text {
-    flex-shrink: 0;
-}
-
-.mt-task-row-run {
+.mt-task-row-main ::deep .mt-task-row-run {
     display: block;
     margin-top: 4px;
 }
 
-.mt-task-row-chevron {
+.mt-task-row ::deep .mt-task-row-chevron {
     flex-shrink: 0;
 }
 
@@ -111,8 +96,7 @@
     margin-top: 8px;
 }
 
-
-.mt-tasklist-skeleton {
+::deep .mt-tasklist-skeleton {
     padding: 12px 16px;
     margin-bottom: 8px;
 }

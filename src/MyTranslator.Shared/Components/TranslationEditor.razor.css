@@ -1,7 +1,24 @@
-.editor-columns {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 16px;
+/* 编辑器工具条（色值/字号一律经主题 token，禁止硬编码）；分栏布局样式在 EditorSplitArea.razor.css
+   挂在 Mud 组件输出元素上的类以工具条根（普通 div.mt-editor-toolbar）::deep 下钻 */
+
+.mt-editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0;
 }
 
-.editor-columns > * { min-width: 0; }
+.mt-editor-toolbar ::deep .mt-editor-toolbar-group {
+    align-items: center !important;
+}
+
+.mt-editor-toolbar ::deep .mt-editor-count {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.mt-split-load-more {
+    margin-top: 8px;
+}

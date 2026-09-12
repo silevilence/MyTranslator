@@ -1,0 +1,54 @@
+/* 分段列表行密度与状态呈现（设计规范 §1.4 信息密度优先；色值/字号一律经主题 token，禁止硬编码）
+   表格行/单元格由 MudTable 内部渲染，类经根（普通 div.mt-seg-list）::deep 下钻 */
+
+/* 批量勾选列收窄 */
+.mt-seg-list ::deep .mt-seg-col-check {
+    width: 48px;
+}
+
+/* 当前行高亮：左侧主色条 + 浅底（颜色外另有行选中态由 Hover 补充，非纯色传达） */
+.mt-seg-list ::deep .mt-seg-row-current > td {
+    background-color: var(--mud-palette-action-hover);
+}
+
+.mt-seg-list ::deep .mt-seg-row-current > td:first-child {
+    box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
+}
+
+/* 行内源文/译文预览：两行截断，完整文本在详情面板 */
+.mt-seg-row-source {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* 分段序号：MudText caption 层级经 mud-typo-caption 类获得，不散落字号 */
+.mt-seg-row-order {
+    flex-shrink: 0;
+    color: var(--mud-palette-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.mt-seg-dirty {
+    flex-shrink: 0;
+    color: var(--mud-palette-text-secondary);
+}
+
+.mt-seg-row-text {
+    min-width: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+
+/* 行内状态芯片排布 */
+.mt-seg-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}

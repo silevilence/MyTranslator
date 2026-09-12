@@ -7,42 +7,51 @@
 @inject IJSRuntime Js
 @inject IStringLocalizer<TokenManagementPanel> L
 
-@* TODO(frontend-formal): 替换正式 Token 管理布局，保留一次性凭据展示、撤销确认、401 和请求状态保护。 *@
+<div class="mt-token-page">
 <PageTitle>@L["Title"]</PageTitle>
 <MudText Typo="Typo.h1">@L["Title"]</MudText>
-<MudTextField T="string" @bind-Value="_name" Label="@L["Name"]" Immediate="true" MaxLength="100" Disabled="_busy"
-              Error="_nameError" ErrorText="@L["NameRequired"]" Variant="Variant.Outlined" Class="my-3" />
-<MudStack Row="true" Spacing="2">
-    <MudButton OnClick="CreateAsync" Disabled="_busy || _created is not null" Color="Color.Primary" Variant="Variant.Filled">@L["Create"]</MudButton>
-    <MudButton OnClick="() => RunAsync(LoadAsync)" Disabled="_busy">@L["Refresh"]</MudButton>
-    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-</MudStack>
+<MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+    <MudTextField T="string" @bind-Value="_name" Label="@L["Name"]" Immediate="true" MaxLength="100" Disabled="_busy"
+                  Error="_nameError" ErrorText="@L["NameRequired"]" Variant="Variant.Outlined" Class="mt-token-name" />
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+        <MudButton OnClick="CreateAsync" Disabled="_busy || _created is not null" Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.VpnKey">@L["Create"]</MudButton>
+        <MudButton OnClick="() => RunAsync(LoadAsync)" Disabled="_busy" Variant="Variant.Text"
+                   StartIcon="@Icons.Material.Filled.Refresh">@L["Refresh"]</MudButton>
+        @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    </MudStack>
+</MudPaper>
 @if (_created is not null)
 {
-    <MudAlert Severity="Severity.Info" Class="my-3">@L["Once"]</MudAlert>
-    <MudTextField T="string" Value="@_created.Token" ReadOnly="true" Label="@L["NewToken"]" Variant="Variant.Outlined" />
-    <MudButton OnClick="CopyAsync">@L["Copy"]</MudButton>
-    <MudButton OnClick="() => _created = null">@L["Dismiss"]</MudButton>
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4 mt-token-created">
+        <MudAlert Severity="Severity.Info" Class="mt-token-once">@L["Once"]</MudAlert>
+        <MudTextField T="string" Value="@_created.Token" ReadOnly="true" Label="@L["NewToken"]" Variant="Variant.Outlined" Class="mt-token-value" />
+        <MudStack Row="true" Spacing="2">
+            <MudButton OnClick="CopyAsync" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy">@L["Copy"]</MudButton>
+            <MudButton OnClick="() => _created = null" Variant="Variant.Text">@L["Dismiss"]</MudButton>
+        </MudStack>
+    </MudPaper>
 }
-@if (_error is not null) { <ErrorBanner Message="@_error" OnRetry="() => RunAsync(LoadAsync)" /> }
-@if (_items is null && _error is null) { <MudSkeleton Height="240px" /> }
+@if (_error is not null) { <div class="mt-4"><ErrorBanner Message="@_error" OnRetry="() => RunAsync(LoadAsync)" /></div> }
+@if (_items is null && _error is null) { <MudSkeleton Height="240px" Class="mt-4" /> }
 else if (_items is not null)
 {
-    <MudTable T="ApiTokenSummary" Items="_items" Dense="true" Virtualize="true" Height="480px" Class="mt-4">
+    <MudTable T="ApiTokenSummary" Items="_items" Dense="true" Virtualize="true" Height="480px" Class="mt-4" FixedHeader="true">
         <HeaderContent><MudTh>@L["Name"]</MudTh><MudTh>@L["Prefix"]</MudTh><MudTh>@L["Status"]</MudTh><MudTh>@L["CreatedAt"]</MudTh><MudTh>@L["Action"]</MudTh></HeaderContent>
         <RowTemplate>
             <MudTd>@context.Name</MudTd><MudTd><code class="mt-mono">@context.TokenPrefix</code></MudTd>
             <MudTd>
-                <MudChip T="string" Icon="@(context.RevokedAt is null ? Icons.Material.Filled.Key : Icons.Material.Filled.Block)"
+                <MudChip T="string" Size="Size.Small" Icon="@(context.RevokedAt is null ? Icons.Material.Filled.Key : Icons.Material.Filled.Block)"
                          Color="@(context.RevokedAt is null ? Color.Info : Color.Default)">@L[context.RevokedAt is null ? "Active" : "Revoked"]</MudChip>
             </MudTd>
             <MudTd>@context.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudTd>
-            <MudTd><MudButton OnClick="() => RevokeAsync(context)" Color="Color.Error" Disabled="_busy || context.RevokedAt is not null">@L["Revoke"]</MudButton></MudTd>
+            <MudTd><MudButton OnClick="() => RevokeAsync(context)" Color="Color.Error" Variant="Variant.Text" Disabled="_busy || context.RevokedAt is not null">@L["Revoke"]</MudButton></MudTd>
         </RowTemplate>
-        <NoRecordsContent><MudText>@L["Empty"]</MudText></NoRecordsContent>
+        <NoRecordsContent><MudText Color="Color.Secondary">@L["Empty"]</MudText></NoRecordsContent>
     </MudTable>
 }
-<div aria-live="polite"><MudText Typo="Typo.caption">@(_items is null ? string.Empty : L["Count", _items.Count])</MudText></div>
+<div aria-live="polite" class="mt-2"><MudText Typo="Typo.caption">@(_items is null ? string.Empty : L["Count", _items.Count])</MudText></div>
+</div>
 
 @code {
     private readonly CancellationTokenSource _lifetime = new();

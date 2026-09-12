@@ -11,7 +11,7 @@
     min-width: 0;
 }
 
-.mt-diff-column-title {
+.mt-diff-column ::deep .mt-diff-column-title {
     margin-bottom: 4px;
 }
 

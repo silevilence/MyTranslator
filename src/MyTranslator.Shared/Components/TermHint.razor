@@ -1,20 +1,32 @@
 @namespace MyTranslator.Shared.Components
 @inject IStringLocalizer<TermHint> L
 
-@* TODO(frontend-formal): 以正式术语侧栏替换此功能列表，不能自行推断对齐结果。 *@
-<section aria-label="@L["Title"]" class="mt-3">
-    <MudText Typo="Typo.h2">@L["Title"]</MudText>
-    @if (!LanguageReady) { <MudText>@L["LanguageRequired"]</MudText> }
-    else if (Items.Count == 0) { <MudText Typo="Typo.body2">@L["Empty"]</MudText> }
+@* 术语对齐提示：info 语义（图标+文字），只呈现后端结果，不自行推断对齐 *@
+<section aria-label="@L["Title"]" class="mt-term-hint">
+    <MudText Typo="Typo.h2" Class="mt-term-hint-title">@L["Title"]</MudText>
+    @if (!LanguageReady)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">@L["LanguageRequired"]</MudText>
+    }
+    else if (Items.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Empty"]</MudText>
+    }
     else
     {
-        @foreach (var item in Items)
-        {
-            <MudAlert Severity="Severity.Info" Class="my-2">
-                <MudText>@L["Expected", item.SourceTerm, item.ExpectedTargetTerm]</MudText>
-                <MudText Typo="Typo.caption">@L["Actual", item.TargetOccurrences]</MudText>
-            </MudAlert>
-        }
+        <ul class="mt-term-hint-list">
+            @foreach (var item in Items)
+            {
+                <li class="mt-term-hint-item">
+                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Color="Color.Info"
+                             Class="mt-term-hint-icon" aria-hidden="true" />
+                    <div class="mt-term-hint-body">
+                        <MudText Typo="Typo.body2">@L["Expected", item.SourceTerm, item.ExpectedTargetTerm]</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Actual", item.TargetOccurrences]</MudText>
+                    </div>
+                </li>
+            }
+        </ul>
     }
 </section>
 @code {

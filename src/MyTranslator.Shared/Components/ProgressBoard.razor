@@ -1,13 +1,17 @@
 @namespace MyTranslator.Shared.Components
 @inject IStringLocalizer<ProgressBoard> L
 
-@* TODO(frontend-formal): 此看板仅验证服务端状态、完成与确认进度，正式前端再细化布局和视觉。 *@
-<div aria-live="polite" class="my-2">
-    <TaskStatusBadge Status="@Status" />
-    <MudText Typo="Typo.body2">@L["Completed", Progress.CompletedSegments, Progress.TotalSegments, Progress.Percent.ToString("0.#")]</MudText>
-    <MudProgressLinear Value="Progress.Percent" Color="Color.Info" aria-label="@L["CompletionLabel"]" />
-    <MudText Typo="Typo.body2" Class="mt-2">@L["Confirmed", Progress.ConfirmedSegments, Progress.TotalSegments, Progress.ConfirmedPercent.ToString("0.#")]</MudText>
-    <MudProgressLinear Value="Progress.ConfirmedPercent" Color="Color.Success" aria-label="@L["ConfirmationLabel"]" />
+@* 完成度与确认度分离呈现（CONTEXT.md：确认≠完成）；行内标签即语义说明，非纯颜色传达 *@
+<div aria-live="polite" class="mt-progress">
+    <div class="mt-progress-status"><TaskStatusBadge Status="@Status" /></div>
+    <div class="mt-progress-row">
+        <MudText Typo="Typo.caption" Class="mt-progress-label">@L["Completed", Progress.CompletedSegments, Progress.TotalSegments, Progress.Percent.ToString("0.#")]</MudText>
+        <MudProgressLinear Value="Progress.Percent" Color="Color.Info" Class="mt-progress-bar" aria-label="@L["CompletionLabel"]" />
+    </div>
+    <div class="mt-progress-row">
+        <MudText Typo="Typo.caption" Class="mt-progress-label">@L["Confirmed", Progress.ConfirmedSegments, Progress.TotalSegments, Progress.ConfirmedPercent.ToString("0.#")]</MudText>
+        <MudProgressLinear Value="Progress.ConfirmedPercent" Color="Color.Success" Class="mt-progress-bar" aria-label="@L["ConfirmationLabel"]" />
+    </div>
 </div>
 @code {
     /// <summary>服务端任务状态。</summary>

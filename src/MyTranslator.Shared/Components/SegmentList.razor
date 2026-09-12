@@ -1,38 +1,54 @@
 @namespace MyTranslator.Shared.Components
 @inject IStringLocalizer<SegmentList> L
 
-@* TODO(frontend-formal): 此处仅验证列表/多选/键盘接口；正式前端按 docs/front 设计规范细化行密度和视觉。 *@
-<div tabindex="0" @onkeydown="OnKeyDown" aria-label="@L["List"]">
-    <MudTable T="Segment" Items="Items" Dense="true" Hover="true" Virtualize="true" Height="480px" FixedHeader="true">
-        <HeaderContent><MudTh>@L["Select"]</MudTh><MudTh>@L["Source"]</MudTh><MudTh>@L["Target"]</MudTh></HeaderContent>
+<div class="mt-seg-list" tabindex="0" @onkeydown="OnKeyDown" aria-label="@L["List"]">
+    <MudTable T="Segment" Items="Items" Dense="true" Hover="true" Virtualize="true" Height="480px" FixedHeader="true"
+              RowClassFunc="@RowClass" OnRowClick="RowClicked">
+        <HeaderContent>
+            <MudTh Class="mt-seg-col-check">@L["Select"]</MudTh>
+            <MudTh>@L["Source"]</MudTh>
+            <MudTh>@L["Target"]</MudTh>
+        </HeaderContent>
         <RowTemplate>
-            <MudTd>
-                <MudCheckBox T="bool" Value="SelectedIds.Contains(context.Id)" Disabled="Disabled"
-                             ValueChanged="value => OnToggle.InvokeAsync(context.Id)" aria-label="@L["SelectSegment", context.Order]" />
+            <MudTd Class="mt-seg-col-check">
+                @* 批量选择框不触发行选中（行点击与勾选互不干扰） *@
+                <span @onclick:stopPropagation="true">
+                    <MudCheckBox T="bool" Value="SelectedIds.Contains(context.Id)" Disabled="Disabled"
+                                 ValueChanged="value => OnToggle.InvokeAsync(context.Id)" aria-label="@L["SelectSegment", context.Order]" />
+                </span>
             </MudTd>
             <MudTd>
-                <MudButton OnClick="() => OnSelect.InvokeAsync(context)" Disabled="Disabled"
-                           Color="@(CurrentId == context.Id ? Color.Primary : Color.Default)" Variant="Variant.Text">
-                    @L["Segment", context.Order]
-                    @if (CurrentId == context.Id && Dirty) { <span aria-label="@L["Dirty"]">●</span> }
-                </MudButton>
-                <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)" MarkupTable="context.MarkupTable" />
-                @if (context.Chapter is { } chapter) { <MudText Typo="Typo.caption">@(chapter.Title ?? chapter.ResourcePath)</MudText> }
-            </MudTd>
-            <MudTd>
-                <SegmentMarkupViewer Text="@(context.TargetText ?? string.Empty)" MarkupTable="context.MarkupTable" />
-                <MudChip T="string" Size="Size.Small" Color="@(context.ConfirmationStatus == "confirmed" ? Color.Success : Color.Default)"
-                         Icon="@(context.ConfirmationStatus == "confirmed" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Pending)">
-                    @L[context.ConfirmationStatus ?? "pending"]
-                </MudChip>
-                @if (context.ReviewComments.Count > 0)
+                <div class="mt-seg-row-source">
+                    <span class="mt-seg-row-order mud-typo-caption">@L["Segment", context.Order]</span>
+                    @if (CurrentId == context.Id && Dirty) { <span class="mt-seg-dirty" aria-label="@L["Dirty"]">●</span> }
+                    <span class="mt-seg-row-text">
+                        <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)" MarkupTable="context.MarkupTable" />
+                    </span>
+                </div>
+                @if (context.Chapter is { } chapter)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Comment">@L["Reviews", context.ReviewComments.Count]</MudChip>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@(chapter.Title ?? chapter.ResourcePath)</MudText>
                 }
-                @if (Diagnostics is not null) { @Diagnostics(context) }
+            </MudTd>
+            <MudTd>
+                <div class="mt-seg-row-text">
+                    <SegmentMarkupViewer Text="@(context.TargetText ?? string.Empty)" MarkupTable="context.MarkupTable" />
+                </div>
+                <div class="mt-seg-chips">
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(context.ConfirmationStatus == "confirmed" ? Color.Success : Color.Default)"
+                             Icon="@(context.ConfirmationStatus == "confirmed" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Pending)">
+                        @L[context.ConfirmationStatus ?? "pending"]
+                    </MudChip>
+                    @if (context.ReviewComments.Count > 0)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Comment">@L["Reviews", context.ReviewComments.Count]</MudChip>
+                    }
+                    @if (Diagnostics is not null) { @Diagnostics(context) }
+                </div>
             </MudTd>
         </RowTemplate>
-        <NoRecordsContent><MudText>@L["Empty"]</MudText></NoRecordsContent>
+        <NoRecordsContent><MudText Color="Color.Secondary">@L["Empty"]</MudText></NoRecordsContent>
     </MudTable>
 </div>
 
@@ -55,4 +71,13 @@
     [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
     /// <summary>增强阶段的规则等标记扩展。</summary>
     [Parameter] public RenderFragment<Segment>? Diagnostics { get; set; }
+
+    private string RowClass(Segment item, int index) => item.Id == CurrentId ? "mt-seg-row-current" : string.Empty;
+
+    private Task RowClicked(TableRowClickEventArgs<Segment> args)
+    {
+        // 仅主键点击选中行；右键/批量勾选不触发行选中。
+        if (Disabled || args.Item is null || args.MouseEventArgs is not { Button: 0 }) return Task.CompletedTask;
+        return OnSelect.InvokeAsync(args.Item);
+    }
 }

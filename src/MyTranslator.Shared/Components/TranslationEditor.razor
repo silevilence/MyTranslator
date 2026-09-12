@@ -12,52 +12,69 @@
 
 <NavigationLock ConfirmExternalNavigation="IsDirty" OnBeforeInternalNavigation="BeforeNavigationAsync" />
 <div id="@_elementId" tabindex="0" @onkeydown="HandleShortcutsAsync">
-    @* TODO(frontend-formal): 当前固定双栏用于功能验证；按 docs/front/设计规范 §4.3 补拖拽分栏、比例持久化和视觉精修验收。 *@
-    <MudStack Row="true" Spacing="2" Class="my-3">
-        <MudButton OnClick="() => RunAsync(() => BatchAsync(true))" Disabled="Locked || _selected.Count == 0">@L["BatchConfirm", _selected.Count]</MudButton>
-        <MudButton OnClick="() => RunAsync(() => BatchAsync(false))" Disabled="Locked || _selected.Count == 0">@L["BatchUnconfirm"]</MudButton>
-        <MudButton OnClick="SelectLoaded" Disabled="Locked">@L["SelectLoaded"]</MudButton>
-        <MudButton OnClick="DiscardAndRefreshAsync" Disabled="_working || Busy">@L["Refresh"]</MudButton>
-        <MudButton OnClick="ShowHelpAsync" StartIcon="@Icons.Material.Filled.Keyboard">@L["Help"]</MudButton>
-        <MudButton OnClick="RefreshDiagnosticsAsync" Disabled="_diagnosticsLoading">@L["RefreshDiagnostics"]</MudButton>
-        @if (_working) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
-    </MudStack>
+    <div class="mt-editor-toolbar">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-editor-toolbar-group">
+            <MudButton OnClick="() => RunAsync(() => BatchAsync(true))" Disabled="Locked || _selected.Count == 0"
+                       Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.DoneAll">@L["BatchConfirm", _selected.Count]</MudButton>
+            <MudButton OnClick="() => RunAsync(() => BatchAsync(false))" Disabled="Locked || _selected.Count == 0"
+                       Variant="Variant.Outlined">@L["BatchUnconfirm"]</MudButton>
+            <MudButton OnClick="SelectLoaded" Disabled="Locked" Variant="Variant.Text">@L["SelectLoaded"]</MudButton>
+        </MudStack>
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mt-editor-toolbar-group">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-editor-count" aria-live="polite">@L["Loaded", _items.Count, _total]</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.VerticalSplit" Color="Color.Default"
+                           Disabled="_working" OnClick="ToggleDetailAsync"
+                           aria-label="@(_detailCollapsed ? L["ShowDetail"] : L["HideDetail"])" />
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Default"
+                           Disabled="_working || Busy" OnClick="DiscardAndRefreshAsync" aria-label="@L["Refresh"]" />
+            <MudIconButton Icon="@Icons.Material.Filled.FactCheck" Color="Color.Default"
+                           Disabled="_diagnosticsLoading" OnClick="RefreshDiagnosticsAsync" aria-label="@L["RefreshDiagnostics"]" />
+            <MudIconButton Icon="@Icons.Material.Filled.Keyboard" Color="Color.Default"
+                           OnClick="ShowHelpAsync" aria-label="@L["Help"]" />
+            @if (_working) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ms-2" /> }
+        </MudStack>
+    </div>
     @if (_error is not null) { <ErrorBanner Message="@_error" OnRetry="RetryAsync" /> }
     @if (_diagnosticsError is not null) { <ErrorBanner Message="@_diagnosticsError" OnRetry="RefreshDiagnosticsAsync" /> }
     @if (_loading) { <MudSkeleton Height="300px" /> }
     else
     {
-        <div class="editor-columns">
-            <div>
-                <SegmentList Items="_items" CurrentId="_draft?.Original.Id" SelectedIds="_selected" Dirty="IsDirty" Disabled="Locked"
-                             OnSelect="SelectAsync" OnToggle="Toggle" OnKeyDown="ListKeyAsync">
-                    <Diagnostics Context="segment"><RuleViolationBadge Violations="RulesFor(segment)" /></Diagnostics>
-                </SegmentList>
-                @if (_nextCursor is not null)
-                {
-                    <MudButton OnClick="() => RunAsync(LoadMoreAsync)" Disabled="Locked">@L["LoadMore"]</MudButton>
-                }
-            </div>
-            <MudPaper Outlined="true" Elevation="0" Class="pa-3">
-                <SegmentEditorPanel @ref="_panel" Draft="_draft" Disabled="Locked" OnChange="DraftChangedAsync"
-                    OnSave="SaveAsync" OnConfirm="ConfirmCurrentAsync"
-                    OnUnconfirm="UnconfirmCurrentAsync" OnClear="ClearAsync" OnKeyDown="EditorKeyAsync">
-                    <References Context="segment">
-                        @if (IsDirty) { <MudText Typo="Typo.caption">@L["SavedDiagnostics"]</MudText> }
-                        <RuleViolationBadge Violations="RulesFor(segment)" />
-                        @if (_diagnosticsLoading) { <MudSkeleton Height="48px" /> }
-                        else if (_diagnosticsError is null)
-                        {
-                            <TermHint Items="TermsFor(segment)" LanguageReady="Language.IsComplete" />
-                        }
-                        <TmComparisonPanel TaskId="TaskId" ExtractionRevision="ExtractionRevision" Segment="segment" Language="Language"
-                                           OnRevisionChanged="RefreshAsync" OnSegmentStale="RefreshAsync" />
-                    </References>
-                </SegmentEditorPanel>
-            </MudPaper>
-        </div>
+        <MudBreakpointProvider>
+            <EditorSplitArea Ratio="_splitRatio" DetailCollapsed="_detailCollapsed" OnSplitKeyDown="SplitKeyAsync">
+                <ListContent>
+                    <SegmentList Items="_items" CurrentId="_draft?.Original.Id" SelectedIds="_selected" Dirty="IsDirty" Disabled="Locked"
+                                 OnSelect="SelectAsync" OnToggle="Toggle" OnKeyDown="ListKeyAsync">
+                        <Diagnostics Context="segment"><RuleViolationBadge Violations="RulesFor(segment)" /></Diagnostics>
+                    </SegmentList>
+                    @if (_nextCursor is not null)
+                    {
+                        <div class="mt-split-load-more">
+                            <MudButton OnClick="() => RunAsync(LoadMoreAsync)" Disabled="Locked" Variant="Variant.Text" FullWidth="true">@L["LoadMore"]</MudButton>
+                        </div>
+                    }
+                </ListContent>
+                <DetailContent>
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-3">
+                        <SegmentEditorPanel @ref="_panel" Draft="_draft" Disabled="Locked" OnChange="DraftChangedAsync"
+                            OnSave="SaveAsync" OnConfirm="ConfirmCurrentAsync"
+                            OnUnconfirm="UnconfirmCurrentAsync" OnClear="ClearAsync" OnKeyDown="EditorKeyAsync">
+                            <References Context="segment">
+                                @if (IsDirty) { <MudText Typo="Typo.caption">@L["SavedDiagnostics"]</MudText> }
+                                <RuleViolationBadge Violations="RulesFor(segment)" />
+                                @if (_diagnosticsLoading) { <MudSkeleton Height="48px" /> }
+                                else if (_diagnosticsError is null)
+                                {
+                                    <TermHint Items="TermsFor(segment)" LanguageReady="Language.IsComplete" />
+                                }
+                                <TmComparisonPanel TaskId="TaskId" ExtractionRevision="ExtractionRevision" Segment="segment" Language="Language"
+                                                   OnRevisionChanged="RefreshAsync" OnSegmentStale="RefreshAsync" />
+                            </References>
+                        </SegmentEditorPanel>
+                    </MudPaper>
+                </DetailContent>
+            </EditorSplitArea>
+        </MudBreakpointProvider>
     }
-    <div aria-live="polite" class="mt-2"><MudText Typo="Typo.caption">@L["Loaded", _items.Count, _total]</MudText></div>
 </div>
 
 @code {
@@ -83,6 +100,11 @@
     private SegmentDraft? _draft;
     private SegmentEditorPanel? _panel;
     private string? _nextCursor;
+    private double _splitRatio = SplitLayout.DefaultRatio;
+    private bool _detailCollapsed;
+    private bool _splitAttached;
+    private bool _refocusPanel;
+    private DotNetObjectReference<TranslationEditor>? _splitRef;
     private string? _error;
     private int _total;
     private bool _loading = true;
@@ -106,8 +128,52 @@
         ? RefreshDiagnosticsAsync() : Task.CompletedTask;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await Js.InvokeVoidAsync("mtEditor.attach", _elementId);
+        if (firstRender || !_splitAttached && !_loading)
+        {
+            await Js.InvokeVoidAsync("mtEditor.attach", _elementId);
+            var (ratio, collapsed) = await EditorLayoutStore.LoadAsync(Js);
+            if (_disposed) return;
+            if (firstRender)
+            {
+                _splitRatio = ratio;
+                _detailCollapsed = collapsed;
+            }
+            // 列表未加载完成时分隔条不存在，initSplit 返回 false，待下次渲染重试
+            _splitRef = DotNetObjectReference.Create(this);
+            _splitAttached = await Js.InvokeAsync<bool>("mtEditor.initSplit", _elementId, _splitRef);
+            StateHasChanged();
+        }
+        if (_refocusPanel)
+        {
+            _refocusPanel = false;
+            if (_panel is not null) await _panel.FocusAsync();
+        }
     }
+    private Task ToggleDetailAsync()
+    {
+        _detailCollapsed = !_detailCollapsed;
+        return PersistLayoutAsync();
+    }
+
+    private Task SplitKeyAsync(KeyboardEventArgs args)
+    {
+        var delta = args.Key switch { "ArrowLeft" => -0.05, "ArrowRight" => 0.05, _ => 0.0 };
+        if (delta == 0) return Task.CompletedTask;
+        _splitRatio = SplitLayout.Clamp(_splitRatio + delta);
+        return PersistLayoutAsync();
+    }
+
+    /// <summary>拖拽结束的回调：夹取比例并持久化（拖拽中的实时更新在 JS 侧完成）。</summary>
+    [JSInvokable]
+    public async Task OnSplitDragged(double ratio)
+    {
+        if (_disposed) return;
+        _splitRatio = SplitLayout.Clamp(ratio);
+        await PersistLayoutAsync();
+        StateHasChanged();
+    }
+
+    private Task PersistLayoutAsync() => EditorLayoutStore.SaveAsync(Js, _splitRatio, _detailCollapsed);
 
     private async Task RunAsync(Func<Task> action)
     {
@@ -269,7 +335,19 @@
     private async Task HandleShortcutsAsync(KeyboardEventArgs args)
     {
         if (args.Key == "?") { await ShowHelpAsync(); return; }
-        if (args.Key == "F2" && _panel is not null) { await _panel.FocusAsync(); return; }
+        if (args.Key == "F2")
+        {
+            if (_detailCollapsed)
+            {
+                _detailCollapsed = false;
+                _refocusPanel = true;
+                await PersistLayoutAsync();
+                StateHasChanged();
+                return;
+            }
+            if (_panel is not null) await _panel.FocusAsync();
+            return;
+        }
         if (Locked) return;
         if (args.CtrlKey && args.Key.Equals("s", StringComparison.OrdinalIgnoreCase)) await RunAsync(() => SaveCoreAsync());
         if (args.CtrlKey && args.Key == "Enter") await RunAsync(async () => { await SaveCoreAsync("confirmed"); await MoveCoreAsync(1); });
@@ -328,6 +406,8 @@
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        _splitRef?.Dispose();
+        _splitRef = null;
         _diagnosticRequest?.Cancel();
         _diagnosticRequest?.Dispose();
         await _lifetime.CancelAsync();

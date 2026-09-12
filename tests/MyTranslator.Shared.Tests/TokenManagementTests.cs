@@ -64,7 +64,8 @@ public sealed class TokenManagementTests
             Microsoft.Extensions.Options.Options.Create(new LocalizationOptions()), NullLoggerFactory.Instance);
         (Type Component, string Key)[] cases = [(typeof(SegmentList), "Source"), (typeof(SegmentEditorPanel), "Save"),
             (typeof(TranslationEditor), "RefreshDiagnostics"), (typeof(KeyboardHelp), "Keys"), (typeof(TermHint), "Title"),
-            (typeof(TokenManagementPanel), "Title"), (typeof(ProgressBoard), "Completed"), (typeof(TaskDashboard), "Title")];
+            (typeof(TokenManagementPanel), "Title"), (typeof(ProgressBoard), "Completed"), (typeof(TaskDashboard), "Title"),
+            (typeof(RuleViolationBadge), "FieldTarget")];
         foreach (var item in cases) Assert.False(factory.Create(item.Component)[item.Key].ResourceNotFound, item.Component.FullName);
     }
 

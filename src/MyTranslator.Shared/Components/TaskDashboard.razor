@@ -9,7 +9,6 @@
 
 <PageTitle>@Localizer["Title"]</PageTitle>
 
-@* TODO(frontend-formal): 保留任务筛选、游标和轮询状态边界，正式前端再替换任务看板布局。 *@
 @if (_refreshError is not null) { <ErrorBanner Message="@_refreshError" OnRetry="RefreshLoadedAsync" /> }
 
 <div class="mt-tasklist-header">
@@ -84,7 +83,6 @@ else
             <a class="mt-task-row" href="@($"/tasks/{item.TaskId}")">
                 <div class="mt-task-row-main">
                     <div class="mt-task-row-head">
-                        
                         <MudText Typo="Typo.body1" Class="mt-task-row-name">@GetSourceName(item)</MudText>
                     </div>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-task-row-meta">

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="FieldSource" xml:space="preserve"><value>原文</value></data>
+  <data name="FieldTarget" xml:space="preserve"><value>译文</value></data>
+  <data name="LocationAt" xml:space="preserve"><value>{0}·起点 {1}·长度 {2}</value></data>
+  <data name="LocationSegment" xml:space="preserve"><value>{0}·整段定位</value></data>
+</root>

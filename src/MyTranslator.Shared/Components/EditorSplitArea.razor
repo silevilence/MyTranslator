@@ -1,0 +1,47 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<EditorSplitArea> L
+
+@* 可拖拽分割面板（设计规范 §4.3）：比例经 CSS 变量驱动；紧凑断点下叠、折叠时隐藏详情列（§4.1）。
+   断点值来自 MudBreakpointProvider 的级联参数；拖拽实时更新在 editor.js 完成，落点经宿主持久化。 *@
+<div class="@ContainerClass" style="@ContainerStyle">
+    <div class="mt-split-pane mt-split-list">@ListContent</div>
+    <div class="mt-split-divider" role="separator" aria-orientation="vertical" tabindex="0"
+         aria-label="@L["Splitter"]" aria-valuemin="20" aria-valuemax="80" aria-valuenow="@GripPercent"
+         @onkeydown="ForwardSplitKeyAsync" @onkeydown:stopPropagation="true">
+        <span class="mt-split-grip" aria-hidden="true"></span>
+    </div>
+    <div class="mt-split-pane mt-split-detail">@DetailContent</div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private MudBlazor.Breakpoint Breakpoint { get; set; }
+
+    /// <summary>左侧列表内容。</summary>
+    [Parameter] public RenderFragment? ListContent { get; set; }
+    /// <summary>右侧详情内容；折叠时整列隐藏。</summary>
+    [Parameter] public RenderFragment? DetailContent { get; set; }
+    /// <summary>列表列分割比例（0.2–0.8，由宿主持久化）。</summary>
+    [Parameter] public double Ratio { get; set; } = SplitLayout.DefaultRatio;
+    /// <summary>详情列折叠。</summary>
+    [Parameter] public bool DetailCollapsed { get; set; }
+    /// <summary>分隔条键盘事件（左右方向键调比例），宿主负责夹取与持久化。</summary>
+    [Parameter] public EventCallback<KeyboardEventArgs> OnSplitKeyDown { get; set; }
+
+    private string ContainerClass
+    {
+        get
+        {
+            var stacked = SplitLayout.IsStacked(Breakpoint) ? " mt-split-stacked" : string.Empty;
+            var collapsed = DetailCollapsed ? " mt-split-collapsed" : string.Empty;
+            return "mt-split" + stacked + collapsed;
+        }
+    }
+
+    private string ContainerStyle =>
+        $"--mt-split:{(SplitLayout.Clamp(Ratio) * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    private int GripPercent => (int)Math.Round(SplitLayout.Clamp(Ratio) * 100, MidpointRounding.AwayFromZero);
+
+    private Task ForwardSplitKeyAsync(KeyboardEventArgs args) => OnSplitKeyDown.InvokeAsync(args);
+}
