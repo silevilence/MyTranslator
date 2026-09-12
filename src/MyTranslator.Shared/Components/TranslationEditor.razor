@@ -7,6 +7,7 @@
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 @inject IJSRuntime Js
+@inject AuthStateProvider Auth
 @inject IStringLocalizer<TranslationEditor> L
 
 <NavigationLock ConfirmExternalNavigation="IsDirty" OnBeforeInternalNavigation="BeforeNavigationAsync" />
@@ -255,6 +256,8 @@
     }
     private async Task BeforeNavigationAsync(Microsoft.AspNetCore.Components.Routing.LocationChangingContext context)
     {
+        // 401/退出已清理凭据，必须放行全局登录跳转，不能由草稿确认拦住鉴权失效流程。
+        if (await Auth.GetTokenAsync() is null) return;
         if (IsDirty && !await ConfirmAsync(L["DiscardPrompt"])) context.PreventNavigation();
     }
     private Task ShowHelpAsync() => Dialogs.ShowAsync<KeyboardHelp>(L["Help"], new DialogOptions { CloseOnEscapeKey = true });

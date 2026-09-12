@@ -26,45 +26,10 @@
 }
 
 .mt-task-segments {
-    height: 480px;
-    overflow-y: auto;
+    /* 编辑器自带虚拟化列表滚动；外层不能再裁切详情面板与操作工具条。 */
     margin-top: 16px;
     border: 1px solid var(--mud-palette-lines-inputs);
     border-radius: 4px;
-}
-
-.mt-task-segment-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--mud-palette-divider-light);
-}
-
-.mt-task-segment-order {
-    color: var(--mud-palette-text-secondary);
-    flex-shrink: 0;
-    min-width: 36px;
-}
-
-.mt-task-segment-source {
-    flex: 1;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.mt-task-segment-side {
-    flex-shrink: 0;
-    max-width: 40%;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    text-align: right;
-}
-
-.mt-task-segment-comments {
-    padding: 4px 12px 12px 60px;
-    background: var(--mud-palette-surface);
 }
 
 .mt-task-tm-languages {
@@ -77,9 +42,4 @@
 
 .mt-task-tm-language-field {
     width: 180px;
-}
-
-.mt-task-segment-tm {
-    padding: 4px 12px 12px 60px;
-    background: var(--mud-palette-surface);
 }

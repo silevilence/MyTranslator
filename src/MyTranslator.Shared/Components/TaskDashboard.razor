@@ -222,7 +222,7 @@ else
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            _loadError = ErrorProvider.ForException(ex);
+            if (generation == _loadGeneration) _loadError = ErrorProvider.ForException(ex);
         }
         finally
         {
@@ -255,11 +255,11 @@ else
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            _moreError = ErrorProvider.ForException(ex);
+            if (generation == _loadGeneration) _moreError = ErrorProvider.ForException(ex);
         }
         finally
         {
-            _loadingMore = false;
+            if (generation == _loadGeneration) _loadingMore = false;
         }
     }
 

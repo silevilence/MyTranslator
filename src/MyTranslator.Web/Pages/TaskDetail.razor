@@ -194,6 +194,7 @@ else
     protected override async Task OnParametersSetAsync()
     {
         if (_loadedTaskId == TaskId) return;
+        var requestedTaskId = TaskId;
         _loadedTaskId = TaskId;
         _summary = null;
         _editorDirty = false;
@@ -203,7 +204,8 @@ else
         _tmSourceLanguageInput = string.Empty;
         _tmTargetLanguageInput = "zh-CN";
         // 历史对比语言对按任务持久化，刷新后恢复上次输入（与 ProviderSelectionStore 同一前端约定）
-        var pair = await TaskLanguagePairStore.LoadAsync(Js, TaskId);
+        var pair = await TaskLanguagePairStore.LoadAsync(Js, requestedTaskId);
+        if (requestedTaskId != TaskId) return;
         if (pair.SourceLanguage is not null || pair.TargetLanguage is not null)
         {
             _tmLanguage = pair;
@@ -216,14 +218,16 @@ else
 
     private async Task LoadAsync()
     {
+        var requestedTaskId = TaskId;
         _loadError = null;
         try
         {
-            _summary = await Import.GetTaskAsync(TaskId);
+            var summary = await Import.GetTaskAsync(requestedTaskId);
+            if (requestedTaskId == TaskId) _summary = summary;
         }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            _loadError = ErrorProvider.ForException(ex);
+            if (requestedTaskId == TaskId) _loadError = ErrorProvider.ForException(ex);
         }
     }
 

@@ -11,6 +11,29 @@ namespace MyTranslator.Shared.Tests;
 public sealed class EditorDiagnosticsTests
 {
     [Fact]
+    public async Task SuccessfulResponsesRetainFindingLocationsAndVersions()
+    {
+        var id = Guid.NewGuid();
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            object body = request.RequestUri!.AbsolutePath.EndsWith("/rule-checks", StringComparison.Ordinal)
+                ? new RuleCheckResponse(id, 2, 1, 1, ["placeholder_integrity"],
+                    [new(id, 1, 4, [new("placeholder_integrity", "placeholder_integrity_violation", "targetText", 5, 3)])])
+                : new TermAlignmentResponse(id, 2, "en", "zh-CN", [new(id, 1, 4, [new(id, "word", "词", false, 1, 0)])]);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StringContent(JsonSerializer.Serialize(body, ImportJson.Options), Encoding.UTF8, "application/json") };
+        });
+        var api = new ApiClient(new HttpClient(handler) { BaseAddress = new("http://localhost") },
+            new AuthStateProvider(new TokenStore(new FakeJSRuntime())), new FakeNavigationManager("http://localhost/"), NullLogger<ApiClient>.Instance);
+        var service = new EditorDiagnosticsService(api, new ConfigurationBuilder().Build());
+        var rules = await service.CheckRulesAsync(id, 2);
+        Assert.Equal(4, Assert.Single(rules.Items).Version);
+        Assert.Equal(5, Assert.Single(rules.Items[0].Violations).Offset);
+        var terms = await service.CheckTermsAsync(id, 2, new("en", "zh-CN"));
+        Assert.Equal("词", Assert.Single(Assert.Single(terms.Items).Misalignments).ExpectedTargetTerm);
+    }
+
+    [Fact]
     public void FindingsRequireMatchingTaskRevisionAndSegmentVersion()
     {
         var taskId = Guid.NewGuid();
