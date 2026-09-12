@@ -5,8 +5,10 @@ namespace MyTranslator.Api.Rules;
 
 public sealed class PlaceholderIntegrityRule : ITranslationRule
 {
+    public string Id => "placeholder_integrity";
+
     public TranslationRuleViolation? Evaluate(TranslationRuleContext context) =>
-        IsSatisfied(context.SourceText, context.TargetText, context.MarkupTableJson)
+        context.TargetText is null || IsSatisfied(context.SourceText, context.TargetText, context.MarkupTableJson)
             ? null
             : new TranslationRuleViolation("placeholder_integrity_violation", true);
 
@@ -19,10 +21,27 @@ public sealed class PlaceholderIntegrityRule : ITranslationRule
         var sourceReferences = PlaceholderReferences.RegisteredReferences(sourceText, knownTokens);
         var targetReferences = PlaceholderReferences.RegisteredReferences(targetText, knownTokens);
 
-        return PlaceholderReferences.HaveSameCounts(sourceReferences, requiredTokens) &&
+        return CorrectlyNested(sourceReferences) &&
+               PlaceholderReferences.HaveSameCounts(sourceReferences, requiredTokens) &&
                sourceReferences.SequenceEqual(targetReferences, StringComparer.Ordinal) &&
                PlaceholderReferences.HaveSameCounts(
                    PlaceholderReferences.UnregisteredReferences(sourceText, knownTokens),
                    PlaceholderReferences.UnregisteredReferences(targetText, knownTokens));
+    }
+
+    private static bool CorrectlyNested(IEnumerable<string> references)
+    {
+        var stack = new Stack<string>();
+        foreach (var reference in references)
+        {
+            if (reference.StartsWith("</", StringComparison.Ordinal))
+            {
+                if (!stack.TryPop(out var opening) || opening != reference.Replace("</", "<", StringComparison.Ordinal))
+                    return false;
+            }
+            else if (!reference.EndsWith("/>", StringComparison.Ordinal))
+                stack.Push(reference);
+        }
+        return stack.Count == 0;
     }
 }

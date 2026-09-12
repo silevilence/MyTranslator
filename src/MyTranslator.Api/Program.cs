@@ -50,6 +50,10 @@ builder.Services.AddScoped<ReviewRunService>();
 builder.Services.AddScoped<ReviewRunProcessor>();
 builder.Services.AddSingleton<IAiChatClientFactory, AiChatClientFactory>();
 builder.Services.AddSingleton<ITranslationRule, PlaceholderIntegrityRule>();
+builder.Services.AddSingleton<ITranslationRule, MissingTranslationRule>();
+builder.Services.Configure<RuleCheckOptions>(builder.Configuration.GetSection("Rules"));
+builder.Services.AddScoped<RuleEngine>();
+builder.Services.AddScoped<RuleCheckService>();
 builder.Services.AddHttpClient("AiChatClient");
 builder.Services.AddSingleton<ExtractionPreviewStore>();
 builder.Services.AddHttpClient<UrlImportClient>(client =>
@@ -160,6 +164,7 @@ app.MapTranslationEndpoints();
 app.MapReviewEndpoints();
 app.MapTermEndpoints();
 app.MapTranslationMemoryEndpoints();
+app.MapRuleEndpoints();
 
 app.Run();
 
