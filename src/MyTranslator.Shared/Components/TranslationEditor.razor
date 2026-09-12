@@ -110,6 +110,7 @@
     private bool _loading = true;
     private bool _working;
     private bool _refreshPending;
+    private Task? _activeRun;
     private bool _stale;
     private bool _disposed;
     private RuleCheckResponse? _rules;
@@ -181,7 +182,9 @@
         _working = true;
         _error = null;
         _retry = action;
-        try { await action(); }
+        var run = action();
+        _activeRun = run;
+        try { await run; }
         catch (OperationCanceledException) { }
         catch (Exception exception) when (exception is ApiErrorException or HttpRequestException)
         {
@@ -324,6 +327,13 @@
     {
         // 401/退出已清理凭据，必须放行全局登录跳转，不能由草稿确认拦住鉴权失效流程。
         if (await Auth.GetTokenAsync() is null) return;
+        // 保存/批量等操作在途时先等它完成再评估脏标记：
+        // 否则"刚点保存就换页"会在保存完成前弹出放弃草稿确认，模态框锁死整页。
+        if (_working && _activeRun is not null)
+        {
+            try { await _activeRun; }
+            catch { /* 在途操作失败按脏草稿正常评估 */ }
+        }
         if (IsDirty && !await ConfirmAsync(L["DiscardPrompt"])) context.PreventNavigation();
     }
     private Task ShowHelpAsync() => Dialogs.ShowAsync<KeyboardHelp>(L["Help"], new DialogOptions { CloseOnEscapeKey = true });

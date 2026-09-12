@@ -139,9 +139,23 @@ public sealed class FileTaskService(
     {
         var task = await database.TranslationTasks
             .AsNoTracking()
-            .Include(entity => entity.Segments)
             .SingleOrDefaultAsync(entity => entity.Id == taskId, cancellationToken);
-        return task is null ? null : ToSummary(task);
+        if (task is null)
+        {
+            return null;
+        }
+
+        // 摘要只需计数与导出判定：轻量投影两列，避免大任务上整体实体化分段（曾达秒级）。
+        var rows = await database.TranslationSegments
+            .AsNoTracking()
+            .Where(entity => entity.TaskId == taskId)
+            .Select(entity => new { entity.TargetText, entity.ConfirmationStatus })
+            .ToListAsync(cancellationToken);
+        return ToSummary(task, new SegmentRollup(
+            rows.Count,
+            rows.Count(row => row.TargetText is not null),
+            rows.Count(row => row.ConfirmationStatus == SegmentConfirmationStatus.Confirmed),
+            rows.All(row => !string.IsNullOrWhiteSpace(row.TargetText))));
     }
 
     public async Task<SegmentPage?> GetSegmentsAsync(
@@ -980,13 +994,7 @@ public sealed class FileTaskService(
     private static FileTaskSummary ToSummary(TranslationTask task) => new(
         task.Id,
         task.Status.ToWireValue(),
-        new FileTaskSource(
-            task.SourceKind,
-            task.FileName,
-            task.RequestedUrl,
-            task.FinalUrl,
-            task.MediaType,
-            task.ByteLength),
+        BuildSource(task),
         task.FileType,
         task.OriginalEncoding,
         task.ExtractionRevision,
@@ -1004,6 +1012,31 @@ public sealed class FileTaskService(
         task.CreatedAt,
         new MyTranslator.Api.TaskLists.TaskProgressResponse(task.Segments.Count(segment => segment.TargetText is not null),
             task.Segments.Count, task.Segments.Count(segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed)));
+
+    private static FileTaskSummary ToSummary(TranslationTask task, SegmentRollup rollup) => new(
+        task.Id,
+        task.Status.ToWireValue(),
+        BuildSource(task),
+        task.FileType,
+        task.OriginalEncoding,
+        task.ExtractionRevision,
+        task.SegmentationEffective is null
+            ? null
+            : new SegmentationSummary(
+                task.SegmentationRequested,
+                task.SegmentationRecommended!,
+                task.SegmentationEffective,
+                task.SegmentationReason!),
+        new FileTaskCounts(rollup.Total, task.ProtectedBlockCount, task.ChapterCount),
+        new FileTaskCapabilities(task.FileType is "html" or "epub", rollup.CanExport),
+        task.CreatedAt,
+        new MyTranslator.Api.TaskLists.TaskProgressResponse(rollup.Completed, rollup.Total, rollup.Confirmed));
+
+    private static FileTaskSource BuildSource(TranslationTask task) => new(
+        task.SourceKind, task.FileName, task.RequestedUrl, task.FinalUrl, task.MediaType, task.ByteLength);
+
+
+    private sealed record SegmentRollup(int Total, int Completed, int Confirmed, bool CanExport);
 
     internal static SegmentResponse ToResponse(TranslationSegment segment)
     {

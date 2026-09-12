@@ -24,13 +24,33 @@ body {
     outline-offset: 2px;
 }
 
+/* 启动壳：Blazor 渲染前整屏接管点击，避免启动窗口内点击无反馈或误触整页重载；
+   MudBlazor 主题变量由运行时提供者注入，静态壳取不到，中性色为静态壳例外（同 blazor-error-ui） */
+.loading-shell {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    cursor: progress;
+    background-color: #f5f5f5;
+}
+
+@media (prefers-color-scheme: dark) {
+    .loading-shell {
+        background-color: #212121;
+    }
+}
+
 /* Blazor 启动加载进度 */
 .loading-progress {
     position: relative;
     display: block;
     width: 8rem;
     height: 8rem;
-    margin: 20vh auto 1rem auto;
+    margin: 0;
 }
 
 .loading-progress circle {
@@ -49,14 +69,13 @@ body {
 }
 
 .loading-progress-text {
-    position: absolute;
-    text-align: center;
     font-weight: bold;
-    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+    max-width: 24rem;
+    text-align: center;
 }
 
 .loading-progress-text:after {
-    content: var(--loading-progress-text, "加载中");
+    content: var(--loading-progress-text, "正在加载 MyTranslator…首次启动需下载运行时，请稍候");
 }
 
 @media (prefers-reduced-motion: reduce) {

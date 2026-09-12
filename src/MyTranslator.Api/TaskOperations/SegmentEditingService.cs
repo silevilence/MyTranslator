@@ -25,10 +25,11 @@ public sealed class SegmentEditingService(AppDbContext database, TaskOperationLo
         await using var operation = taskLock.TryAcquire(taskId) ?? throw Problem("task_busy", 409);
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         var task = await LoadTaskAsync(taskId, request.ExtractionRevision, cancellationToken);
-        var segment = task.Segments.SingleOrDefault(item => item.Id == segmentId) ?? throw Problem("segment_not_found", 404);
+        var segment = await LoadSegmentAsync(taskId, segmentId, cancellationToken) ?? throw Problem("segment_not_found", 404);
         await ApplyAsync(task, segment, request.Version, request.TargetText, request.ConfirmationStatus,
             request.SourceLanguage, request.TargetLanguage, cancellationToken);
-        UpdateStatus(task);
+        await database.SaveChangesAsync(cancellationToken);
+        await UpdateStatusAsync(taskId, task, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return FileTaskService.ToResponse(segment);
@@ -42,17 +43,22 @@ public sealed class SegmentEditingService(AppDbContext database, TaskOperationLo
         await using var operation = taskLock.TryAcquire(taskId) ?? throw Problem("task_busy", 409);
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         var task = await LoadTaskAsync(taskId, request.ExtractionRevision, cancellationToken);
+        var ids = request.Items.Select(item => item.SegmentId).ToArray();
+        var loaded = await database.TranslationSegments
+            .Include(segment => segment.ReviewComments)
+            .Where(segment => segment.TaskId == taskId && ids.Contains(segment.Id))
+            .ToDictionaryAsync(segment => segment.Id, cancellationToken);
         var selected = new List<TranslationSegment>();
         foreach (var item in request.Items)
         {
-            var segment = task.Segments.SingleOrDefault(segment => segment.Id == item.SegmentId)
-                ?? throw Problem("segment_not_found", 404);
+            var segment = loaded.GetValueOrDefault(item.SegmentId) ?? throw Problem("segment_not_found", 404);
             await ApplyAsync(task, segment, item.Version, segment.TargetText,
                 request.Confirmed ? "confirmed" : segment.TargetText is null ? "pending" : "translated",
                 request.SourceLanguage, request.TargetLanguage, cancellationToken);
             selected.Add(segment);
         }
-        UpdateStatus(task);
+        await database.SaveChangesAsync(cancellationToken);
+        await UpdateStatusAsync(taskId, task, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return selected.Select(FileTaskService.ToResponse).ToArray();
@@ -61,7 +67,9 @@ public sealed class SegmentEditingService(AppDbContext database, TaskOperationLo
     private async Task<TranslationTask> LoadTaskAsync(Guid taskId, int revision, CancellationToken cancellationToken)
     {
         if (revision < 1) throw Problem("invalid_extraction_revision", 400);
-        var task = await database.TranslationTasks.Include(task => task.Segments).ThenInclude(segment => segment.ReviewComments)
+        // 保存/确认路径不再整体加载全部分段（大任务上单段保存曾达秒级）：
+        // 任务行 + 定向分段查询 + 存在性查询即可完成全部校验与状态推导。
+        var task = await database.TranslationTasks
             .SingleOrDefaultAsync(task => task.Id == taskId, cancellationToken) ?? throw Problem("task_not_found", 404);
         if (task.ExtractionRevision != revision) throw Problem("extraction_revision_changed", 409);
         if (task.Status == TranslationTaskStatus.Processing ||
@@ -69,6 +77,19 @@ public sealed class SegmentEditingService(AppDbContext database, TaskOperationLo
             await database.ReviewRuns.AnyAsync(run => run.ActiveTaskLockId == taskId, cancellationToken))
             throw Problem("task_busy", 409);
         return task;
+    }
+
+    private async Task<TranslationSegment?> LoadSegmentAsync(Guid taskId, Guid segmentId, CancellationToken cancellationToken) =>
+        await database.TranslationSegments
+            .Include(segment => segment.ReviewComments)
+            .SingleOrDefaultAsync(segment => segment.Id == segmentId && segment.TaskId == taskId, cancellationToken);
+
+    private async Task UpdateStatusAsync(Guid taskId, TranslationTask task, CancellationToken cancellationToken)
+    {
+        var hasMissingTranslation = await database.TranslationSegments
+            .AnyAsync(segment => segment.TaskId == taskId && segment.TargetText == null, cancellationToken);
+        if (!hasMissingTranslation) task.Status = TranslationTaskStatus.Completed;
+        else if (task.Status != TranslationTaskStatus.Failed) task.Status = TranslationTaskStatus.Created;
     }
 
     private async Task ApplyAsync(TranslationTask task, TranslationSegment segment, int version, string? target,

@@ -15,14 +15,17 @@
     <link href="MyTranslator.Web.styles.css" rel="stylesheet" />
     <script type="importmap"></script>
 </head>
-
 <body>
     <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+        <!-- 启动壳：Blazor 渲染前整屏接管点击（cursor: progress），避免启动窗口内点击无反馈或误触整页重载；
+             文案无法走 resx（Blazor 尚未启动，静态壳例外）。渲染后本壳随 #app 内容一并被替换。 -->
+        <div class="loading-shell">
+            <svg class="loading-progress">
+                <circle r="40%" cx="50%" cy="50%" />
+                <circle r="40%" cx="50%" cy="50%" />
+            </svg>
+            <div class="loading-progress-text"></div>
+        </div>
     </div>
 
     <div id="blazor-error-ui">
