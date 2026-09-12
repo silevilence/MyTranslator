@@ -15,6 +15,28 @@ public sealed class TranslationMemoryService(AppDbContext database)
     private const double WarningSourceMatchScore = 0.85;
     private const double WarningTargetDifference = 0.3;
 
+    /// <summary>由分段确认事务调用；只加入变更跟踪，提交及回滚均由调用方负责。</summary>
+    internal async Task AddConfirmedAsync(TranslationTask task, TranslationSegment segment, string targetText,
+        string sourceLanguage, string targetLanguage, CancellationToken cancellationToken)
+    {
+        using var markup = JsonDocument.Parse(segment.MarkupTableJson);
+        var source = segment.SourceText.Trim().Normalize(NormalizationForm.FormC);
+        var target = targetText.Trim().Normalize(NormalizationForm.FormC);
+        if (source.EnumerateRunes().Count() > 20_000 || target.EnumerateRunes().Count() > 20_000)
+            throw new TranslationMemoryRequestException("invalid_tm_target_text", "TM text must not exceed 20000 Unicode scalar values.", 400);
+        var prepared = Prepare(new(source, target, sourceLanguage, targetLanguage, markup.RootElement));
+        if (database.TranslationMemoryEntries.Local.Any(entry => entry.ContentKey == prepared.ContentKey) ||
+            await database.TranslationMemoryEntries.AnyAsync(entry => entry.ContentKey == prepared.ContentKey, cancellationToken)) return;
+        var now = DateTimeOffset.UtcNow;
+        database.TranslationMemoryEntries.Add(new TranslationMemoryEntry
+        {
+            Id = Guid.NewGuid(), ContentKey = prepared.ContentKey, SourceText = source, TargetText = target,
+            SourceLanguage = sourceLanguage, TargetLanguage = targetLanguage, MarkupTableJson = prepared.MarkupTableJson,
+            Origin = "confirmed_segment", OriginTaskId = task.Id, OriginSegmentId = segment.Id,
+            OriginExtractionRevision = task.ExtractionRevision, CreatedAt = now, CreatedAtSortKey = SortKey(now)
+        });
+    }
+
     public async Task<TranslationMemoryBatchResult> CreateAsync(
         IReadOnlyList<CreateTranslationMemoryEntryRequest> requests,
         CancellationToken cancellationToken)

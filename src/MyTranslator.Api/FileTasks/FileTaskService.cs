@@ -1001,9 +1001,11 @@ public sealed class FileTaskService(
         new FileTaskCapabilities(
             task.FileType is "html" or "epub",
             task.Segments.All(segment => !string.IsNullOrWhiteSpace(segment.TargetText))),
-        task.CreatedAt);
+        task.CreatedAt,
+        new MyTranslator.Api.TaskLists.TaskProgressResponse(task.Segments.Count(segment => segment.TargetText is not null),
+            task.Segments.Count, task.Segments.Count(segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed)));
 
-    private static SegmentResponse ToResponse(TranslationSegment segment)
+    internal static SegmentResponse ToResponse(TranslationSegment segment)
     {
         using var markup = JsonDocument.Parse(segment.MarkupTableJson);
         JsonElement? chapter = null;

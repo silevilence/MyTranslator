@@ -60,6 +60,7 @@ public sealed class TaskListService(AppDbContext database)
                 task.FileType,
                 task.ExtractionRevision,
                 CompletedSegments = task.Segments.Count(segment => segment.TargetText != null),
+                ConfirmedSegments = task.Segments.Count(segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed),
                 TotalSegments = task.Segments.Count,
                 task.CreatedAt
             })
@@ -108,7 +109,7 @@ public sealed class TaskListService(AppDbContext database)
                     task.ByteLength),
                 task.FileType,
                 task.ExtractionRevision,
-                new TaskProgressResponse(task.CompletedSegments, task.TotalSegments),
+                new TaskProgressResponse(task.CompletedSegments, task.TotalSegments, task.ConfirmedSegments),
                 latestRuns.GetValueOrDefault(task.Id) is { } latestRun
                     ? new LatestTranslationRunResponse(
                         latestRun.Id,

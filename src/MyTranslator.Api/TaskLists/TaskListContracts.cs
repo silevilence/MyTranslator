@@ -24,7 +24,11 @@ public sealed record TaskListSourceResponse(
     string MediaType,
     long ByteLength);
 
-public sealed record TaskProgressResponse(int CompletedSegments, int TotalSegments);
+public sealed record TaskProgressResponse(int CompletedSegments, int TotalSegments, int ConfirmedSegments = 0)
+{
+    public double Percent => TotalSegments == 0 ? 100 : Math.Round(100.0 * CompletedSegments / TotalSegments, 1);
+    public double ConfirmedPercent => TotalSegments == 0 ? 100 : Math.Round(100.0 * ConfirmedSegments / TotalSegments, 1);
+}
 
 public sealed record LatestTranslationRunResponse(
     Guid RunId,

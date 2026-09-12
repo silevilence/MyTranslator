@@ -12,6 +12,17 @@ public sealed class ApiExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
+        if (exception is BadHttpRequestException badRequest)
+        {
+            httpContext.Response.StatusCode = badRequest.StatusCode;
+            return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = httpContext,
+                ProblemDetails = ApiProblem.CreateDetails(httpContext, "invalid_request_body",
+                    "The request body is invalid.", badRequest.StatusCode)
+            });
+        }
+
         if (exception is ApiRequestException requestException)
         {
             httpContext.Response.StatusCode = requestException.StatusCode;

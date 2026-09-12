@@ -34,7 +34,8 @@ public sealed record FileTaskSummary(
     SegmentationSummary? Segmentation,
     FileTaskCounts Counts,
     FileTaskCapabilities Capabilities,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    MyTranslator.Api.TaskLists.TaskProgressResponse? Progress = null);
 
 public sealed record FileTaskSource(
     string Kind,
