@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Completed" xml:space="preserve"><value>完成：{0} / {1}（{2}%）</value></data>
+  <data name="Confirmed" xml:space="preserve"><value>已确认：{0} / {1}（{2}%）</value></data>
+  <data name="CompletionLabel" xml:space="preserve"><value>译文完成度</value></data>
+  <data name="ConfirmationLabel" xml:space="preserve"><value>人工确认度</value></data>
+</root>

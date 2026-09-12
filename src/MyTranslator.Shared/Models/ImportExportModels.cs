@@ -71,6 +71,8 @@ public sealed record TaskCapabilities
 /// <summary>任务导入摘要（§4.3 响应形状）。</summary>
 public sealed record TaskSummary
 {
+    /// <summary>当前译文完成与人工确认进度。</summary>
+    public TaskProgress? Progress { get; init; }
     public Guid TaskId { get; init; }
     public string? Status { get; init; }
     public TaskSource? Source { get; init; }
@@ -187,10 +189,15 @@ public sealed record TaskProgress
     /// <summary>当前提取修订内全部可译分段数。</summary>
     public int TotalSegments { get; init; }
 
-    /// <summary>完成度百分比（0–100，保留一位小数）；无分段时为 0。</summary>
+    /// <summary>人工确认数，独立于已有译文数。</summary>
+    public int ConfirmedSegments { get; init; }
+
+    /// <summary>完成度百分比（0–100，保留一位小数）；无分段时为 100，与任务接口一致。</summary>
     public double Percent => TotalSegments == 0
-        ? 0
+        ? 100
         : Math.Round(CompletedSegments * 100.0 / TotalSegments, 1);
+    /// <summary>确认度百分比。</summary>
+    public double ConfirmedPercent => TotalSegments == 0 ? 100 : Math.Round(ConfirmedSegments * 100.0 / TotalSegments, 1);
 }
 
 /// <summary>

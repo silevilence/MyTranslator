@@ -53,6 +53,7 @@ else
         </div>
 
         <MudDivider Class="my-4" />
+        @if (_summary.Progress is { } progress) { <ProgressBoard Status="@_summary.Status" Progress="progress" /> }
 
         <div class="mt-task-meta">
             <div>

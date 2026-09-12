@@ -1,0 +1,101 @@
+@namespace MyTranslator.Shared.Components
+@implements IDisposable
+@inject TokenManagementService Tokens
+@inject ApiErrorMessageProvider Errors
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IJSRuntime Js
+@inject IStringLocalizer<TokenManagementPanel> L
+
+@* TODO(frontend-formal): 替换正式 Token 管理布局，保留一次性凭据展示、撤销确认、401 和请求状态保护。 *@
+<PageTitle>@L["Title"]</PageTitle>
+<MudText Typo="Typo.h1">@L["Title"]</MudText>
+<MudTextField T="string" @bind-Value="_name" Label="@L["Name"]" Immediate="true" MaxLength="100" Disabled="_busy"
+              Error="_nameError" ErrorText="@L["NameRequired"]" Variant="Variant.Outlined" Class="my-3" />
+<MudStack Row="true" Spacing="2">
+    <MudButton OnClick="CreateAsync" Disabled="_busy || _created is not null" Color="Color.Primary" Variant="Variant.Filled">@L["Create"]</MudButton>
+    <MudButton OnClick="() => RunAsync(LoadAsync)" Disabled="_busy">@L["Refresh"]</MudButton>
+    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+</MudStack>
+@if (_created is not null)
+{
+    <MudAlert Severity="Severity.Info" Class="my-3">@L["Once"]</MudAlert>
+    <MudTextField T="string" Value="@_created.Token" ReadOnly="true" Label="@L["NewToken"]" Variant="Variant.Outlined" />
+    <MudButton OnClick="CopyAsync">@L["Copy"]</MudButton>
+    <MudButton OnClick="() => _created = null">@L["Dismiss"]</MudButton>
+}
+@if (_error is not null) { <ErrorBanner Message="@_error" OnRetry="() => RunAsync(LoadAsync)" /> }
+@if (_items is null && _error is null) { <MudSkeleton Height="240px" /> }
+else if (_items is not null)
+{
+    <MudTable T="ApiTokenSummary" Items="_items" Dense="true" Virtualize="true" Height="480px" Class="mt-4">
+        <HeaderContent><MudTh>@L["Name"]</MudTh><MudTh>@L["Prefix"]</MudTh><MudTh>@L["Status"]</MudTh><MudTh>@L["CreatedAt"]</MudTh><MudTh>@L["Action"]</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd><MudTd><code class="mt-mono">@context.TokenPrefix</code></MudTd>
+            <MudTd>
+                <MudChip T="string" Icon="@(context.RevokedAt is null ? Icons.Material.Filled.Key : Icons.Material.Filled.Block)"
+                         Color="@(context.RevokedAt is null ? Color.Info : Color.Default)">@L[context.RevokedAt is null ? "Active" : "Revoked"]</MudChip>
+            </MudTd>
+            <MudTd>@context.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudTd>
+            <MudTd><MudButton OnClick="() => RevokeAsync(context)" Color="Color.Error" Disabled="_busy || context.RevokedAt is not null">@L["Revoke"]</MudButton></MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>@L["Empty"]</MudText></NoRecordsContent>
+    </MudTable>
+}
+<div aria-live="polite"><MudText Typo="Typo.caption">@(_items is null ? string.Empty : L["Count", _items.Count])</MudText></div>
+
+@code {
+    private readonly CancellationTokenSource _lifetime = new();
+    private IReadOnlyList<ApiTokenSummary>? _items;
+    private CreatedApiToken? _created;
+    private string _name = string.Empty;
+    private string? _error;
+    private bool _busy;
+    private bool _nameError;
+    protected override Task OnInitializedAsync() => RunAsync(LoadAsync);
+    private async Task LoadAsync() => _items = await Tokens.ListAsync(_lifetime.Token);
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await action(); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception e) when (e is ApiErrorException or HttpRequestException)
+        { _error = Errors.ForException(e); Snackbar.Add(_error, Severity.Error); }
+        finally { _busy = false; }
+    }
+    private Task CreateAsync()
+    {
+        _nameError = string.IsNullOrWhiteSpace(_name) || _name.Trim().Length > 100;
+        if (_nameError) return Task.CompletedTask;
+        return RunAsync(async () =>
+        {
+            _created = await Tokens.CreateAsync(_name, _lifetime.Token);
+            _name = string.Empty;
+            Snackbar.Add(L["Created"], Severity.Success);
+            await LoadAsync();
+        });
+    }
+    private async Task RevokeAsync(ApiTokenSummary token)
+    {
+        if (_busy || token.RevokedAt is not null) return;
+        var dialog = await Dialogs.ShowAsync<ConfirmDialog>(L["Revoke"], new DialogParameters<ConfirmDialog>
+            { { x => x.Message, L["RevokePrompt", token.Name].Value } }, new DialogOptions { CloseOnEscapeKey = true });
+        if (await dialog.Result is not { Canceled: false, Data: true }) return;
+        await RunAsync(async () =>
+        {
+            await Tokens.RevokeAsync(token.Id, _lifetime.Token);
+            if (_created?.Id == token.Id) _created = null;
+            Snackbar.Add(L["Revoked"], Severity.Success);
+            // 撤销自身时，这次受保护请求会 401，统一客户端负责清凭据并退出。
+            await LoadAsync();
+        });
+    }
+    private async Task CopyAsync()
+    {
+        if (_created is null) return;
+        var copied = await Js.InvokeAsync<bool>("mtStorage.copyText", _created.Token);
+        Snackbar.Add(L[copied ? "Copied" : "CopyFailed"], copied ? Severity.Success : Severity.Error);
+    }
+    public void Dispose() { _created = null; _lifetime.Cancel(); _lifetime.Dispose(); }
+}

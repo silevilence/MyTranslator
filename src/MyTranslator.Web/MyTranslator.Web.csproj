@@ -23,9 +23,6 @@
     <EmbeddedResource Update="Resources\App.resx">
       <LogicalName>MyTranslator.Web.App.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Update="Resources\Home.resx">
-      <LogicalName>MyTranslator.Web.Pages.Home.resources</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Update="Resources\Login.resx">
       <LogicalName>MyTranslator.Web.Pages.Login.resources</LogicalName>
     </EmbeddedResource>
