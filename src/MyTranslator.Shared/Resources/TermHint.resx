@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Title" xml:space="preserve"><value>术语对齐提示</value></data>
+  <data name="LanguageRequired" xml:space="preserve"><value>填写源语言与目标语言后检查术语。</value></data>
+  <data name="Empty" xml:space="preserve"><value>当前已保存译文暂无未对齐术语。</value></data>
+  <data name="Expected" xml:space="preserve"><value>源术语：{0}；期望译法：{1}</value></data>
+  <data name="Actual" xml:space="preserve"><value>当前已保存译文中，期望译法出现 {0} 次。</value></data>
+</root>

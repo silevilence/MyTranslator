@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject ImportExportService Import
 @inject SegmentEditingService Editing
+@inject EditorDiagnosticsService DiagnosticsApi
 @inject ApiErrorMessageProvider Errors
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
@@ -17,16 +18,20 @@
         <MudButton OnClick="SelectLoaded" Disabled="Locked">@L["SelectLoaded"]</MudButton>
         <MudButton OnClick="DiscardAndRefreshAsync" Disabled="_working || Busy">@L["Refresh"]</MudButton>
         <MudButton OnClick="ShowHelpAsync" StartIcon="@Icons.Material.Filled.Keyboard">@L["Help"]</MudButton>
+        <MudButton OnClick="RefreshDiagnosticsAsync" Disabled="_diagnosticsLoading">@L["RefreshDiagnostics"]</MudButton>
         @if (_working) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
     </MudStack>
     @if (_error is not null) { <ErrorBanner Message="@_error" OnRetry="RetryAsync" /> }
+    @if (_diagnosticsError is not null) { <ErrorBanner Message="@_diagnosticsError" OnRetry="RefreshDiagnosticsAsync" /> }
     @if (_loading) { <MudSkeleton Height="300px" /> }
     else
     {
         <div class="editor-columns">
             <div>
                 <SegmentList Items="_items" CurrentId="_draft?.Original.Id" SelectedIds="_selected" Dirty="IsDirty" Disabled="Locked"
-                             OnSelect="SelectAsync" OnToggle="Toggle" OnKeyDown="ListKeyAsync" />
+                             OnSelect="SelectAsync" OnToggle="Toggle" OnKeyDown="ListKeyAsync">
+                    <Diagnostics Context="segment"><RuleViolationBadge Violations="RulesFor(segment)" /></Diagnostics>
+                </SegmentList>
                 @if (_nextCursor is not null)
                 {
                     <MudButton OnClick="() => RunAsync(LoadMoreAsync)" Disabled="Locked">@L["LoadMore"]</MudButton>
@@ -37,6 +42,13 @@
                     OnSave="SaveAsync" OnConfirm="ConfirmCurrentAsync"
                     OnUnconfirm="UnconfirmCurrentAsync" OnClear="ClearAsync" OnKeyDown="EditorKeyAsync">
                     <References Context="segment">
+                        @if (IsDirty) { <MudText Typo="Typo.caption">@L["SavedDiagnostics"]</MudText> }
+                        <RuleViolationBadge Violations="RulesFor(segment)" />
+                        @if (_diagnosticsLoading) { <MudSkeleton Height="48px" /> }
+                        else if (_diagnosticsError is null)
+                        {
+                            <TermHint Items="TermsFor(segment)" LanguageReady="Language.IsComplete" />
+                        }
                         <TmComparisonPanel TaskId="TaskId" ExtractionRevision="ExtractionRevision" Segment="segment" Language="Language"
                                            OnRevisionChanged="RefreshAsync" OnSegmentStale="RefreshAsync" />
                     </References>
@@ -77,11 +89,20 @@
     private bool _refreshPending;
     private bool _stale;
     private bool _disposed;
+    private RuleCheckResponse? _rules;
+    private TermAlignmentResponse? _terms;
+    private LanguagePair? _diagnosticLanguage;
+    private CancellationTokenSource? _diagnosticRequest;
+    private int _diagnosticGeneration;
+    private bool _diagnosticsLoading;
+    private string? _diagnosticsError;
     private Func<Task>? _retry;
     private bool IsDirty => _draft?.IsDirty == true;
     private bool Locked => _working || Busy || _stale;
 
     protected override Task OnInitializedAsync() => RunAsync(ReloadCoreAsync);
+    protected override Task OnParametersSetAsync() => !_loading && _diagnosticLanguage != Language
+        ? RefreshDiagnosticsAsync() : Task.CompletedTask;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await Js.InvokeVoidAsync("mtEditor.attach", _elementId);
@@ -148,6 +169,7 @@
         }
         else if (rows.FirstOrDefault(row => row.Id == _draft!.Original.Id)?.Version != _draft!.Original.Version)
             _error = Errors.ForError(409, "segment_version_conflict");
+        await RefreshDiagnosticsAsync();
     }
 
     private async Task LoadMoreAsync()
@@ -183,6 +205,7 @@
         await OnDirtyChanged.InvokeAsync(false);
         await OnSaved.InvokeAsync();
         Snackbar.Add(L["Saved"], Severity.Success);
+        await RefreshDiagnosticsAsync();
     }
 
     private async Task BatchAsync(bool confirmed)
@@ -197,6 +220,7 @@
         if (_draft is not null) _draft = new(_items.First(row => row.Id == _draft.Original.Id));
         await OnSaved.InvokeAsync();
         Snackbar.Add(L["Saved"], Severity.Success);
+        await RefreshDiagnosticsAsync();
     }
 
     private void Replace(Segment segment)
@@ -254,9 +278,55 @@
         if (index >= _items.Count && _nextCursor is not null) await LoadMoreAsync();
         if (index >= 0 && index < _items.Count) _draft = new(_items[index]);
     }
+
+    private IReadOnlyList<RuleFinding> RulesFor(Segment segment) => EditorDiagnostics.RulesFor(_rules, TaskId, ExtractionRevision, segment);
+    private IReadOnlyList<TermMisalignment> TermsFor(Segment segment) => EditorDiagnostics.TermsFor(_terms, TaskId, ExtractionRevision, segment, Language);
+    private async Task RefreshDiagnosticsAsync()
+    {
+        if (_disposed) return;
+        var generation = ++_diagnosticGeneration;
+        _diagnosticRequest?.Cancel();
+        _diagnosticRequest?.Dispose();
+        _diagnosticRequest = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var token = _diagnosticRequest.Token;
+        var language = Language;
+        _diagnosticLanguage = language;
+        _diagnosticsLoading = true;
+        _diagnosticsError = null;
+        _rules = null;
+        _terms = null;
+        await Task.WhenAll(LoadRulesAsync(), LoadTermsAsync());
+        if (generation == _diagnosticGeneration && !_disposed) { _diagnosticsLoading = false; StateHasChanged(); }
+
+        async Task LoadRulesAsync()
+        {
+            try
+            {
+                var rules = await DiagnosticsApi.CheckRulesAsync(TaskId, ExtractionRevision, token);
+                if (generation == _diagnosticGeneration) _rules = rules;
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception e) when (e is ApiErrorException or HttpRequestException)
+            { if (generation == _diagnosticGeneration) _diagnosticsError = Errors.ForException(e); }
+        }
+        async Task LoadTermsAsync()
+        {
+            if (!language.IsComplete || language.HasSameLanguages) return;
+            try
+            {
+                var terms = await DiagnosticsApi.CheckTermsAsync(TaskId, ExtractionRevision, language, token);
+                if (generation == _diagnosticGeneration) _terms = terms;
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception e) when (e is ApiErrorException or HttpRequestException)
+            { if (generation == _diagnosticGeneration) _diagnosticsError = Errors.ForException(e); }
+        }
+    }
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        _diagnosticRequest?.Cancel();
+        _diagnosticRequest?.Dispose();
         await _lifetime.CancelAsync();
         _lifetime.Dispose();
         try { await Js.InvokeVoidAsync("mtEditor.detach", _elementId); }

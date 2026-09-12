@@ -13,5 +13,6 @@
   <data name="DiscardPrompt" xml:space="preserve"><value>存在未保存的译文，离开或刷新将丢失草稿。确认放弃？</value></data>
   <data name="ConfirmTitle" xml:space="preserve"><value>确认操作</value></data>
   <data name="Saved" xml:space="preserve"><value>译文与确认状态已保存。</value></data>
+  <data name="RefreshDiagnostics" xml:space="preserve"><value>刷新规则与术语检查</value></data>
+  <data name="SavedDiagnostics" xml:space="preserve"><value>以下参考与检查对应上次保存的译文；保存草稿后自动更新。</value></data>
 </root>
-

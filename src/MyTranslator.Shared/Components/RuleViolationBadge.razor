@@ -1,0 +1,14 @@
+@namespace MyTranslator.Shared.Components
+@inject ApiErrorMessageProvider Errors
+
+@* TODO(frontend-formal): 正式行内违规定位可替换此功能徽标，保留 error 三通道与后端版本绑定。 *@
+@foreach (var violation in Violations)
+{
+    <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small">
+        @Errors.ForFailureCode(violation.Code)
+    </MudChip>
+}
+@code {
+    /// <summary>当前分段版本的规则违规。</summary>
+    [Parameter] public IReadOnlyList<RuleFinding> Violations { get; set; } = [];
+}
