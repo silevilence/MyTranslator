@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <Version>0.1.0</Version>
     <!-- 发布产物裁剪（仅 publish 生效，dotnet run 不受影响）：
          开发态启动 219 文件/37MB/约 6s，裁剪+预压缩后实测启动 <1.1s。发布流程由容器化任务正式托管。 -->
     <PublishTrimmed Condition=" '$(Configuration)' == 'Release' ">true</PublishTrimmed>

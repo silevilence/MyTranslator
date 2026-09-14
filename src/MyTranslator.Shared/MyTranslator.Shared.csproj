@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MyTranslator.Shared</RootNamespace>
+    <Version>0.1.0</Version>
     <!-- 关闭本库静态资产指纹化：RCL 隔离样式 bundle（*.bundle.scp.css）带指纹名时，
          消费端 index.html 的固定名引用在发布态会 404（.NET 10 对库生成 bundle 的 HTML 指纹改写不生效）。
          本库资产均以固定名引用（mt.css / js / bundle），关闭指纹化保持两条托管流程一致。 -->
