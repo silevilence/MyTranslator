@@ -9,11 +9,18 @@
 | [后端 Dockerfile](../../src/MyTranslator.Api/Dockerfile) | .NET 10 SDK 多阶段发布，ASP.NET Core 运行时托管 API |
 | [前端 Dockerfile](../../src/MyTranslator.Web/Dockerfile) | 发布 Blazor WASM 与共享 RCL 静态资产，由 nginx 托管 |
 | [nginx.conf](../../src/MyTranslator.Web/nginx.conf) | SPA 回退、静态资源 MIME、预压缩、同源 API 反向代理 |
-| [compose.yaml](../../compose.yaml) | 前后端两个镜像服务与 SQLite 命名卷的完整示例 |
+| [compose.yaml](../../compose.yaml) | 从 GHCR 拉取前后端已发布镜像，与 SQLite 命名卷组成部署示例 |
 | [.env.example](../../.env.example) | 部署变量模板，不含可直接使用的 Token |
 | [.dockerignore](../../.dockerignore) | 排除本地构建产物、数据库、开发配置与密钥文件 |
 
-访问链路为：浏览器/第三方客户端 → `web:8080`（nginx）→ `api:8080` → `/data/mytranslator.db`。Compose 默认将 web 映射到宿主机 `127.0.0.1:8080`，API 不映射宿主机端口。两个 Dockerfile 的构建上下文均为**仓库根目录**。
+访问链路为：浏览器/第三方客户端 → `web:8080`（nginx）→ `api:8080` → `/data/mytranslator.db`。Compose 默认将 web 映射到宿主机 `127.0.0.1:8080`，API 不映射宿主机端口。
+
+Compose 不包含 `build`，假定已按以下名称向 GHCR 发布镜像；后续第五部分的发布流程需采用相同名称和标签：
+
+- 后端：`ghcr.io/silevilence/mytranslator-api:${IMAGE_TAG:-latest}`
+- 前端：`ghcr.io/silevilence/mytranslator-web:${IMAGE_TAG:-latest}`
+
+默认使用 `latest`，可通过 `.env` 的 `IMAGE_TAG` 为两端统一指定已发布版本。GitHub 仓库上传与 GHCR 镜像发布是两个独立步骤，本次不验证镜像是否已发布。部署机器只需 `compose.yaml` 与 `.env`，无需源码或 .NET SDK。两个 Dockerfile 保留供后续云端构建，构建上下文均为**仓库根目录**。
 
 前端发布时保留 Release 裁剪与 `.gz` 预压缩，使用 SDK 自带的 WASM 运行时，显式关闭原生重链接，无需安装 `wasm-tools` 或 npm 依赖。运行镜像只复制发布的 `wwwroot`。nginx 提供 `.wasm` 与 `.mjs` 的正确 MIME，优先使用预压缩 gzip 文件；未命中的页面路由回退 `index.html`，缺失的框架/共享库资源返回 404。
 
@@ -23,7 +30,7 @@
 
 ## 2. 环境变量与首次启动
 
-以下命令供**之后有 Docker Engine 与 Compose v2 的环境**使用，均从仓库根目录执行。本次不执行。
+以下命令供**之后有 Docker Engine 与 Compose v2 且镜像已发布的环境**使用，从 `compose.yaml` 所在目录执行；同时准备好 `.env.example` 以生成配置。本次不执行。
 
 先复制配置模板：
 
@@ -37,22 +44,28 @@ Copy-Item .env.example .env
 | 变量 | 默认/要求 | 作用 |
 |---|---|---|
 | `INITIAL_TOKEN` | 必填，`sk-` + 32 位十六进制字符 | 仅注入 API 容器；空值在 Compose 解析时拒绝，格式错误由 API 启动校验拒绝 |
+| `IMAGE_TAG` | `latest` | 前后端 GHCR 镜像共用的已发布标签，仅用于 Compose 镜像引用 |
 | `WEB_BIND_ADDRESS` | `127.0.0.1` | web 的宿主机绑定地址；局域网访问可改为 `0.0.0.0` |
 | `WEB_PORT` | `8080` | web 的宿主机端口 |
 | `ASPNETCORE_ENVIRONMENT` | Compose 固定 `Production` | 禁用开发 Token 回退 |
 | `ASPNETCORE_HTTP_PORTS` | Compose 固定 `8080` | API 容器内部监听端口，与 nginx 上游保持一致 |
 | `ConnectionStrings__DefaultConnection` | `Data Source=/data/mytranslator.db` | SQLite 数据库位于持久化卷 |
 
-环境变量通过 Compose 显式映射到 API；宿主机同名环境变量优先于 `.env`。后端每次启动均要求有效的 `INITIAL_TOKEN`，包括已有数据库时。相同 Token 不重复插入；换成新 Token 会新增记录，不会撤销旧 Token；已撤销的同一 Token 不会因重启重新启用。撤销通过现有 Token 管理 API/界面完成。
+后端运行环境变量通过 Compose 显式映射到 API；宿主机同名环境变量优先于 `.env`。后端每次启动均要求有效的 `INITIAL_TOKEN`，包括已有数据库时。相同 Token 不重复插入；换成新 Token 会新增记录，不会撤销旧 Token；已撤销的同一 Token 不会因重启重新启用。撤销通过现有 Token 管理 API/界面完成。
 
-准备好变量后：
+公开 GHCR 镜像可以匿名拉取；私有镜像需先用具有包访问权限及 `read:packages` 权限的 Personal Access Token (classic) 执行 `docker login ghcr.io -u <GitHub用户名>`，在密码提示处输入 Token。详见 [GitHub Container registry 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)。
+
+准备好变量及所需的拉取权限后：
 
 ```powershell
 docker compose config --quiet
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 api web
 ```
+
+更新部署时，按需修改 `IMAGE_TAG`，再次执行 `docker compose pull` 和 `docker compose up -d`，拉取镜像并重建发生变化的服务，命名数据卷继续保留。
 
 浏览器打开 `http://localhost:8080`，输入配置的 Token 登录。接口文档位于 `/swagger/index.html`。示例是 HTTP 部署；如需跨机器传输真实 Token/密钥，在入口反向代理配置 HTTPS。
 
@@ -134,12 +147,12 @@ docker compose start api
 
 ## 5. 后续云端验证清单
 
-第五部分实施时使用以下独立镜像构建入口（本次不新增 workflow）：
+第五部分实施时，从仓库根目录使用以下独立镜像构建入口检查候选镜像（本次不新增 workflow）；这里直接检查本地构建的 web 镜像，部署 Compose 始终引用 GHCR：
 
 ```sh
 docker build -f src/MyTranslator.Api/Dockerfile -t mytranslator-api:local .
 docker build -f src/MyTranslator.Web/Dockerfile -t mytranslator-web:local .
-docker compose run --rm --no-deps web nginx -t
+docker run --rm mytranslator-web:local nginx -t
 ```
 
 镜像当前使用可跟随补丁更新的 .NET 10 noble 标签与 nginx stable-alpine 标签，构建需要拉取官方镜像和 NuGet 包；它们并非锁定 digest 的可复现构建。后续发布可在验证通过后固定 digest。

@@ -2,10 +2,7 @@ name: mytranslator
 
 services:
   api:
-    image: mytranslator-api:local
-    build:
-      context: .
-      dockerfile: src/MyTranslator.Api/Dockerfile
+    image: ghcr.io/silevilence/mytranslator-api:${IMAGE_TAG:-latest}
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
@@ -16,10 +13,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: mytranslator-web:local
-    build:
-      context: .
-      dockerfile: src/MyTranslator.Web/Dockerfile
+    image: ghcr.io/silevilence/mytranslator-web:${IMAGE_TAG:-latest}
     ports:
       - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
     depends_on:
