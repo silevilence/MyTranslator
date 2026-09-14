@@ -108,7 +108,11 @@ docker compose up -d
 
 访问 `http://localhost:8080`（默认仅绑定 `127.0.0.1`，可用 `WEB_BIND_ADDRESS` / `WEB_PORT` 调整），接口文档在 `/swagger/index.html`（经 nginx 按原路径转发）。更新部署时修改 `.env` 的 `IMAGE_TAG` 后再次执行 `docker compose pull` 与 `docker compose up -d`。
 
-本仓库尚未配置 CI/CD（见 [ROADMAP.md](ROADMAP.md)「五、GitHub Actions 自动发布」），GHCR 镜像需自行构建推送；两个 Dockerfile 的构建上下文均为仓库根目录：
+仓库已配置 [GitHub Actions 自动发布](.github/workflows/release.yml)，仅推送 `V0.1.0` / `v0.1.0` 这样的版本 Tag 时运行，不设置 CI。工作流使用现有 Dockerfile 构建 `linux/amd64` 镜像，推送到 `ghcr.io/silevilence/mytranslator-api` 和 `ghcr.io/silevilence/mytranslator-web`，提供纯版本号（如 `0.1.0`）及 `latest` 标签；部署时可设置 `IMAGE_TAG=0.1.0`。
+
+两个镜像均推送成功后，工作流从该 Tag 提交的 `changelog.md` 提取对应版本正文，创建或更新 GitHub Release。版本标题匹配不区分大小写，Release 关联原始 Tag；日志缺失、重复或为空会在构建前报错。发布步骤、权限和重跑说明见 [GitHub Actions 发布约定](docs/back/GitHub%20Actions%20发布约定.md)。
+
+也可以从仓库根目录手动构建镜像：
 
 ```powershell
 docker build -f src/MyTranslator.Api/Dockerfile -t <registry>/mytranslator-api:<tag> .

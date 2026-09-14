@@ -84,6 +84,8 @@ flowchart TB
 
 ```
 MyTranslator.slnx                     解决方案（新版 .slnx 格式）
+.github/workflows/release.yml         版本 Tag 触发的 CD：构建镜像、推 GHCR、发布 Release
+.github/scripts/                     Python 标准库发布辅助脚本与离线回归测试
 src/MyTranslator.Api/                 后端
   Program.cs                          组合根：DI、鉴权、CORS、端点映射（全部路由在此登记）
   appsettings.json                    连接串、并发上限、日志级别
@@ -163,6 +165,7 @@ dotnet run --project src/MyTranslator.Web # 前端 http://localhost:5000
 - 本地跨端口开发需自建 `src/MyTranslator.Web/wwwroot/appsettings.Development.json`（被 `.gitignore` 忽略），设置 `Api:BaseUrl = http://localhost:5199` 与 `Auth:DevToken`；否则前端按同源请求。VS Code 可用 `.vscode/launch.json` 的「MyTranslator: Full Stack」复合启动。
 - 后端测试经 `WebApplicationFactory<Program>`（`ApiFactory`）运行，使用内存 SQLite（`Mode=Memory;Cache=Shared`）与替身 `IChatClient`/`HttpMessageHandler`；前端测试使用 `FakeJSRuntime`、`StubHttpMessageHandler` 等替身。两者都不访问网络、不启动浏览器，可离线全量运行。
 - 验证顺序：改后端跑 `MyTranslator.Api.Tests`，改共享层跑 `MyTranslator.Shared.Tests`；涉及界面交互时以真实浏览器验证为准（测试不能替代浏览器验证）。
+- 发布流程只做 CD：`V0.1.0` / `v0.1.0` 版本 Tag 触发，镜像标签为 `0.1.0` 与 `latest`，两个镜像推送成功后从该提交的 `changelog.md` 提取对应版本正文并创建或更新 Release。修改发布脚本时用 Python 3 运行 `python -B -m unittest discover -s .github/scripts -p 'test_*.py' -v`，修改工作流时运行 `actionlint .github/workflows/release.yml`；这些检查不加入 CD。详细约定见 `docs/back/GitHub Actions 发布约定.md`。
 
 ## 9. 配置与密钥流
 

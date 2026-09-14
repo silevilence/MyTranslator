@@ -1,6 +1,6 @@
 # Docker 部署约定
 
-对应 ROADMAP「四、Docker 容器化」。本次交付构建配置与部署示例；本机无 Docker，未执行镜像构建、容器启动或容器内翻译验证。GitHub Actions 的构建、测试与 GHCR 发布留到「五、GitHub Actions 自动发布」。
+对应 ROADMAP「四、Docker 容器化」。本次交付构建配置与部署示例；本机无 Docker，未执行镜像构建、容器启动或容器内翻译验证。版本 Tag 触发的镜像构建、GHCR 推送与 Release 发布已配置，见 [GitHub Actions 发布约定](GitHub%20Actions%20发布约定.md)；不设置 CI。
 
 ## 1. 文件与部署拓扑
 
@@ -15,12 +15,12 @@
 
 访问链路为：浏览器/第三方客户端 → `web:8080`（nginx）→ `api:8080` → `/data/mytranslator.db`。Compose 默认将 web 映射到宿主机 `127.0.0.1:8080`，API 不映射宿主机端口。
 
-Compose 不包含 `build`，假定已按以下名称向 GHCR 发布镜像；后续第五部分的发布流程需采用相同名称和标签：
+Compose 不包含 `build`，从以下地址拉取镜像，与自动发布工作流采用相同名称和标签：
 
 - 后端：`ghcr.io/silevilence/mytranslator-api:${IMAGE_TAG:-latest}`
 - 前端：`ghcr.io/silevilence/mytranslator-web:${IMAGE_TAG:-latest}`
 
-默认使用 `latest`，可通过 `.env` 的 `IMAGE_TAG` 为两端统一指定已发布版本。GitHub 仓库上传与 GHCR 镜像发布是两个独立步骤，本次不验证镜像是否已发布。部署机器只需 `compose.yaml` 与 `.env`，无需源码或 .NET SDK。两个 Dockerfile 保留供后续云端构建，构建上下文均为**仓库根目录**。
+默认使用 `latest`，可通过 `.env` 的 `IMAGE_TAG` 为两端统一指定已发布版本（例如 `0.1.0`，不带 `V/v` 前缀）。推送版本 Tag 后需等待 Actions 成功；本地验证尚未确认 GHCR 镜像已发布。部署机器只需 `compose.yaml` 与 `.env`，无需源码或 .NET SDK。自动发布复用两个 Dockerfile，构建上下文均为**仓库根目录**。
 
 前端发布时保留 Release 裁剪与 `.gz` 预压缩，使用 SDK 自带的 WASM 运行时，显式关闭原生重链接，无需安装 `wasm-tools` 或 npm 依赖。运行镜像只复制发布的 `wwwroot`。nginx 提供 `.wasm` 与 `.mjs` 的正确 MIME，优先使用预压缩 gzip 文件；未命中的页面路由回退 `index.html`，缺失的框架/共享库资源返回 404。
 
@@ -147,7 +147,7 @@ docker compose start api
 
 ## 5. 后续云端验证清单
 
-第五部分实施时，从仓库根目录使用以下独立镜像构建入口检查候选镜像（本次不新增 workflow）；这里直接检查本地构建的 web 镜像，部署 Compose 始终引用 GHCR：
+在具备 Docker 的环境，可从仓库根目录使用以下独立镜像构建入口检查候选镜像；这里直接检查本地构建的 web 镜像，部署 Compose 始终引用 GHCR：
 
 ```sh
 docker build -f src/MyTranslator.Api/Dockerfile -t mytranslator-api:local .

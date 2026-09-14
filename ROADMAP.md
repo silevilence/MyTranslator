@@ -22,17 +22,6 @@
 
 ## 🚧 开发中 (In Progress)
 
-### 五、GitHub Actions 自动发布
-
-- [ ] **后端：GHA CI 与后端镜像发布**（自动构建测试 + 推 GHCR）
-  - [ ] push/PR 自动触发构建与测试（CI）
-  - [ ] 主分支/tag 推送后构建 Docker 镜像并推送至 GHCR（CD）
-  - 验收：推送代码后 Actions 运行通过，GHCR 出现后端镜像
-
-- [ ] **前端：GHA 前端镜像发布**（构建 WASM + 推 GHCR）
-  - [ ] 推送后自动构建 WASM 与 nginx 镜像并推送至 GHCR
-  - 验收：推送代码后 Actions 运行通过，GHCR 出现前端镜像
-
 ## ✅ 已完成 (Completed)
 
 ### 一、前后端基本框架
@@ -194,7 +183,7 @@
 
 ### 四、Docker 容器化
 
-> 配置交付已完成（2026-09-14）。按本次任务范围未执行本地 Docker 构建或运行；下列 GHA 构建及容器运行验收仍待第五部分实施后验证，不表示云端验收已通过。部署与后续验证步骤见 [Docker 部署约定](docs/back/Docker%20部署约定.md)。
+> 配置交付已完成（2026-09-14）。按本次任务范围未执行本地 Docker 构建或运行；第五部分发布工作流已实现，下列 GHA 构建及容器运行验收仍待首次版本 Tag 发布后验证，不表示云端验收已通过。部署与后续验证步骤见 [Docker 部署约定](docs/back/Docker%20部署约定.md)。
 
 - [x] **后端：Docker 容器化**（后端镜像 + compose 编排）
   - [x] 后端多阶段构建 Dockerfile；docker-compose 编排（后端 + 前端镜像服务 + SQLite 数据卷）
@@ -206,3 +195,23 @@
 - [x] **前端：前端容器镜像**（nginx 托管 WASM）
   - [x] 前端 nginx Dockerfile：构建 WASM 产物并托管静态资源，SPA 路由配置
   - 验收：Dockerfile 齐全且可被 GHA 云端成功构建前端镜像
+
+### 五、GitHub Actions 自动发布
+
+> 实现与本地验证已完成（2026-09-14）：13 项发布脚本回归测试和 actionlint 静态检查通过。本机无 Docker，尚未推送发布 Tag；以下 GHCR 镜像与 GitHub Release 的云端验收仍待首次发布验证。详见 [GitHub Actions 发布约定](docs/back/GitHub%20Actions%20发布约定.md)。
+
+本节仅实现自动发布（CD），不设置 CI 构建与测试流程；仅推送 `V主版本.次版本.修订号` 格式的版本 Tag 时触发，Tag 匹配不区分大小写（如 `V0.1.0`、`v0.1.0` 均触发），普通分支推送、PR 与非版本 Tag 不触发发布。
+
+- [x] **后端：GHA 后端镜像发布**（版本 Tag 触发 + 推 GHCR）
+  - [x] 推送版本 Tag 后构建 Docker 镜像并推送至 GHCR（CD）
+  - 验收：推送 `V0.1.0` 或 `v0.1.0` 等版本 Tag 后 Actions 发布运行通过，GHCR 出现后端镜像；普通分支推送、PR 与非版本 Tag 不触发发布
+
+- [x] **前端：GHA 前端镜像发布**（版本 Tag 触发 + 构建 WASM + 推 GHCR）
+  - [x] 推送版本 Tag 后自动构建 WASM 与 nginx 镜像并推送至 GHCR
+  - 验收：推送 `V0.1.0` 或 `v0.1.0` 等版本 Tag 后 Actions 发布运行通过，GHCR 出现前端镜像；普通分支推送、PR 与非版本 Tag 不触发发布
+
+- [x] **发布：GHA GitHub Release 与更新日志**（版本 Tag 触发 + 提取 Changelog）
+  - [x] 前后端镜像成功推送至 GHCR 后，为本次推送的原始 Tag 创建或更新 GitHub Release
+  - [x] 从该 Tag 对应提交的 `changelog.md` 提取对应版本内容：按现有 `## V0.1.0` 二级标题格式匹配版本，匹配不区分大小写；正文取该标题之后至下一二级标题之前（或文件末尾）的内容，保留三级分类标题、列表等 Markdown 格式，不包含其他版本
+  - [x] 将提取内容写入 GitHub Release 正文；找不到对应版本或正文为空时明确报错，不发布空白或错误版本的 Release
+  - 验收：`V0.1.0` 与 `v0.1.0` 均能匹配 `changelog.md` 的 `## V0.1.0`；Release 关联本次原始 Tag，正文与对应版本更新日志一致；重复运行更新同一 Tag 的 Release；日志缺失或为空时运行失败并提示原因
