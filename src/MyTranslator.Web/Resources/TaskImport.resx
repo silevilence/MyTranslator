@@ -25,7 +25,7 @@
     <value>URL 导入</value>
   </data>
   <data name="FileSectionDescription" xml:space="preserve">
-    <value>支持 txt、markdown、html、epub；文件类型未指定时按扩展名或 Content-Type 推断</value>
+    <value>支持 txt、markdown、html、epub、srt、vtt；文件类型未指定时按扩展名或 Content-Type 推断</value>
   </data>
   <data name="FileTypeLabel" xml:space="preserve">
     <value>文件类型</value>

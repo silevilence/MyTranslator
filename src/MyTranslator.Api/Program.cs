@@ -98,7 +98,8 @@ builder.Services.AddCors(options =>
             }
         }
 
-        policy.AllowAnyHeader().AllowAnyMethod();
+        policy.AllowAnyHeader().AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition", "Location", "Retry-After");
     });
 });
 builder.Services.AddProblemDetails();

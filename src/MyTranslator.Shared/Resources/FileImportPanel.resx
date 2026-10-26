@@ -2,7 +2,7 @@
 <root>
   <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
   <resheader name="version"><value>2.0</value></resheader>
-  <data name="Description" xml:space="preserve"><value>可一次选择最多 20 个相关文件，共同创建一个翻译任务。支持文本、Markdown、HTML 和 EPUB，总大小不超过 10 MiB。</value></data>
+  <data name="Description" xml:space="preserve"><value>可一次选择最多 20 个相关文件，共同创建一个翻译任务。支持文本、Markdown、HTML、EPUB、SRT 和 WebVTT，总大小不超过 10 MiB。字幕每条对应一个分段，保留时间轴；WebVTT 仅接受字幕轨道。</value></data>
   <data name="Choose" xml:space="preserve"><value>选择文件（可多选）</value></data>
   <data name="Selected" xml:space="preserve"><value>待导入文件</value></data>
   <data name="Remove" xml:space="preserve"><value>移除 {0}</value></data>
@@ -16,6 +16,8 @@
   <data name="Markdown" xml:space="preserve"><value>Markdown 文档</value></data>
   <data name="Html" xml:space="preserve"><value>网页文件（HTML）</value></data>
   <data name="Epub" xml:space="preserve"><value>电子书（EPUB）</value></data>
+  <data name="Srt" xml:space="preserve"><value>字幕（SRT）</value></data>
+  <data name="Vtt" xml:space="preserve"><value>字幕（WebVTT）</value></data>
   <data name="Segmentation" xml:space="preserve"><value>文本文件如何分段</value></data>
   <data name="SegmentationHelp" xml:space="preserve"><value>仅影响 TXT 文件，其余格式按文档结构分段。</value></data>
   <data name="SegmentationAuto" xml:space="preserve"><value>自动选择（推荐）</value></data>

@@ -5,6 +5,20 @@ namespace MyTranslator.Api.Tests;
 public sealed class CorsTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     [Fact]
+    public async Task BrowserCanReadDownloadNameAndRunResponseHeaders()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/health");
+        request.Headers.Add("Origin", "http://localhost:5000");
+        request.Headers.Add("Authorization", "Bearer sk-dev-00000000000000000000000000000000");
+        using var client = factory.CreateClient();
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var exposed = response.Headers.GetValues("Access-Control-Expose-Headers").Single();
+        foreach (var header in new[] { "Content-Disposition", "Location", "Retry-After" })
+            Assert.Contains(header, exposed, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task DevelopmentAllowsBrowserPreflightForApiEndpoints()
     {
         using var request = new HttpRequestMessage(HttpMethod.Options, "/api/health");

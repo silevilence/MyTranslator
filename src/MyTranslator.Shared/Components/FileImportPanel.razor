@@ -5,7 +5,7 @@
 @inject IStringLocalizer<FileImportPanel> L
 
 <MudText Typo="Typo.body2">@L["Description"]</MudText>
-<MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".txt,.md,.markdown,.html,.htm,.epub"
+<MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".txt,.md,.markdown,.html,.htm,.epub,.srt,.vtt"
                Files="_files" FilesChanged="FilesChanged" MaximumFileCount="1000" Disabled="_busy" Class="mt-4">
     <CustomContent Context="upload">
         <MudButton OnClick="upload.OpenFilePickerAsync" Disabled="_busy" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">@L["Choose"]</MudButton>
@@ -37,6 +37,8 @@
         <MudSelectItem Value="@("markdown")">@L["Markdown"]</MudSelectItem>
         <MudSelectItem Value="@("html")">@L["Html"]</MudSelectItem>
         <MudSelectItem Value="@("epub")">@L["Epub"]</MudSelectItem>
+        <MudSelectItem Value="@("srt")">@L["Srt"]</MudSelectItem>
+        <MudSelectItem Value="@("vtt")">@L["Vtt"]</MudSelectItem>
     </MudSelect>
 }
 @if (HasTextFiles)

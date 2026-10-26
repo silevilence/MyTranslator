@@ -34,7 +34,7 @@
     <value>请求失败，请稍后重试</value>
   </data>
   <data name="invalid_file_type" xml:space="preserve">
-    <value>不支持的文件类型，请选择 txt / markdown / html / epub</value>
+    <value>不支持的文件类型，请选择 txt / markdown / html / epub / srt / vtt</value>
   </data>
   <data name="invalid_file_type_for_url" xml:space="preserve">
     <value>URL 导入仅支持 html 文件类型</value>
@@ -273,4 +273,7 @@
   <data name="invalid_reasoning_effort" xml:space="preserve"><value>思考等级无效，请重新选择。</value></data>
   <data name="reasoning_not_supported" xml:space="preserve"><value>当前模型未标注支持此思考等级，请使用“模型默认”，或在设置中核对模型能力。</value></data>
   <data name="invalid_file_collection" xml:space="preserve"><value>请选择 1–20 个名称不同的文件，文件名不能包含路径。</value></data>
+  <data name="subtitle_parse_failed" xml:space="preserve"><value>字幕格式、时间轴或正文标记不受支持，请检查原文件后重试。</value></data>
+  <data name="subtitle_encoding_invalid" xml:space="preserve"><value>字幕编码不受支持或内容损坏，请使用 UTF-8；SRT 也支持带 BOM 的 UTF-16。</value></data>
+  <data name="subtitle_structure_violation" xml:space="preserve"><value>字幕译文含空行、非法标记或控制内容。请移除空行、时间轴箭头及新增标签后重新保存；可在同一条目内正常换行。</value></data>
 </root>

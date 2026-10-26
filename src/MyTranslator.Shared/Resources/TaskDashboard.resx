@@ -102,4 +102,6 @@
   <data name="Format_epub" xml:space="preserve"><value>EPUB 电子书</value></data>
   <data name="Format_bundle" xml:space="preserve"><value>多文件任务</value></data>
   <data name="Format_unknown" xml:space="preserve"><value>文件</value></data>
+  <data name="Format_srt" xml:space="preserve"><value>SRT 字幕</value></data>
+  <data name="Format_vtt" xml:space="preserve"><value>WebVTT 字幕</value></data>
 </root>

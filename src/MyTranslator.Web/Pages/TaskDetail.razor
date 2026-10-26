@@ -75,7 +75,7 @@ else
             </div>
             <div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["FileType"]</MudText>
-                <MudText Typo="Typo.body1">@Localizer[_summary.FileType switch { "txt" => "Format_txt", "markdown" => "Format_markdown", "html" => "Format_html", "epub" => "Format_epub", "bundle" => "Format_bundle", _ => "Format_unknown" }]</MudText>
+                <MudText Typo="Typo.body1">@Localizer[_summary.FileType switch { "txt" => "Format_txt", "markdown" => "Format_markdown", "html" => "Format_html", "epub" => "Format_epub", "srt" => "Format_srt", "vtt" => "Format_vtt", "bundle" => "Format_bundle", _ => "Format_unknown" }]</MudText>
             </div>
             <div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["Encoding"]</MudText>
@@ -132,6 +132,7 @@ else
             <MudTextField T="string"
                           Value="@_tmSourceLanguageInput"
                           ValueChanged="OnTmSourceLanguageInputChanged"
+                          Immediate="true"
                           Label="@Localizer["TmSourceLanguageLabel"]"
                           Variant="Variant.Outlined"
                           Class="mt-task-tm-language-field"
@@ -142,6 +143,7 @@ else
             <MudTextField T="string"
                           Value="@_tmTargetLanguageInput"
                           ValueChanged="OnTmTargetLanguageInputChanged"
+                          Immediate="true"
                           Label="@Localizer["TmTargetLanguageLabel"]"
                           Variant="Variant.Outlined"
                           Class="mt-task-tm-language-field"

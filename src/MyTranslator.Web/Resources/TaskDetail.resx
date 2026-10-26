@@ -46,7 +46,7 @@
     <value>编码</value>
   </data>
   <data name="EncodingUnknown" xml:space="preserve">
-    <value>多编码（epub 容器）</value>
+    <value>按原文件保留编码</value>
   </data>
   <data name="ByteLength" xml:space="preserve">
     <value>大小</value>
@@ -143,4 +143,6 @@
   <data name="Format_unknown" xml:space="preserve"><value>未知格式</value></data>
   <data name="FilesCount" xml:space="preserve"><value>本任务包含 {0} 个文件，统一翻译与导出。</value></data>
   <data name="FilesList" xml:space="preserve"><value>查看文件清单</value></data>
+  <data name="Format_srt" xml:space="preserve"><value>SRT 字幕</value></data>
+  <data name="Format_vtt" xml:space="preserve"><value>WebVTT 字幕</value></data>
 </root>
