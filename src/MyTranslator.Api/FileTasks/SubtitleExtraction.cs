@@ -20,6 +20,8 @@ internal static partial class SubtitleExtraction
         var previousStart = -1L;
         if (fileType == "vtt")
         {
+            var whitespaceLine = lines.FindIndex(line => line.Text.Length > 0 && string.IsNullOrWhiteSpace(line.Text));
+            if (whitespaceLine >= 0) throw ParseError(fileType, 0, whitespaceLine + 1);
             if (lines.Count == 0 || !VttHeader().IsMatch(lines[0].Text) || lines[0].Text.Contains("-->", StringComparison.Ordinal) ||
                 (lines.Count > 1 && lines[1].Text.Length != 0)) throw ParseError(fileType, 0, 1);
             firstLine = 1;
@@ -38,7 +40,7 @@ internal static partial class SubtitleExtraction
             var timing = (fileType == "vtt" ? VttTiming() : SrtTiming()).Match(block[timingIndex].Text);
             if (!timing.Success || !TryTime(timing.Groups["start"].Value, out var start) ||
                 !TryTime(timing.Groups["end"].Value, out var end) || end <= start)
-                throw ParseError(fileType, cue, first + 2);
+                throw ParseError(fileType, cue, first + timingIndex + 1);
             if (fileType == "vtt")
             {
                 if (start < previousStart || !ValidSettings(timing.Groups["settings"].Value))
@@ -182,7 +184,7 @@ internal static partial class SubtitleExtraction
             }
             var text = encoding.GetString(bytes, skip, bytes.Length - skip);
             if (text.Contains('\0')) throw new DecoderFallbackException();
-            return (text, encoding.WebName);
+            return (text, encoding.WebName.ToLowerInvariant());
         }
         catch (DecoderFallbackException exception)
         {

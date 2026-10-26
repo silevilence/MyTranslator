@@ -1,0 +1,3 @@
+*.srt -text whitespace=cr-at-eol
+*.vtt -text
+*.txt -text

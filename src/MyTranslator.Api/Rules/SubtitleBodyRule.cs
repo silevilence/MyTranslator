@@ -12,6 +12,7 @@ public sealed class SubtitleBodyRule : ITranslationRule
     {
         if (context.FileType is not ("srt" or "vtt") || context.TargetText is null) return null;
         var text = context.TargetText;
+        var restored = context.TargetText;
         using var table = JsonDocument.Parse(context.MarkupTableJson);
         foreach (var item in table.RootElement.EnumerateArray())
         {
@@ -20,7 +21,13 @@ public sealed class SubtitleBodyRule : ITranslationRule
             text = text.Replace($"<x{id}>", "M", StringComparison.Ordinal)
                 .Replace($"</x{id}>", "M", StringComparison.Ordinal)
                 .Replace($"<x{id}/>", "M", StringComparison.Ordinal);
+            if (item.GetProperty("kind").GetString() == "paired")
+                restored = restored.Replace($"<x{id}>", item.GetProperty("openingText").GetString(), StringComparison.Ordinal)
+                    .Replace($"</x{id}>", item.GetProperty("closingText").GetString(), StringComparison.Ordinal);
+            else
+                restored = restored.Replace($"<x{id}/>", item.GetProperty("originalText").GetString(), StringComparison.Ordinal);
         }
-        return SubtitleExtraction.IsPlainBodyValid(text) ? null : new("subtitle_structure_violation", true);
+        return SubtitleExtraction.IsPlainBodyValid(text) && SubtitleExtraction.IsPlainBodyValid(restored, allowMarkup: true)
+            ? null : new("subtitle_structure_violation", true);
     }
 }

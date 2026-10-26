@@ -1,0 +1,24 @@
+WEBVTT captions
+
+NOTE keep this comment
+
+STYLE
+::cue(.red) { color: red; }
+
+REGION
+id:main
+width:80%
+lines:3
+
+intro
+00:01.000 --> 00:04.000 align:start
+<v Alice><c.red>Hello</c> world
+Second <00:02.000>line</v>
+
+second
+00:02.500 --> 00:05.000 position:50%,center
+Overlap
+
+last
+00:07.000 --> 00:09.000
+<i>Last</i>

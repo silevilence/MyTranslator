@@ -125,10 +125,10 @@ CONTEXT.md                            领域术语表与用语红线
 
 ## 5. 模块职责说明
 
-- **文件导入拆解/导出（`FileTasks`）**：把支持格式解析为可翻译分段，处理占位符/标记提取与回填，导出时按重建模板还原。支持 txt、markdown、html、epub、URL；仅覆盖自用格式，不追求大而全。原文标记提取模型见 ADR-0002。
+- **文件导入拆解/导出（`FileTasks`）**：把支持格式解析为可翻译分段，处理占位符/标记提取与回填，导出时按重建模板还原。支持 txt、markdown、html、epub、srt、vtt、URL；仅覆盖自用格式，不追求大而全。字幕按条目固定分段，保护时间轴，严格保留支持的编码及结构；范围见 `docs/back/字幕翻译接口约定.md`。原文标记提取模型见 ADR-0002。
 - **术语表 / 翻译记忆库（`Terms`、`TranslationMemory`）**：维护术语与 TM，提供模糊匹配、术语对齐检查与差异对比结论；匹配分数、差异分数与告警结论一律由后端计算，前端只呈现。
 - **AI 翻译/审核编排（`Translation`、`Review`、`AiConfiguration`）**：异步运行 = 队列 + 后台 Worker + Processor + Service，绑定创建时的提取修订，状态机为 `queued/processing/completed/partial_failed/failed`，支持中断恢复、分段级失败记录与部分失败。上下文注入术语命中（TM 预留）。
-- **硬性规则检查引擎（`Rules`）**：不依赖 AI 的确定性校验。内置占位符完整性与漏翻检测；新规则实现 `ITranslationRule` 并在 `Program.cs` 注册即可，不改核心流程。
+- **硬性规则检查引擎（`Rules`）**：不依赖 AI 的确定性校验。内置占位符完整性、漏翻检测与字幕正文结构校验；新规则实现 `ITranslationRule` 并在 `Program.cs` 注册即可，不改核心流程。字幕规则按任务或多文件成员的持久化格式判断，不凭文件扩展名猜测。
 - **任务与状态管理（`TaskLists`、`TaskOperations`、`Data`）**：任务生命周期（created/processing/completed/failed）、进度统计（受保护块不计入分段）、译文保存与确认、游标分页。`TaskOperationLock` 保证同一任务上的改写操作串行互斥。
 
 ## 6. 接口设计原则
@@ -157,7 +157,7 @@ CONTEXT.md                            领域术语表与用语红线
 
 ```powershell
 dotnet build MyTranslator.slnx            # 构建（0 警告 0 错误）
-dotnet test  MyTranslator.slnx            # 全量测试（当前 359 个：Api 163、Shared 196）
+dotnet test  MyTranslator.slnx            # 全量测试（当前 434 个：Api 230、Shared 204）
 dotnet run --project src/MyTranslator.Api # 后端 http://localhost:5199，Swagger 在 /swagger
 dotnet run --project src/MyTranslator.Web # 前端 http://localhost:5000
 ```

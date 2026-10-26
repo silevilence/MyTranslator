@@ -1,4 +1,5 @@
 using System.Net;
+using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
@@ -12,6 +13,132 @@ namespace MyTranslator.Api.Tests;
 
 public sealed class SubtitleApiTests
 {
+    [Theory]
+    [InlineData("srt", false)]
+    [InlineData("srt", true)]
+    [InlineData("vtt", false)]
+    [InlineData("vtt", true)]
+    public async Task MissingOrDuplicateAiSegmentsDoNotPolluteSubtitlesAndNewRunRecovers(string type, bool duplicate)
+    {
+        var model = new BrokenBatchClient(duplicate);
+        using var factory = new ApiFactory("Development", null, translationProvider: model);
+        using var client = Client(factory);
+        var id = (await Import(client, Encoding.UTF8.GetBytes(type == "srt" ? Srt : Vtt), "a." + type)).GetProperty("taskId").GetGuid();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await db.Providers.SingleAsync()).MaxAttempts = 1;
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal("failed", (await Run(client, id, "translation")).GetProperty("status").GetString());
+        Assert.All(await Segments(client, id), segment => Assert.Equal(JsonValueKind.Null, segment.GetProperty("targetText").ValueKind));
+        Assert.Equal(HttpStatusCode.Conflict, (await client.GetAsync($"/api/tasks/{id}/result")).StatusCode);
+        model.Broken = false;
+        Assert.Equal("completed", (await Run(client, id, "translation")).GetProperty("status").GetString());
+        Assert.Equal(type == "srt" ? Srt : Vtt, await client.GetStringAsync($"/api/tasks/{id}/result"));
+    }
+
+    [Theory]
+    [InlineData("srt", "application/x-subrip")]
+    [InlineData("vtt", "text/vtt")]
+    public async Task SubtitleMediaTypeInferenceAndFixedSegmentation(string type, string mediaType)
+    {
+        using var factory = new ApiFactory();
+        using var client = Client(factory);
+        using var form = new MultipartFormDataContent();
+        var content = new ByteArrayContent(Encoding.UTF8.GetBytes(type == "srt" ? Srt : Vtt));
+        content.Headers.ContentType = new(mediaType);
+        form.Add(content, "file", "without-extension");
+        var response = await client.PostAsync("/api/tasks/imports/file", form);
+        response.EnsureSuccessStatusCode();
+        var task = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(type, task.GetProperty("fileType").GetString());
+        var id = task.GetProperty("taskId").GetGuid();
+        var preview = await client.PostAsJsonAsync($"/api/tasks/{id}/extraction-previews", new { selector = "body" });
+        Assert.Equal(HttpStatusCode.Conflict, preview.StatusCode);
+        using var invalidForm = Form(Encoding.UTF8.GetBytes(type == "srt" ? Srt : Vtt), "a." + type);
+        invalidForm.Add(new StringContent("line"), "segmentationMode");
+        var invalid = await client.PostAsync("/api/tasks/imports/file", invalidForm);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("segmentation_mode_not_applicable", (await invalid.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    public async Task MixedFilesKeepOwnershipEncodingAndZipMembers(string newline)
+    {
+        using var factory = new ApiFactory("Development", null, translationProvider: new SubtitleChatClient());
+        using var client = Client(factory);
+        var sources = new Dictionary<string, byte[]>
+        {
+            ["captions.srt"] = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(Srt.Replace("\r\n", newline))).ToArray(),
+            ["captions.vtt"] = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(Vtt.Replace("\n", newline))).ToArray(),
+            ["notes.txt"] = Encoding.UTF8.GetBytes("Companion text"),
+            ["notes.md"] = Encoding.UTF8.GetBytes("# Companion\n\n```\nProtected\n```"),
+            ["notes.html"] = Encoding.UTF8.GetBytes("<html><body><p>Companion</p><script>keep()</script></body></html>")
+        };
+        using var form = new MultipartFormDataContent();
+        foreach (var (name, bytes) in sources) form.Add(new ByteArrayContent(bytes), "files", name);
+        var created = await client.PostAsync("/api/tasks/imports/files", form);
+        created.EnsureSuccessStatusCode();
+        var task = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = task.GetProperty("taskId").GetGuid();
+        Assert.Equal(5, task.GetProperty("files").GetArrayLength());
+        Assert.Equal("completed", (await Run(client, id, "translation")).GetProperty("status").GetString());
+        var segments = await Segments(client, id);
+        Assert.Equal(9, segments.Length);
+        Assert.Equal(Enumerable.Range(1, 9), segments.Select(s => s.GetProperty("order").GetInt32()));
+        Assert.Equal(sources.Keys, segments.Select(s => s.GetProperty("sourceFileName").GetString()).Distinct());
+        using var zip = new ZipArchive(new MemoryStream(await client.GetByteArrayAsync($"/api/tasks/{id}/result")));
+        foreach (var (name, bytes) in sources)
+        {
+            using var output = new MemoryStream();
+            await using var member = zip.GetEntry(name)!.Open();
+            await member.CopyToAsync(output);
+            Assert.Equal(bytes, output.ToArray());
+        }
+        var subtitle = segments[1];
+        await Problem(await Save(client, id, subtitle, "bad\n\ncue"), "subtitle_structure_violation");
+    }
+
+    [Theory]
+    [InlineData("<x1>Hello--</x1>>")]
+    [InlineData("<x1>Hello\n</x1>")]
+    public async Task ImplicitVttClosingTagCannotHideInvalidRenderedBody(string target)
+    {
+        using var factory = new ApiFactory();
+        using var client = Client(factory);
+        var id = (await Import(client, Encoding.UTF8.GetBytes("WEBVTT\n\n00:01.000 --> 00:02.000\n<v Alice>Hello"), "a.vtt"))
+            .GetProperty("taskId").GetGuid();
+        await Problem(await Save(client, id, Assert.Single(await Segments(client, id)), target), "subtitle_structure_violation");
+    }
+
+    [Theory]
+    [InlineData("srt")]
+    [InlineData("vtt")]
+    public async Task PlaceholderOrderAndCountsAreCheckedAgainAtExport(string type)
+    {
+        using var factory = new ApiFactory();
+        using var client = Client(factory);
+        var text = type == "srt" ? "1\n00:00:01,000 --> 00:00:02,000\n<b>Hello</b><i>world</i>"
+            : "WEBVTT\n\n00:01.000 --> 00:02.000\n<b>Hello</b><i>world</i>";
+        var id = (await Import(client, Encoding.UTF8.GetBytes(text), "a." + type)).GetProperty("taskId").GetGuid();
+        var segment = Assert.Single(await Segments(client, id));
+        const string invalid = "<x2>Hello</x2><x1>world</x1>";
+        await Problem(await Save(client, id, segment, invalid), "placeholder_integrity_violation");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await db.TranslationSegments.SingleAsync()).TargetText = invalid;
+            await db.SaveChangesAsync();
+        }
+        var exported = await client.GetAsync($"/api/tasks/{id}/result");
+        Assert.Equal(HttpStatusCode.Conflict, exported.StatusCode);
+        Assert.Equal("task_not_exportable", (await exported.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
+
     private const string Srt = "7\r\n00:00:01,000 --> 00:00:04,000\r\n<b>Hello</b> &amp; world\r\nSecond line\r\n\r\n9\r\n00:00:02,500 --> 00:00:05,000\r\nOverlap\r\n\r\n11\r\n00:00:07,000 --> 00:00:08,000\r\n\r\n15\r\n00:00:09,000 --> 00:00:10,000\r\n<font color=\"#ff0000\">Last</font>";
     private const string Vtt = "WEBVTT captions\n\nNOTE preserved comment\nDo not translate\n\nSTYLE\n::cue(.red) { color: red; }\n\nREGION\nid:main\nwidth:80%\nlines:3\nregionanchor:0%,100%\nviewportanchor:10%,90%\nscroll:up\n\nintro\n00:01.000 --> 00:04.000 region:main align:start\n<v Alice><c.red>Hello</c> &amp; world\nSecond <00:02.000>line</v>\n\n00:02.500 --> 00:05.000 line:90%,end position:50%,center size:80%\n<lang en><ruby>Text<rt>reading</rt></ruby></lang>\n\n00:07.000 --> 00:08.000\n\nlast\n00:09.000 --> 00:10.000 vertical:rl\n<v Bob>Last";
 
@@ -43,6 +170,7 @@ public sealed class SubtitleApiTests
 
     [Theory]
     [InlineData("WEBVTT\nKind: metadata\n\n00:01.000 --> 00:02.000\nmetadata")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\nHello\n \nNOTE keep\nMore text")]
     [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\nHello --> corrupt")]
     [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\n<00:02.500>Hello")]
     [InlineData("WEBVTT\n\n00:01.000 --> 00:04.000\n<00:02.500>Hello<00:02.000>World")]
@@ -276,5 +404,20 @@ public sealed class SubtitleApiTests
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
         public void Dispose() { }
+    }
+
+    private sealed class BrokenBatchClient(bool duplicate) : TestTranslationChatClient
+    {
+        public bool Broken { get; set; } = true;
+        protected override Task<IReadOnlyList<TestTranslationOutput>> TranslateCoreAsync(TestTranslationRequest request, CancellationToken cancellationToken)
+        {
+            var outputs = request.Segments.Select(s => new TestTranslationOutput(s.SegmentId, s.SourceText)).ToList();
+            if (Broken)
+            {
+                if (duplicate) outputs.Add(outputs[0]);
+                else outputs.RemoveAt(0);
+            }
+            return Task.FromResult<IReadOnlyList<TestTranslationOutput>>(outputs);
+        }
     }
 }
