@@ -81,7 +81,7 @@ public sealed partial class FileTaskService(
                 "txt" => TextExtraction.Extract(sourceBytes, segmentationMode),
                 "markdown" => MarkdownExtraction.Extract(sourceBytes),
                 "html" => HtmlExtraction.Extract(sourceBytes),
-                "srt" => SubtitleExtraction.Extract(sourceBytes, effectiveFileType),
+                "srt" or "vtt" => SubtitleExtraction.Extract(sourceBytes, effectiveFileType),
                 _ => throw new InvalidFileTaskRequestException(
                     "invalid_file_type",
                     "This file type is not implemented yet.")
@@ -532,6 +532,7 @@ public sealed partial class FileTaskService(
             "epub" => "application/epub+zip",
             "bundle" => "application/zip",
             "srt" => $"application/x-subrip; charset={task.OriginalEncoding}",
+            "vtt" => "text/vtt; charset=utf-8",
             _ => "application/octet-stream"
         };
         return new ExportedFile(content, contentType, BuildExportFileName(task.FileName, task.FileType));
@@ -985,12 +986,13 @@ public sealed partial class FileTaskService(
                 "html" => "html",
                 "epub" => "epub",
                 "srt" => "srt",
+                "vtt" => "vtt",
                 _ => throw new InvalidFileTaskRequestException("invalid_file_type", "Unsupported file type.")
             };
         }
 
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        if (extension is ".txt" or ".md" or ".markdown" or ".html" or ".htm" or ".epub" or ".srt")
+        if (extension is ".txt" or ".md" or ".markdown" or ".html" or ".htm" or ".epub" or ".srt" or ".vtt")
         {
             return extension switch
             {
@@ -999,6 +1001,7 @@ public sealed partial class FileTaskService(
                 ".html" or ".htm" => "html",
                 ".epub" => "epub",
                 ".srt" => "srt",
+                ".vtt" => "vtt",
                 _ => throw new InvalidOperationException("Unsupported file extension mapping.")
             };
         }
@@ -1011,6 +1014,7 @@ public sealed partial class FileTaskService(
             "text/html" or "application/xhtml+xml" => "html",
             "application/epub+zip" => "epub",
             "application/x-subrip" => "srt",
+            "text/vtt" => "vtt",
             _ => throw new InvalidFileTaskRequestException(
                 "unable_to_infer_file_type",
                 "The file type could not be inferred.")

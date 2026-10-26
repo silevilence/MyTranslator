@@ -13,6 +13,75 @@ namespace MyTranslator.Api.Tests;
 public sealed class SubtitleApiTests
 {
     private const string Srt = "7\r\n00:00:01,000 --> 00:00:04,000\r\n<b>Hello</b> &amp; world\r\nSecond line\r\n\r\n9\r\n00:00:02,500 --> 00:00:05,000\r\nOverlap\r\n\r\n11\r\n00:00:07,000 --> 00:00:08,000\r\n\r\n15\r\n00:00:09,000 --> 00:00:10,000\r\n<font color=\"#ff0000\">Last</font>";
+    private const string Vtt = "WEBVTT captions\n\nNOTE preserved comment\nDo not translate\n\nSTYLE\n::cue(.red) { color: red; }\n\nREGION\nid:main\nwidth:80%\nlines:3\nregionanchor:0%,100%\nviewportanchor:10%,90%\nscroll:up\n\nintro\n00:01.000 --> 00:04.000 region:main align:start\n<v Alice><c.red>Hello</c> &amp; world\nSecond <00:02.000>line</v>\n\n00:02.500 --> 00:05.000 line:90%,end position:50%,center size:80%\n<lang en><ruby>Text<rt>reading</rt></ruby></lang>\n\n00:07.000 --> 00:08.000\n\nlast\n00:09.000 --> 00:10.000 vertical:rl\n<v Bob>Last";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VttRoundTripAndFullPipelinePreserveStructure(bool bom)
+    {
+        using var factory = new ApiFactory("Development", null, translationProvider: new SubtitleChatClient());
+        using var client = Client(factory);
+        var bytes = (bom ? Encoding.UTF8.GetPreamble() : []).Concat(Encoding.UTF8.GetBytes(Vtt)).ToArray();
+        var id = (await Import(client, bytes, "sample.vtt")).GetProperty("taskId").GetGuid();
+        var initial = await Segments(client, id);
+        Assert.Equal(3, initial.Length);
+        Assert.DoesNotContain("Alice", initial[0].GetProperty("sourceText").GetString());
+        Assert.DoesNotContain("00:02.000", initial[0].GetProperty("sourceText").GetString());
+        Assert.Equal("completed", (await Run(client, id, "translation")).GetProperty("status").GetString());
+        Assert.Equal(bytes, await client.GetByteArrayAsync($"/api/tasks/{id}/result"));
+        var segments = await Segments(client, id);
+        var target = segments[0].GetProperty("sourceText").GetString()!.Replace("Hello", "你好").Replace("Second ", "第二\n");
+        (await Save(client, id, segments[0], target, "confirmed")).EnsureSuccessStatusCode();
+        Assert.Equal("completed", (await Run(client, id, "review")).GetProperty("status").GetString());
+        var result = await client.GetAsync($"/api/tasks/{id}/result");
+        result.EnsureSuccessStatusCode();
+        Assert.Equal("text/vtt", result.Content.Headers.ContentType!.MediaType);
+        Assert.EndsWith(".vtt", result.Content.Headers.ContentDisposition!.FileNameStar);
+        Assert.Equal(Vtt.Replace("Hello", "你好").Replace("Second ", "第二\n"), await result.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("WEBVTT\nKind: metadata\n\n00:01.000 --> 00:02.000\nmetadata")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\nHello --> corrupt")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\n<00:02.500>Hello")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:04.000\n<00:02.500>Hello<00:02.000>World")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000 line:10% line:20%\nHello")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000 size:101%\nHello")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000 unknown:10\nHello")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\n<rt>Hello</rt>")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\n<font color=red>Hello</font>")]
+    [InlineData("WEBVTT\n\n00:01.000 --> 00:02.000\nHello\n\nSTYLE\n::cue { color: red; }")]
+    [InlineData("WEBVTT\n\n00:02.000 --> 00:04.000\nSecond\n\n00:01.000 --> 00:03.000\nFirst")]
+    public async Task InvalidVttIsRejected(string source)
+    {
+        using var factory = new ApiFactory();
+        using var client = Client(factory);
+        using var form = Form(Encoding.UTF8.GetBytes(source), "invalid.vtt");
+        await Problem(await client.PostAsync("/api/tasks/imports/file", form), "subtitle_parse_failed");
+    }
+
+    [Theory]
+    [InlineData("srt", "utf8-broken")]
+    [InlineData("srt", "utf16-broken")]
+    [InlineData("srt", "utf16-no-bom")]
+    [InlineData("srt", "utf32")]
+    [InlineData("vtt", "utf16")]
+    public async Task UnsupportedOrDamagedEncodingIsRejected(string type, string mode)
+    {
+        byte[] bytes = mode switch
+        {
+            "utf8-broken" => [0xef, 0xbb, 0xbf, 0xff],
+            "utf16-broken" => [0xff, 0xfe, 0x61],
+            "utf16-no-bom" => Encoding.Unicode.GetBytes(Srt),
+            "utf32" => Encoding.UTF32.GetPreamble().Concat(Encoding.UTF32.GetBytes(Srt)).ToArray(),
+            _ => Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(Vtt)).ToArray()
+        };
+        using var factory = new ApiFactory();
+        using var client = Client(factory);
+        using var form = Form(bytes, "invalid." + type);
+        await Problem(await client.PostAsync("/api/tasks/imports/file", form), "subtitle_encoding_invalid");
+    }
 
     [Theory]
     [InlineData("utf8", false)]

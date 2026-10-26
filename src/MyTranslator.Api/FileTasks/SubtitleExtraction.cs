@@ -16,30 +16,46 @@ internal static partial class SubtitleExtraction
         var units = new List<ExtractedUnit>();
         var position = 0;
         var cue = 0;
-        for (var index = 0; index < lines.Count;)
+        var firstLine = 0;
+        var previousStart = -1L;
+        if (fileType == "vtt")
+        {
+            if (lines.Count == 0 || !VttHeader().IsMatch(lines[0].Text) || lines[0].Text.Contains("-->", StringComparison.Ordinal) ||
+                (lines.Count > 1 && lines[1].Text.Length != 0)) throw ParseError(fileType, 0, 1);
+            firstLine = 1;
+        }
+        for (var index = firstLine; index < lines.Count;)
         {
             if (string.IsNullOrWhiteSpace(lines[index].Text)) { index++; continue; }
             var first = index;
             while (index < lines.Count && !string.IsNullOrWhiteSpace(lines[index].Text)) index++;
             var block = lines.GetRange(first, index - first);
+            if (fileType == "vtt" && IsVttProtectedBlock(block, cue, first + 1)) continue;
             cue++;
-            if (block.Count < 2 || !Regex.IsMatch(block[0].Text, @"^[0-9]+$", RegexOptions.CultureInvariant))
+            var timingIndex = fileType == "vtt" && block[0].Text.Contains("-->", StringComparison.Ordinal) ? 0 : 1;
+            if (block.Count <= timingIndex || (fileType == "srt" && !Regex.IsMatch(block[0].Text, @"^[0-9]+$", RegexOptions.CultureInvariant)))
                 throw ParseError(fileType, cue, first + 1);
-            var timing = SrtTiming().Match(block[1].Text);
+            var timing = (fileType == "vtt" ? VttTiming() : SrtTiming()).Match(block[timingIndex].Text);
             if (!timing.Success || !TryTime(timing.Groups["start"].Value, out var start) ||
                 !TryTime(timing.Groups["end"].Value, out var end) || end <= start)
                 throw ParseError(fileType, cue, first + 2);
-            if (block.Count == 2) continue;
-            var bodyStart = block[2].Start;
+            if (fileType == "vtt")
+            {
+                if (start < previousStart || !ValidSettings(timing.Groups["settings"].Value))
+                    throw ParseError(fileType, cue, first + timingIndex + 1);
+                previousStart = start;
+            }
+            if (block.Count == timingIndex + 1) continue;
+            var bodyStart = block[timingIndex + 1].Start;
             var bodyEnd = block[^1].Start + block[^1].Text.Length;
             var body = text[bodyStart..bodyEnd];
-            var extracted = ExtractBody(body, fileType, cue, first + 3, start, end);
+            var extracted = ExtractBody(body, fileType, cue, first + timingIndex + 2, start, end);
             if (!MarkupExtraction.HasTranslatableText(extracted.Text, extracted.MarkupTableJson)) continue;
             if (bodyStart > position) units.Add(ExtractedUnit.Protected(text[position..bodyStart], "subtitleStructure"));
             units.Add(extracted);
             position = bodyEnd;
         }
-        if (cue == 0) throw ParseError(fileType, 0, 1);
+        if (cue == 0 && fileType != "vtt") throw ParseError(fileType, 0, 1);
         if (position < text.Length) units.Add(ExtractedUnit.Protected(text[position..], "subtitleStructure"));
         return new(text, encoding, null, null, null, null, units);
     }
@@ -51,6 +67,7 @@ internal static partial class SubtitleExtraction
         var items = new List<MarkupItem>();
         var stack = new Stack<(string Name, MarkupItem Item)>();
         var allocator = new PlaceholderIdAllocator(string.Empty);
+        var previousTimestamp = start;
         for (var index = 0; index < body.Length;)
         {
             var character = body[index];
@@ -69,12 +86,23 @@ internal static partial class SubtitleExtraction
                 var close = body.IndexOf('>', index);
                 if (close < 0) throw ParseError(type, cue, line);
                 var tag = body[index..(close + 1)];
-                var match = SrtTag().Match(tag);
+                if (type == "vtt" && VttTimestamp().IsMatch(tag))
+                {
+                    if (!TryTime(tag[1..^1], out var timestamp) || timestamp <= previousTimestamp || timestamp >= end)
+                        throw ParseError(type, cue, line);
+                    previousTimestamp = timestamp;
+                    var marker = MarkupItem.Standalone(allocator.Next(), tag, "字幕段内时间标记");
+                    items.Add(marker);
+                    result.Append($"<x{marker.Id}/>");
+                    index = close + 1;
+                    continue;
+                }
+                var match = (type == "vtt" ? VttTag() : SrtTag()).Match(tag);
                 if (!match.Success) throw ParseError(type, cue, line);
                 var name = match.Groups["name"].Value.ToLowerInvariant();
                 if (match.Groups["closing"].Success)
                 {
-                    if (match.Groups["attributes"].Length > 0 || !stack.TryPop(out var opened) || opened.Name != name)
+                    if (match.Groups["attributes"].Length > 0 || match.Groups["classes"].Length > 0 || !stack.TryPop(out var opened) || opened.Name != name)
                         throw ParseError(type, cue, line);
                     opened.Item.ClosingText = tag;
                     result.Append($"</x{opened.Item.Id}>");
@@ -82,7 +110,9 @@ internal static partial class SubtitleExtraction
                 else
                 {
                     var attributes = match.Groups["attributes"].Value;
-                    if (name == "font" ? !FontColor().IsMatch(attributes) : attributes.Length > 0)
+                    if (type == "srt" && (name == "font" ? !FontColor().IsMatch(attributes) : attributes.Length > 0))
+                        throw ParseError(type, cue, line);
+                    if (type == "vtt" && !ValidVttTag(name, attributes, stack.Count > 0 ? stack.Peek().Name : null))
                         throw ParseError(type, cue, line);
                     var item = MarkupItem.Paired(allocator.Next(), tag, "字幕样式：" + name);
                     items.Add(item);
@@ -96,6 +126,13 @@ internal static partial class SubtitleExtraction
                 result.Append(character);
                 index++;
             }
+        }
+        // WebVTT 允许覆盖整个条目的外层说话人/语言跨度省略闭标签。
+        if (type == "vtt" && stack.Count == 1 && stack.Peek().Name is "v" or "lang")
+        {
+            var opened = stack.Pop();
+            opened.Item.ClosingText = string.Empty;
+            result.Append($"</x{opened.Item.Id}>");
         }
         if (stack.Count != 0) throw ParseError(type, cue, line);
         return ExtractedUnit.Segment(result.ToString(), MarkupExtraction.Serialize(items));
