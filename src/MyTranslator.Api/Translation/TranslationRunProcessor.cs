@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.Rules;
+using MyTranslator.Api.FileTasks;
 using System.ClientModel;
 
 namespace MyTranslator.Api.Translation;
@@ -87,7 +88,8 @@ public sealed class TranslationRunProcessor(
         var failedIds = database.TranslationRunFailures
             .Where(failure => failure.RunId == run.Id)
             .Select(failure => failure.SegmentId);
-        return await database.TranslationSegments
+        var task = await database.TranslationTasks.AsNoTracking().SingleAsync(task => task.Id == run.TaskId, cancellationToken);
+        var segments = await database.TranslationSegments
             .AsNoTracking()
             .Where(segment =>
                 segment.TaskId == run.TaskId &&
@@ -96,12 +98,9 @@ public sealed class TranslationRunProcessor(
                 !failedIds.Contains(segment.Id))
             .OrderBy(segment => segment.Order)
             .Take(AiProviderRuntimeSettings.ClampBatchSize(batchSize))
-            .Select(segment => new SegmentWork(
-                segment.Id,
-                segment.Order,
-                segment.SourceText,
-                segment.MarkupTableJson))
             .ToListAsync(cancellationToken);
+        return segments.Select(segment => new SegmentWork(segment.Id, segment.Order, segment.SourceText,
+            segment.MarkupTableJson, FileTaskService.SegmentFileType(task, segment.SourceFileName))).ToArray();
     }
 
     private async Task ProcessBatchAsync(
@@ -203,7 +202,7 @@ public sealed class TranslationRunProcessor(
                             segment.Id,
                             segment.SourceText,
                             targetText,
-                            segment.MarkupTableJson)))
+                            segment.MarkupTableJson, segment.FileType)))
                         .FirstOrDefault(result => result is not null);
                     if (violation is not null)
                     {
@@ -264,7 +263,10 @@ public sealed class TranslationRunProcessor(
         {
             new ChatMessage(
                 ChatRole.System,
-                "Translate every segment and return JSON as {\"translations\":[{\"segmentId\":\"uuid\",\"targetText\":\"...\"}]}. Preserve every <xN>, </xN>, and <xN/> token exactly, including order and nesting. Return every requested segment ID exactly once and no additional IDs."),
+                "Translate every segment and return JSON as {\"translations\":[{\"segmentId\":\"uuid\",\"targetText\":\"...\"}]}. Preserve every <xN>, </xN>, and <xN/> token exactly, including order and nesting. Return every requested segment ID exactly once and no additional IDs." +
+                (segments.Any(segment => segment.FileType is "srt" or "vtt")
+                    ? " Subtitle segments are complete cues: keep each cue intact, use only nonblank body lines, and do not add timestamps, cue numbers, blank lines, markup, entities, or -->."
+                    : string.Empty)),
             new ChatMessage(ChatRole.User, input)
         };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -544,7 +546,7 @@ public sealed class TranslationRunProcessor(
         exception);
 
     private sealed record AiExecutionConfiguration(AiProvider Provider, AiModel Model);
-    private sealed record SegmentWork(Guid Id, int Order, string SourceText, string MarkupTableJson);
+    private sealed record SegmentWork(Guid Id, int Order, string SourceText, string MarkupTableJson, string FileType);
     private sealed record TranslationOutput(Guid SegmentId, string TargetText);
     private sealed record FailureCause(string Code, bool Retryable);
 }

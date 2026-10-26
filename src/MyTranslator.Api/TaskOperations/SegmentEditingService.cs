@@ -104,8 +104,10 @@ public sealed class SegmentEditingService(AppDbContext database, TaskOperationLo
             throw Problem("invalid_confirmation_status", 400);
         if (target is not null)
         {
-            var context = new TranslationRuleContext(segment.Id, segment.SourceText, target, segment.MarkupTableJson);
-            var violation = new PlaceholderIntegrityRule().Evaluate(context) ?? new MissingTranslationRule().Evaluate(context);
+            var context = new TranslationRuleContext(segment.Id, segment.SourceText, target, segment.MarkupTableJson,
+                FileTaskService.SegmentFileType(task, segment.SourceFileName));
+            var violation = new PlaceholderIntegrityRule().Evaluate(context) ?? new MissingTranslationRule().Evaluate(context)
+                ?? new SubtitleBodyRule().Evaluate(context);
             if (violation is not null)
                 throw new SegmentEditingException(violation.Code, 422,
                     new Dictionary<string, object?> { ["segmentId"] = segment.Id, ["field"] = "targetText", ["offset"] = violation.Offset, ["length"] = violation.Length });

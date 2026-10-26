@@ -45,7 +45,8 @@ public sealed class RuleCheckService(AppDbContext database, RuleEngine engine)
         var segments = await database.TranslationSegments.AsNoTracking().Where(segment => segment.TaskId == taskId)
             .OrderBy(segment => segment.Order).ToListAsync(cancellationToken);
         var items = segments.Select(segment => new SegmentRuleFindings(segment.Id, segment.Order, segment.Version,
-                engine.Evaluate(new(segment.Id, segment.SourceText, segment.TargetText, segment.MarkupTableJson))))
+                engine.Evaluate(new(segment.Id, segment.SourceText, segment.TargetText, segment.MarkupTableJson,
+                    MyTranslator.Api.FileTasks.FileTaskService.SegmentFileType(task, segment.SourceFileName)))))
             .Where(item => item.Violations.Count > 0).ToArray();
         await transaction.CommitAsync(cancellationToken);
         return new(taskId, task.ExtractionRevision, segments.Count, items.Length, engine.EnabledRules, items);

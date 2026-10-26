@@ -85,11 +85,16 @@ public sealed partial class FileTaskService
         JsonSerializer.Deserialize<List<BundleFile>>(task.ReconstructionTemplate)
         ?? throw new InvalidFileTaskRequestException("task_not_exportable", "Invalid file collection.");
 
+    internal static string SegmentFileType(TranslationTask task, string? sourceFileName) =>
+        task.FileType == "bundle"
+            ? ReadManifest(task).Single(file => file.FileName == sourceFileName).FileType
+            : task.FileType;
+
     private static byte[] ExportContent(TranslationTask task) => task.FileType switch
     {
         "bundle" => ExportBundle(task),
         "epub" => ExportEpub(task),
-        _ => EncodeText(RenderTemplate(task.ReconstructionTemplate, task.Segments), task.SourceBytes, task.OriginalEncoding)
+        _ => EncodeText(RenderTemplate(task.ReconstructionTemplate, task.Segments, task.FileType), task.SourceBytes, task.OriginalEncoding)
     };
 
     private static byte[] ExportBundle(TranslationTask task)

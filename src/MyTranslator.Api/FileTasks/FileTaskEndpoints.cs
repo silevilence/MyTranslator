@@ -277,6 +277,7 @@ internal static class FileTaskProblem
         exception.Message,
         exception.Code switch
         {
+            "subtitle_parse_failed" or "subtitle_encoding_invalid" or "subtitle_structure_violation" or
             "import_parse_failed" or
             "dynamic_page_not_supported" or
             "selector_no_match" or

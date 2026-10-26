@@ -51,6 +51,7 @@ builder.Services.AddScoped<ReviewRunProcessor>();
 builder.Services.AddSingleton<IAiChatClientFactory, AiChatClientFactory>();
 builder.Services.AddSingleton<ITranslationRule, PlaceholderIntegrityRule>();
 builder.Services.AddSingleton<ITranslationRule, MissingTranslationRule>();
+builder.Services.AddSingleton<ITranslationRule, SubtitleBodyRule>();
 builder.Services.Configure<RuleCheckOptions>(builder.Configuration.GetSection("Rules"));
 builder.Services.AddScoped<RuleEngine>();
 builder.Services.AddScoped<RuleCheckService>();

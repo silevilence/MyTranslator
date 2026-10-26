@@ -81,6 +81,7 @@ public sealed partial class FileTaskService(
                 "txt" => TextExtraction.Extract(sourceBytes, segmentationMode),
                 "markdown" => MarkdownExtraction.Extract(sourceBytes),
                 "html" => HtmlExtraction.Extract(sourceBytes),
+                "srt" => SubtitleExtraction.Extract(sourceBytes, effectiveFileType),
                 _ => throw new InvalidFileTaskRequestException(
                     "invalid_file_type",
                     "This file type is not implemented yet.")
@@ -530,6 +531,7 @@ public sealed partial class FileTaskService(
             "html" => $"text/html; charset={task.OriginalEncoding}",
             "epub" => "application/epub+zip",
             "bundle" => "application/zip",
+            "srt" => $"application/x-subrip; charset={task.OriginalEncoding}",
             _ => "application/octet-stream"
         };
         return new ExportedFile(content, contentType, BuildExportFileName(task.FileName, task.FileType));
@@ -601,7 +603,7 @@ public sealed partial class FileTaskService(
 
     private static string RenderTemplate(
         string template,
-        IEnumerable<TranslationSegment> segments)
+        IEnumerable<TranslationSegment> segments, string? fileType = null)
     {
         var result = template;
         foreach (var segment in segments)
@@ -611,9 +613,26 @@ public sealed partial class FileTaskService(
                 continue;
             }
 
+            var context = new MyTranslator.Api.Rules.TranslationRuleContext(segment.Id, segment.SourceText,
+                segment.TargetText, segment.MarkupTableJson, fileType);
+            if (new MyTranslator.Api.Rules.PlaceholderIntegrityRule().Evaluate(context) is not null)
+                throw new InvalidFileTaskRequestException("task_not_exportable", "Invalid placeholders.",
+                    errors: new Dictionary<string, object?> { ["segmentId"] = segment.Id, ["placeholderViolations"] = 1 });
+            if (new MyTranslator.Api.Rules.SubtitleBodyRule().Evaluate(context) is not null)
+                throw new InvalidFileTaskRequestException("subtitle_structure_violation", "Invalid subtitle body.",
+                    errors: new Dictionary<string, object?> { ["segmentId"] = segment.Id, ["field"] = "targetText", ["offset"] = 0, ["length"] = 0 });
+            var target = segment.TargetText!;
+            if (fileType is "srt" or "vtt" && target != segment.SourceText)
+            {
+                var tokenPosition = template.IndexOf(segment.TemplateToken, StringComparison.Ordinal);
+                var newline = tokenPosition > 1 && template.AsSpan(0, tokenPosition).EndsWith("\r\n") ? "\r\n"
+                    : tokenPosition > 0 && template[tokenPosition - 1] == '\r' ? "\r" : "\n";
+                target = target.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n')
+                    .Replace("\n", newline, StringComparison.Ordinal);
+            }
             result = result.Replace(
                 segment.TemplateToken,
-                RestoreMarkup(segment.TargetText!, segment.SourceText, segment.MarkupTableJson),
+                RestoreMarkup(target, segment.SourceText, segment.MarkupTableJson),
                 StringComparison.Ordinal);
         }
 
@@ -767,6 +786,7 @@ public sealed partial class FileTaskService(
     {
         var safeName = Path.GetFileName(fileName);
         var extension = Path.GetExtension(safeName);
+        if (fileType is "srt" or "vtt") extension = "." + fileType;
         if (string.IsNullOrEmpty(extension))
         {
             extension = fileType switch
@@ -964,12 +984,13 @@ public sealed partial class FileTaskService(
                 "markdown" => "markdown",
                 "html" => "html",
                 "epub" => "epub",
+                "srt" => "srt",
                 _ => throw new InvalidFileTaskRequestException("invalid_file_type", "Unsupported file type.")
             };
         }
 
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        if (extension is ".txt" or ".md" or ".markdown" or ".html" or ".htm" or ".epub")
+        if (extension is ".txt" or ".md" or ".markdown" or ".html" or ".htm" or ".epub" or ".srt")
         {
             return extension switch
             {
@@ -977,6 +998,7 @@ public sealed partial class FileTaskService(
                 ".md" or ".markdown" => "markdown",
                 ".html" or ".htm" => "html",
                 ".epub" => "epub",
+                ".srt" => "srt",
                 _ => throw new InvalidOperationException("Unsupported file extension mapping.")
             };
         }
@@ -988,6 +1010,7 @@ public sealed partial class FileTaskService(
             "text/markdown" or "text/x-markdown" => "markdown",
             "text/html" or "application/xhtml+xml" => "html",
             "application/epub+zip" => "epub",
+            "application/x-subrip" => "srt",
             _ => throw new InvalidFileTaskRequestException(
                 "unable_to_infer_file_type",
                 "The file type could not be inferred.")
