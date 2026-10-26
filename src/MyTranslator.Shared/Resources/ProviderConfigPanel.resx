@@ -16,7 +16,7 @@
     <value>AI 提供商与模型</value>
   </data>
   <data name="Description" xml:space="preserve">
-    <value>配置多个 AI 提供商与模型；默认提供商 + 其默认模型合成默认对，翻译未显式选择时使用默认对</value>
+    <value>添加你使用的 AI 服务与模型。设为默认后，每次翻译都能直接使用。</value>
   </data>
   <data name="AddProvider" xml:space="preserve">
     <value>新增提供商</value>
@@ -37,7 +37,7 @@
     <value>添加提供商与模型后即可发起 AI 翻译</value>
   </data>
   <data name="NoDefaultPairNotice" xml:space="preserve">
-    <value>未配置默认对（默认提供商 + 其默认模型）：翻译时未显式选择提供商/模型将无法发起，请为任一提供商及其下模型设置默认</value>
+    <value>还没有默认模型。请先添加模型并设为默认，之后即可开始翻译。</value>
   </data>
   <data name="DefaultProviderChip" xml:space="preserve">
     <value>默认提供商</value>
@@ -70,7 +70,7 @@
     <value>删除</value>
   </data>
   <data name="BaseUrlLabel" xml:space="preserve">
-    <value>BaseUrl</value>
+    <value>服务地址</value>
   </data>
   <data name="ApiKeyLabel" xml:space="preserve">
     <value>密钥</value>
@@ -79,7 +79,7 @@
     <value>未配置</value>
   </data>
   <data name="RuntimeText" xml:space="preserve">
-    <value>批大小 {0} · 超时 {1} · 尝试 {2} 次</value>
+    <value>每次 {0} 段 · 最多等待 {1} · 最多尝试 {2} 次</value>
   </data>
   <data name="ModelsTitle" xml:space="preserve">
     <value>模型（{0}）</value>
@@ -123,4 +123,7 @@
   <data name="DeleteModelMessage" xml:space="preserve">
     <value>将删除模型「{0}」；若其为默认模型，该提供商的默认模型将被清除。</value>
   </data>
+  <data name="KindOpenai" xml:space="preserve"><value>OpenAI 兼容服务</value></data>
+  <data name="KindOllama" xml:space="preserve"><value>Ollama 本地服务</value></data>
+  <data name="KindUnknown" xml:space="preserve"><value>其他服务</value></data>
 </root>

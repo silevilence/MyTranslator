@@ -41,7 +41,8 @@ public class TranslationRunService : RunApiClientBase
         string targetLanguage,
         Guid? providerId = null,
         Guid? modelId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? reasoningEffort = null)
     {
         var body = JsonSerializer.Serialize(
             new
@@ -51,6 +52,7 @@ public class TranslationRunService : RunApiClientBase
                 targetLanguage,
                 providerId,
                 modelId,
+                reasoningEffort,
             },
             ImportJson.Options);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiUrl("/api/tasks/")}{taskId}/translation-runs")

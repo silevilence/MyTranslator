@@ -122,12 +122,20 @@ public static class TranslationEndpoints
 
         var providerId = ParseOptionalId(body, "providerId");
         var modelId = ParseOptionalId(body, "modelId");
+        string? reasoningEffort = null;
+        if (body.TryGetProperty("reasoningEffort", out var reasoning) && reasoning.ValueKind != JsonValueKind.Null)
+        {
+            if (reasoning.ValueKind != JsonValueKind.String)
+                throw new TranslationRequestException("invalid_reasoning_effort", "Reasoning effort must be a string.", StatusCodes.Status400BadRequest);
+            reasoningEffort = reasoning.GetString();
+        }
         return new CreateTranslationRunRequest(
             revisionValue,
             sourceLanguage,
             target.GetString(),
             providerId,
-            modelId);
+            modelId,
+            reasoningEffort);
     }
 
     private static Guid? ParseOptionalId(JsonElement body, string property)

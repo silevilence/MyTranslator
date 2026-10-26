@@ -8,6 +8,12 @@
     }
     else
     {
+        <div class="mt-seg-navigation">
+            <MudButton OnClick="OnPrevious" Disabled="Disabled || !CanPrevious" Size="Size.Small" StartIcon="@Icons.Material.Filled.ChevronLeft">@L["Previous"]</MudButton>
+            <MudButton OnClick="OnNext" Disabled="Disabled || !CanNext" Size="Size.Small" EndIcon="@Icons.Material.Filled.ChevronRight">@L["Next"]</MudButton>
+            <MudButton OnClick="OnConfirmNext" Disabled="Disabled || Draft.TargetText is null" Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Filled.DoneAll">@L["ConfirmNext"]</MudButton>
+            <MudText Typo="Typo.caption">@L["AutoSaveHint"]</MudText>
+        </div>
         <div class="mt-seg-head">
             <MudText Typo="Typo.h2" Class="mt-seg-head-title">
                 @L["Segment", Draft.Original.Order] @if (Draft.IsDirty) { <span class="mt-seg-dirty" aria-label="@L["Dirty"]">●</span> }
@@ -18,9 +24,13 @@
                 @L[Draft.Original.ConfirmationStatus ?? "pending"]
             </MudChip>
         </div>
+        @if (Draft.Original.SourceFileName is { } fileName)
+        {
+            <MudText Typo="Typo.caption">@fileName</MudText>
+        }
         <section class="mt-seg-source" aria-label="@L["SourceLabel"]">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-area-label">@L["SourceLabel"]</MudText>
-            <div class="mt-seg-source-text">
+            <div class="mt-seg-source-text" tabindex="0" aria-label="@L["SourceLabel"]">
                 <SegmentMarkupViewer Text="@(Draft.Original.SourceText ?? string.Empty)" MarkupTable="Draft.Original.MarkupTable" />
             </div>
         </section>
@@ -64,6 +74,16 @@
 
 @code {
     private ElementReference _panel;
+    /// <summary>存在上一段。</summary>
+    [Parameter] public bool CanPrevious { get; set; }
+    /// <summary>存在下一段（含尚未加载页）。</summary>
+    [Parameter] public bool CanNext { get; set; }
+    /// <summary>保存当前草稿后切到上一段。</summary>
+    [Parameter] public EventCallback OnPrevious { get; set; }
+    /// <summary>保存当前草稿后切到下一段。</summary>
+    [Parameter] public EventCallback OnNext { get; set; }
+    /// <summary>确认并跳下一段；末段仅确认。</summary>
+    [Parameter] public EventCallback OnConfirmNext { get; set; }
     /// <summary>当前不可变分段快照与可编辑草稿。</summary>
     [Parameter] public SegmentDraft? Draft { get; set; }
     /// <summary>提交/运行期间禁用编辑。</summary>

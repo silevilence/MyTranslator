@@ -13,34 +13,34 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="NameLabel" xml:space="preserve">
-    <value>名称</value>
+    <value>提供商名称</value>
   </data>
   <data name="NameRequired" xml:space="preserve">
     <value>名称不能为空</value>
   </data>
   <data name="KindLabel" xml:space="preserve">
-    <value>连接器类型</value>
+    <value>服务类型</value>
   </data>
   <data name="KindHelper" xml:space="preserve">
-    <value>openai 兼容端点可覆盖 BaseUrl 对接 DeepSeek 等服务</value>
+    <value>使用 OpenAI、DeepSeek 等服务时选“OpenAI 兼容服务”；连接本机 Ollama 时选“Ollama 本地服务”。</value>
   </data>
   <data name="KindOpenai" xml:space="preserve">
-    <value>openai 兼容</value>
+    <value>OpenAI 兼容服务</value>
   </data>
   <data name="KindOllama" xml:space="preserve">
-    <value>ollama</value>
+    <value>Ollama 本地服务</value>
   </data>
   <data name="BaseUrlLabel" xml:space="preserve">
-    <value>BaseUrl</value>
+    <value>服务地址</value>
   </data>
   <data name="BaseUrlHelper" xml:space="preserve">
-    <value>绝对 http(s) 地址；留空表示未配置（发起翻译时将提示未配置完整）</value>
+    <value>填写服务商提供的 API 地址，例如 https://api.deepseek.com。使用 OpenAI 时通常以 /v1 结尾。</value>
   </data>
   <data name="ApiKeyLabel" xml:space="preserve">
-    <value>密钥</value>
+    <value>API 密钥</value>
   </data>
   <data name="ApiKeyCreateHelper" xml:space="preserve">
-    <value>可留空；留空表示不设置密钥</value>
+    <value>OpenAI 兼容服务需要填写服务商提供的密钥；本机 Ollama 通常可留空。</value>
   </data>
   <data name="ApiKeyKeepHelper" xml:space="preserve">
     <value>当前：{0}；留空保持不变，输入新值则替换</value>
@@ -52,13 +52,13 @@
     <value>设为默认提供商</value>
   </data>
   <data name="BatchSizeLabel" xml:space="preserve">
-    <value>批大小</value>
+    <value>每次翻译分段数</value>
   </data>
   <data name="BatchSizeHelper" xml:space="preserve">
-    <value>每批分段数（1–200）</value>
+    <value>1–200 段。较小的批次更快看到结果；较大的批次减少请求次数。</value>
   </data>
   <data name="RequestTimeoutLabel" xml:space="preserve">
-    <value>请求超时</value>
+    <value>每次请求最多等待</value>
   </data>
   <data name="RequestTimeoutHelper" xml:space="preserve">
     <value>格式 小时:分钟:秒，如 00:01:00</value>
@@ -67,10 +67,10 @@
     <value>超时格式无效，须为大于 0 的小时:分钟:秒</value>
   </data>
   <data name="MaxAttemptsLabel" xml:space="preserve">
-    <value>最大尝试次数</value>
+    <value>失败时最多尝试</value>
   </data>
   <data name="MaxAttemptsHelper" xml:space="preserve">
-    <value>每批最大尝试次数（1–10，含首次）</value>
+    <value>1–10 次，包含第一次请求。</value>
   </data>
   <data name="Cancel" xml:space="preserve">
     <value>取消</value>
@@ -78,4 +78,6 @@
   <data name="Save" xml:space="preserve">
     <value>保存</value>
   </data>
+  <data name="Advanced" xml:space="preserve"><value>翻译速度与重试（高级）</value></data>
+  <data name="KindUnknown" xml:space="preserve"><value>其它服务（当前版本不支持）</value></data>
 </root>

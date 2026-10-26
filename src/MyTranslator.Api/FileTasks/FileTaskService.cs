@@ -9,7 +9,7 @@ using MyTranslator.Api.Pagination;
 
 namespace MyTranslator.Api.FileTasks;
 
-public sealed class FileTaskService(
+public sealed partial class FileTaskService(
     AppDbContext database,
     UrlImportClient urlImportClient,
     ExtractionPreviewStore previewStore,
@@ -22,6 +22,15 @@ public sealed class FileTaskService(
         string? fileType,
         string? segmentationMode,
         CancellationToken cancellationToken)
+    {
+        var task = await BuildFileTaskAsync(file, fileType, segmentationMode, cancellationToken);
+        database.TranslationTasks.Add(task);
+        await database.SaveChangesAsync(cancellationToken);
+        return ToSummary(task);
+    }
+
+    private static async Task<TranslationTask> BuildFileTaskAsync(
+        IFormFile file, string? fileType, string? segmentationMode, CancellationToken cancellationToken)
     {
         if (file.Length == 0)
         {
@@ -87,9 +96,7 @@ public sealed class FileTaskService(
                 extraction);
         }
 
-        database.TranslationTasks.Add(task);
-        await database.SaveChangesAsync(cancellationToken);
-        return ToSummary(task);
+        return task;
     }
 
     public async Task<FileTaskSummary> CreateUrlTaskAsync(
@@ -515,18 +522,14 @@ public sealed class FileTaskService(
                 });
         }
 
-        var content = task.FileType == "epub"
-            ? ExportEpub(task)
-            : EncodeText(
-                RenderTemplate(task.ReconstructionTemplate, task.Segments),
-                task.SourceBytes,
-                task.OriginalEncoding);
+        var content = ExportContent(task);
         var contentType = task.FileType switch
         {
             "txt" => $"text/plain; charset={task.OriginalEncoding}",
             "markdown" => $"text/markdown; charset={task.OriginalEncoding}",
             "html" => $"text/html; charset={task.OriginalEncoding}",
             "epub" => "application/epub+zip",
+            "bundle" => "application/zip",
             _ => "application/octet-stream"
         };
         return new ExportedFile(content, contentType, BuildExportFileName(task.FileName, task.FileType));
@@ -1011,7 +1014,8 @@ public sealed class FileTaskService(
             task.Segments.All(segment => !string.IsNullOrWhiteSpace(segment.TargetText))),
         task.CreatedAt,
         new MyTranslator.Api.TaskLists.TaskProgressResponse(task.Segments.Count(segment => segment.TargetText is not null),
-            task.Segments.Count, task.Segments.Count(segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed)));
+            task.Segments.Count, task.Segments.Count(segment => segment.ConfirmationStatus == SegmentConfirmationStatus.Confirmed)),
+        BundleFiles(task));
 
     private static FileTaskSummary ToSummary(TranslationTask task, SegmentRollup rollup) => new(
         task.Id,
@@ -1030,7 +1034,8 @@ public sealed class FileTaskService(
         new FileTaskCounts(rollup.Total, task.ProtectedBlockCount, task.ChapterCount),
         new FileTaskCapabilities(task.FileType is "html" or "epub", rollup.CanExport),
         task.CreatedAt,
-        new MyTranslator.Api.TaskLists.TaskProgressResponse(rollup.Completed, rollup.Total, rollup.Confirmed));
+        new MyTranslator.Api.TaskLists.TaskProgressResponse(rollup.Completed, rollup.Total, rollup.Confirmed),
+        BundleFiles(task));
 
     private static FileTaskSource BuildSource(TranslationTask task) => new(
         task.SourceKind, task.FileName, task.RequestedUrl, task.FinalUrl, task.MediaType, task.ByteLength);
@@ -1063,7 +1068,8 @@ public sealed class FileTaskService(
                     comment.Severity.ToWireValue(),
                     comment.Issue,
                     comment.Suggestion))
-                .ToArray());
+                .ToArray(),
+            segment.SourceFileName);
     }
 
     private static ProtectedBlockResponse ToResponse(ProtectedBlock block)

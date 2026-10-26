@@ -5,7 +5,8 @@ public sealed record CreateTranslationRunRequest(
     string? SourceLanguage,
     string? TargetLanguage,
     Guid? ProviderId,
-    Guid? ModelId);
+    Guid? ModelId,
+    string? ReasoningEffort = null);
 
 public sealed record TranslationRunSelection(
     int TotalSegments,
@@ -37,7 +38,9 @@ public sealed record TranslationRunResponse(
     TranslationRunFailureSummary? Failure,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? FinishedAt);
+    DateTimeOffset? FinishedAt,
+    string? ReasoningEffort = null,
+    IReadOnlyList<TranslationActivity>? Events = null);
 
 public sealed record TranslationRunPage(
     int ExtractionRevision,
@@ -55,3 +58,7 @@ public sealed record TranslationRunFailurePage(
     Guid RunId,
     IReadOnlyList<TranslationRunFailureResponse> Items,
     string? NextCursor);
+
+public sealed record TranslationActivity(
+    string Stage, DateTimeOffset At, int FirstSegmentOrder, int LastSegmentOrder,
+    int SegmentCount, int Attempt, int MaxAttempts, double TimeoutSeconds, string? Code = null);

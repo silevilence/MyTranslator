@@ -27,7 +27,7 @@
                     <MudSelectItem Value="@kind">@KindLabel(kind)</MudSelectItem>
                 }
             </MudSelect>
-            <MudTextField T="string"
+            <MudTextField T="string" Immediate="true"
                           Label="@Localizer["BaseUrlLabel"]"
                           HelperText="@Localizer["BaseUrlHelper"]"
                           Variant="Variant.Outlined"
@@ -35,7 +35,7 @@
                           Disabled="_saving"
                           Error="_baseUrlError is not null"
                           ErrorText="_baseUrlError" />
-            <MudTextField T="string"
+            <MudTextField T="string" Immediate="true"
                           Label="@Localizer["ApiKeyLabel"]"
                           HelperText="@ApiKeyHelper"
                           InputType="InputType.Password"
@@ -48,6 +48,7 @@
                 <MudSwitch @bind-Value="_enabled" Label="@Localizer["EnabledLabel"]" Disabled="_saving" />
                 <MudSwitch @bind-Value="_isDefault" Label="@Localizer["DefaultLabel"]" Disabled="_saving" />
             </div>
+            <MudExpansionPanels Elevation="0"><MudExpansionPanel Text="@Localizer["Advanced"]">
             <div class="mt-provider-form-runtime">
                 <MudNumericField T="int"
                                  Label="@Localizer["BatchSizeLabel"]"
@@ -56,7 +57,7 @@
                                  Min="1" Max="200"
                                  @bind-Value="_batchSize"
                                  Disabled="_saving" />
-                <MudTextField T="string"
+                <MudTextField T="string" Immediate="true"
                               Label="@Localizer["RequestTimeoutLabel"]"
                               HelperText="@Localizer["RequestTimeoutHelper"]"
                               Variant="Variant.Outlined"
@@ -73,6 +74,7 @@
                                  @bind-Value="_maxAttempts"
                                  Disabled="_saving" />
             </div>
+            </MudExpansionPanel></MudExpansionPanels>
             @if (_formError is not null)
             {
                 <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-provider-form-error">
@@ -162,7 +164,7 @@
     {
         "openai" => Localizer["KindOpenai"],
         "ollama" => Localizer["KindOllama"],
-        _ => kind,
+        _ => Localizer["KindUnknown"],
     };
 
     private async Task SaveAsync()

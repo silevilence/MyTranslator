@@ -1,0 +1,3 @@
+.mt-activity { margin-top: 12px; display: grid; gap: 4px; }
+.mt-activity-history { max-height: 240px; overflow: auto; }
+.mt-activity-entry { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--mud-palette-lines-default); }

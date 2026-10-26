@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Queued" xml:space="preserve"><value>已排队，等待开始翻译</value></data>
+  <data name="Preparing" xml:space="preserve"><value>正在准备待翻译分段</value></data>
+  <data name="Requesting" xml:space="preserve"><value>已发送给模型，等待本批译文</value></data>
+  <data name="Validating" xml:space="preserve"><value>已收到响应，正在校验译文与占位符</value></data>
+  <data name="Saving" xml:space="preserve"><value>正在保存校验通过的译文</value></data>
+  <data name="Retrying" xml:space="preserve"><value>本次尝试未全部成功，将自动重试剩余分段</value></data>
+  <data name="Batch" xml:space="preserve"><value>分段 {0}–{1} · 本批 {2} 段 · 第 {3}/{4} 次尝试</value></data>
+  <data name="Waiting" xml:space="preserve"><value>本次已等待 {0} 秒，单次请求最多等待 {1} 秒。</value></data>
+  <data name="BatchHint" xml:space="preserve"><value>模型按批次返回结果；收到响应并校验保存后，译文和进度才会更新。</value></data>
+  <data name="Elapsed" xml:space="preserve"><value>本次运行用时：{0} 秒</value></data>
+  <data name="History" xml:space="preserve"><value>查看最近过程记录（最多 30 条）</value></data>
+  <data name="Stale" xml:space="preserve"><value>连接暂时中断，当前显示最后收到的状态；请使用上方重试按钮恢复查询。</value></data>
+</root>

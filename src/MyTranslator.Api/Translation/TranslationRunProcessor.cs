@@ -134,6 +134,7 @@ public sealed class TranslationRunProcessor(
         {
             for (var attempt = 1; attempt <= maxAttempts && pending.Count > 0; attempt++)
             {
+                await RecordActivityAsync(run.Id, "requesting", pending.Values, attempt, configuration, null, cancellationToken);
                 IReadOnlyList<TranslationOutput> outputs;
                 try
                 {
@@ -143,6 +144,7 @@ public sealed class TranslationRunProcessor(
                         run.TargetLanguage,
                         pending.Values.OrderBy(segment => segment.Order).ToArray(),
                         configuration.Provider.RequestTimeout,
+                        run.ReasoningEffort,
                         cancellationToken);
                 }
                 catch (TranslationExecutionException exception)
@@ -158,10 +160,12 @@ public sealed class TranslationRunProcessor(
                         return;
                     }
 
+                    await RecordActivityAsync(run.Id, "retrying", pending.Values, attempt, configuration, lastFailures.Values.First().Code, cancellationToken);
                     await DelayBeforeRetryAsync(attempt, cancellationToken);
                     continue;
                 }
 
+                await RecordActivityAsync(run.Id, "validating", pending.Values, attempt, configuration, null, cancellationToken);
                 var outputLookup = outputs
                     .GroupBy(output => output.SegmentId)
                     .ToDictionary(group => group.Key, group => group.ToArray());
@@ -179,6 +183,7 @@ public sealed class TranslationRunProcessor(
                         return;
                     }
 
+                    await RecordActivityAsync(run.Id, "retrying", pending.Values, attempt, configuration, lastFailures.Values.First().Code, cancellationToken);
                     await DelayBeforeRetryAsync(attempt, cancellationToken);
                     continue;
                 }
@@ -211,6 +216,7 @@ public sealed class TranslationRunProcessor(
 
                 if (successful.Count > 0)
                 {
+                    await RecordActivityAsync(run.Id, "saving", pending.Values.Where(segment => successful.ContainsKey(segment.Id)), attempt, configuration, null, cancellationToken);
                     await CommitTranslationsAsync(run.Id, successful, cancellationToken);
                     foreach (var segmentId in successful.Keys)
                     {
@@ -229,6 +235,7 @@ public sealed class TranslationRunProcessor(
                     return;
                 }
 
+                await RecordActivityAsync(run.Id, "retrying", pending.Values, attempt, configuration, lastFailures[pending.Keys.First()].Code, cancellationToken);
                 await DelayBeforeRetryAsync(attempt, cancellationToken);
             }
         }
@@ -240,6 +247,7 @@ public sealed class TranslationRunProcessor(
         string targetLanguage,
         IReadOnlyList<SegmentWork> segments,
         TimeSpan requestTimeout,
+        string? reasoningEffort,
         CancellationToken cancellationToken)
     {
         var input = JsonSerializer.Serialize(new
@@ -268,7 +276,19 @@ public sealed class TranslationRunProcessor(
                 messages,
                 new ChatOptions
                 {
-                    Temperature = 0,
+                    Temperature = reasoningEffort is null or "none" ? 0 : null,
+                    Reasoning = reasoningEffort is null ? null : new ReasoningOptions
+                    {
+                        Effort = reasoningEffort switch
+                        {
+                            "none" => ReasoningEffort.None,
+                            "low" => ReasoningEffort.Low,
+                            "medium" => ReasoningEffort.Medium,
+                            "high" => ReasoningEffort.High,
+                            "xhigh" => ReasoningEffort.ExtraHigh,
+                            _ => throw new InvalidOperationException("Invalid persisted reasoning effort.")
+                        }
+                    },
                     ResponseFormat = ChatResponseFormat.Json
                 },
                 timeout.Token);
@@ -477,6 +497,21 @@ public sealed class TranslationRunProcessor(
         run.ProcessedSegments = run.SelectedSegments;
         run.ActiveTaskLockId = null;
         run.FinishedAt = DateTimeOffset.UtcNow;
+        await database.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task RecordActivityAsync(Guid runId, string stage, IEnumerable<SegmentWork> segments,
+        int attempt, AiExecutionConfiguration configuration, string? code, CancellationToken cancellationToken)
+    {
+        var items = segments.ToArray();
+        var current = await database.TranslationRuns.SingleAsync(item => item.Id == runId, cancellationToken);
+        var events = current.ActivityJson is null ? new List<TranslationActivity>()
+            : JsonSerializer.Deserialize<List<TranslationActivity>>(current.ActivityJson)!;
+        events.Add(new TranslationActivity(stage, DateTimeOffset.UtcNow, items.Min(item => item.Order),
+            items.Max(item => item.Order), items.Length, attempt,
+            AiProviderRuntimeSettings.ClampMaxAttempts(configuration.Provider.MaxAttempts),
+            configuration.Provider.RequestTimeout.TotalSeconds, code));
+        current.ActivityJson = JsonSerializer.Serialize(events.TakeLast(30));
         await database.SaveChangesAsync(cancellationToken);
     }
 

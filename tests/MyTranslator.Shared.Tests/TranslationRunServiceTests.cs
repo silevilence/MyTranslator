@@ -40,6 +40,20 @@ public class TranslationRunServiceTests
     }
 
     [Fact]
+    public async Task CreateRunAsync_思考等级随请求发送()
+    {
+        string? body = null;
+        var service = Create(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return JsonResponse(HttpStatusCode.Accepted, CreateRun());
+        }, out _);
+        await service.CreateRunAsync(TaskId, 1, null, "zh-CN", reasoningEffort: "high");
+        using var json = JsonDocument.Parse(body!);
+        Assert.Equal("high", json.RootElement.GetProperty("reasoningEffort").GetString());
+    }
+
+    [Fact]
     public async Task CreateRunAsync_发送camelCase请求体且源语言空白转为null()
     {
         string? capturedBody = null;

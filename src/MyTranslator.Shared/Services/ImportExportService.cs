@@ -30,6 +30,24 @@ public class ImportExportService
     /// <summary>拼接接口地址：配置了 <c>Api:BaseUrl</c> 时指向后端，否则使用页面同源相对路径。</summary>
     private string ApiUrl(string path) => _baseUrl + path;
 
+    /// <summary>将多个浏览器文件作为同一个任务上传；流在请求完成或失败后释放。</summary>
+    public async Task<TaskSummary> CreateFromFilesAsync(
+        IReadOnlyList<Microsoft.AspNetCore.Components.Forms.IBrowserFile> files,
+        string? segmentationMode, CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        foreach (var file in files)
+        {
+            var content = new StreamContent(file.OpenReadStream(10 * 1024 * 1024, cancellationToken));
+            form.Add(content, "files", file.Name);
+            content.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+        }
+        if (segmentationMode is not null) form.Add(new StringContent(segmentationMode), "segmentationMode");
+        using var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl("/api/tasks/imports/files")) { Content = form };
+        return await SendForResultAsync<TaskSummary>(request, cancellationToken);
+    }
+
     /// <summary>
     /// 上传文件创建导入任务（§4.1）。
     /// </summary>

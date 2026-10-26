@@ -26,7 +26,7 @@ public class ProviderErrorMappingTests
     [InlineData(422, "provider_disabled", "AI 提供商已停用，请前往设置启用后重试")]
     [InlineData(400, "invalid_provider_name", "提供商名称不能为空")]
     [InlineData(400, "invalid_provider_kind", "连接器类型无效（仅支持 openai / ollama）")]
-    [InlineData(400, "invalid_base_url", "BaseUrl 须为绝对 http(s) 地址")]
+    [InlineData(400, "invalid_base_url", "请填写以 http:// 或 https:// 开头的服务地址。")]
     [InlineData(400, "invalid_runtime_settings", "运行参数超出合法范围（批大小 1..200，超时须大于 0，尝试次数 1..10）")]
     [InlineData(400, "invalid_provider_key_field", "密钥字段提交无效，请重新输入")]
     [InlineData(409, "model_id_conflict", "该厂商模型 ID 在同一提供商下已存在")]

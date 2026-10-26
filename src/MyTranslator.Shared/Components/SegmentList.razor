@@ -2,7 +2,7 @@
 @inject IStringLocalizer<SegmentList> L
 
 <div class="mt-seg-list" tabindex="0" @onkeydown="OnKeyDown" aria-label="@L["List"]">
-    <MudTable T="Segment" Items="Items" Dense="true" Hover="true" Virtualize="true" Height="480px" FixedHeader="true"
+    <MudTable T="Segment" Items="Items" Dense="true" Hover="true" Virtualize="true" Height="var(--mt-segment-list-height, 66vh)" FixedHeader="true"
               RowClassFunc="@RowClass" OnRowClick="RowClicked">
         <HeaderContent>
             <MudTh Class="mt-seg-col-check">@L["Select"]</MudTh>
@@ -25,6 +25,10 @@
                         <SegmentMarkupViewer Text="@(context.SourceText ?? string.Empty)" MarkupTable="context.MarkupTable" />
                     </span>
                 </div>
+                @if (context.SourceFileName is { } fileName)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@fileName</MudText>
+                }
                 @if (context.Chapter is { } chapter)
                 {
                     <MudText Typo="Typo.caption" Color="Color.Secondary">@(chapter.Title ?? chapter.ResourcePath)</MudText>

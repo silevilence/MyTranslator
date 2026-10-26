@@ -16,55 +16,7 @@
 <MudTabs Class="mt-4" Rounded="true" Outlined="true">
     <MudTabPanel Text="@Localizer["TabFile"]" Icon="@Icons.Material.Filled.UploadFile">
         <div class="pa-6">
-            <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["FileSectionDescription"]</MudText>
-
-            <MudFileUpload T="IReadOnlyList<IBrowserFile>"
-                           Accept=".txt,.md,.markdown,.html,.htm,.epub"
-                           Files="_selectedFiles"
-                           FilesChanged="OnFilesChangedAsync"
-                           MaximumFileCount="1"
-                           DragAndDrop="true"
-                           Class="mt-4" />
-
-            <MudSelect T="string"
-                       Label="@Localizer["FileTypeLabel"]"
-                       HelperText="@Localizer["FileTypeHelper"]"
-                       Variant="Variant.Outlined"
-                       @bind-Value="_fileTypeChoice"
-                       Class="mt-4"
-                       MaxHeight="240">
-                <MudSelectItem Value="@("auto")">@Localizer["FileTypeAuto"]</MudSelectItem>
-                <MudSelectItem Value="@("txt")">txt</MudSelectItem>
-                <MudSelectItem Value="@("markdown")">markdown</MudSelectItem>
-                <MudSelectItem Value="@("html")">html</MudSelectItem>
-                <MudSelectItem Value="@("epub")">epub</MudSelectItem>
-            </MudSelect>
-
-            @if (IsTxtSelected)
-            {
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-4">@Localizer["SegmentationLabel"]</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">@Localizer["SegmentationHelper"]</MudText>
-                <MudRadioGroup T="string"
-                               @bind-Value="_segmentationMode"
-                               Class="mt-2">
-                    <MudRadio Value="@("auto")">@Localizer["SegmentationAuto"]</MudRadio>
-                    <MudRadio Value="@("paragraph")">@Localizer["SegmentationParagraph"]</MudRadio>
-                    <MudRadio Value="@("line")">@Localizer["SegmentationLine"]</MudRadio>
-                </MudRadioGroup>
-            }
-
-            <div class="mt-6">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.FileUpload"
-                           Disabled="_busy || _selectedFiles.Count == 0"
-                           OnClick="SubmitFileAsync">
-                    @if (_busy)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                    }
-                    @(_busy ? Localizer["ImportingFile"] : Localizer["ImportFile"])
-                </MudButton>
-            </div>
+            <FileImportPanel OnCreated="OnFileCreated" />
         </div>
     </MudTabPanel>
 
@@ -99,77 +51,14 @@
 </MudTabs>
 
 @code {
-    private IReadOnlyList<IBrowserFile> _selectedFiles = [];
-    private string _fileTypeChoice = "auto";
-    private string _segmentationMode = "auto";
     private string _url = string.Empty;
     private string? _urlError;
     private bool _busy;
 
-    private bool IsTxtSelected => _fileTypeChoice == "txt";
-
-    private void OnFilesChangedAsync(IReadOnlyList<IBrowserFile> files)
+    private void OnFileCreated(TaskSummary summary)
     {
-        _selectedFiles = files;
-        // 未显式选择类型时按扩展名预选，减少用户操作（服务端仍按契约权威推断）
-        if (_fileTypeChoice == "auto" && files.Count > 0)
-        {
-            var detected = DetectFileType(files[0].Name);
-            if (detected is not null)
-            {
-                _fileTypeChoice = detected;
-            }
-        }
-    }
-
-    private static string? DetectFileType(string fileName)
-    {
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        return extension switch
-        {
-            ".txt" => "txt",
-            ".md" or ".markdown" => "markdown",
-            ".html" or ".htm" => "html",
-            ".epub" => "epub",
-            _ => null,
-        };
-    }
-
-    private async Task SubmitFileAsync()
-    {
-        var file = _selectedFiles.FirstOrDefault();
-        if (file is null)
-        {
-            return;
-        }
-
-        _busy = true;
-        try
-        {
-            // 本地上限与契约 §4.1 默认上传上限一致（10 MiB）；后端仍权威强制（413 content_too_large）
-            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            var summary = await Import.CreateFromFileAsync(
-                stream,
-                file.Name,
-                file.ContentType,
-                _fileTypeChoice == "auto" ? null : _fileTypeChoice,
-                IsTxtSelected && _segmentationMode != "auto" ? _segmentationMode : null);
-            Snackbar.Add(Localizer["ImportCreated"], Severity.Success);
-            Nav.NavigateTo($"/tasks/{summary.TaskId}");
-        }
-        catch (IOException)
-        {
-            // OpenReadStream 超过本地上限时抛 IOException，按 content_too_large 文案提示
-            Snackbar.Add(ErrorProvider.ForError(413, "content_too_large"), Severity.Error);
-        }
-        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
-        {
-            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
-        }
-        finally
-        {
-            _busy = false;
-        }
+        Snackbar.Add(Localizer["ImportCreated"], Severity.Success);
+        Nav.NavigateTo($"/tasks/{summary.TaskId}");
     }
 
     private async Task SubmitUrlAsync()

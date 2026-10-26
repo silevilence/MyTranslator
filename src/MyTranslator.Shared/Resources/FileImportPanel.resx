@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Description" xml:space="preserve"><value>可一次选择最多 20 个相关文件，共同创建一个翻译任务。支持文本、Markdown、HTML 和 EPUB，总大小不超过 10 MiB。</value></data>
+  <data name="Choose" xml:space="preserve"><value>选择文件（可多选）</value></data>
+  <data name="Selected" xml:space="preserve"><value>待导入文件</value></data>
+  <data name="Remove" xml:space="preserve"><value>移除 {0}</value></data>
+  <data name="Size" xml:space="preserve"><value>{0} KiB</value></data>
+  <data name="MultipleSummary" xml:space="preserve"><value>已选 {0} 个文件 → 1 个任务。每个文件自动识别格式；翻译完成后下载 ZIP，内含各文件的译文。多文件任务暂不支持重新提取。</value></data>
+  <data name="SingleSummary" xml:space="preserve"><value>已选 {0} 个文件，翻译完成后按原格式下载。</value></data>
+  <data name="FileType" xml:space="preserve"><value>文件格式</value></data>
+  <data name="TypeHelp" xml:space="preserve"><value>通常保持自动识别即可；文件扩展名不正确时可手动选择。</value></data>
+  <data name="Auto" xml:space="preserve"><value>自动识别（推荐）</value></data>
+  <data name="Txt" xml:space="preserve"><value>纯文本（TXT）</value></data>
+  <data name="Markdown" xml:space="preserve"><value>Markdown 文档</value></data>
+  <data name="Html" xml:space="preserve"><value>网页文件（HTML）</value></data>
+  <data name="Epub" xml:space="preserve"><value>电子书（EPUB）</value></data>
+  <data name="Segmentation" xml:space="preserve"><value>文本文件如何分段</value></data>
+  <data name="SegmentationHelp" xml:space="preserve"><value>仅影响 TXT 文件，其余格式按文档结构分段。</value></data>
+  <data name="SegmentationAuto" xml:space="preserve"><value>自动选择（推荐）</value></data>
+  <data name="Paragraph" xml:space="preserve"><value>按段落（空行分隔）</value></data>
+  <data name="Line" xml:space="preserve"><value>按行（每行为一段）</value></data>
+  <data name="TooLarge" xml:space="preserve"><value>所选文件总大小超过 10 MiB，请减少文件或拆分较大的文件。</value></data>
+  <data name="Create" xml:space="preserve"><value>创建翻译任务</value></data>
+  <data name="Importing" xml:space="preserve"><value>正在上传并提取分段…</value></data>
+</root>

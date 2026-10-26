@@ -16,5 +16,9 @@
   <data name="Confirm" xml:space="preserve"><value>确认</value></data>
   <data name="Unconfirm" xml:space="preserve"><value>取消确认</value></data>
   <data name="Clear" xml:space="preserve"><value>清空译文</value></data>
+  <data name="Previous" xml:space="preserve"><value>上一段</value></data>
+  <data name="Next" xml:space="preserve"><value>下一段</value></data>
+  <data name="ConfirmNext" xml:space="preserve"><value>确认并下一段</value></data>
+  <data name="AutoSaveHint" xml:space="preserve"><value>切换时自动保存 · Ctrl+Enter 确认并下一段</value></data>
 </root>
 

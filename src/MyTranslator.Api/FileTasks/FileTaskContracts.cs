@@ -35,7 +35,8 @@ public sealed record FileTaskSummary(
     FileTaskCounts Counts,
     FileTaskCapabilities Capabilities,
     DateTimeOffset CreatedAt,
-    MyTranslator.Api.TaskLists.TaskProgressResponse? Progress = null);
+    MyTranslator.Api.TaskLists.TaskProgressResponse? Progress = null,
+    IReadOnlyList<TaskFileSummary>? Files = null);
 
 public sealed record FileTaskSource(
     string Kind,
@@ -70,7 +71,8 @@ public sealed record SegmentResponse(
     int Version,
     JsonElement MarkupTable,
     JsonElement? Chapter,
-    IReadOnlyList<ReviewCommentResponse> ReviewComments);
+    IReadOnlyList<ReviewCommentResponse> ReviewComments,
+    string? SourceFileName = null);
 
 public sealed record ReviewCommentResponse(
     string Severity,
@@ -95,3 +97,5 @@ public sealed record ProtectedBlockResponse(
     long ByteLength,
     string ContentHash,
     JsonElement? Chapter);
+
+public sealed record TaskFileSummary(string FileName, string FileType, long ByteLength);

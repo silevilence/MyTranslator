@@ -86,7 +86,7 @@ else
                         <MudText Typo="Typo.body1" Class="mt-task-row-name">@GetSourceName(item)</MudText>
                     </div>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-task-row-meta">
-                        @item.FileType · @Localizer["CreatedAt", FormatCreatedAt(item.CreatedAt)]
+                        @Localizer[item.FileType switch { "txt" => "Format_txt", "markdown" => "Format_markdown", "html" => "Format_html", "epub" => "Format_epub", "bundle" => "Format_bundle", _ => "Format_unknown" }] · @Localizer["CreatedAt", FormatCreatedAt(item.CreatedAt)]
                     </MudText>
                     @if (item.Source?.Kind == "url" && item.Source.RequestedUrl is { Length: > 0 } requestedUrl)
                     {

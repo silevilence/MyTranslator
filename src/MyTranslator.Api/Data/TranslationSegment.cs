@@ -7,6 +7,7 @@ public sealed class TranslationSegment
     public TranslationTask Task { get; set; } = null!;
     public int Order { get; set; }
     public int SourceUnitOrder { get; set; }
+    public string? SourceFileName { get; set; }
     public string SourceText { get; set; } = null!;
     public string? TargetText { get; set; }
     public SegmentConfirmationStatus ConfirmationStatus { get; set; } = SegmentConfirmationStatus.Pending;

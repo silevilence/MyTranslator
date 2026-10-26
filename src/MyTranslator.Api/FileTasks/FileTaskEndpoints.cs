@@ -33,6 +33,21 @@ public static class FileTaskEndpoints
             .WithName("CreateFileImportTask")
             .WithTags("File tasks");
 
+        endpoints.MapPost("/api/tasks/imports/files",
+            async Task<IResult> (IFormFileCollection files, [FromForm] string? segmentationMode,
+                FileTaskService service, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var result = await service.CreateFilesTaskAsync(files, segmentationMode, cancellationToken);
+                    return Results.Created($"/api/tasks/{result.TaskId}", result);
+                }
+                catch (InvalidFileTaskRequestException exception)
+                {
+                    return FileTaskProblem.FromException(exception);
+                }
+            }).DisableAntiforgery().WithName("CreateMultiFileImportTask").WithTags("File tasks");
+
         endpoints.MapGet(
                 "/api/tasks/{taskId:guid}",
                 async Task<IResult> (

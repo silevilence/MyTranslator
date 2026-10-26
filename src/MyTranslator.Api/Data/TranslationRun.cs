@@ -15,6 +15,8 @@ public sealed class TranslationRun
     public string TargetLanguage { get; set; } = null!;
     public Guid? ProviderId { get; set; }
     public Guid? ModelId { get; set; }
+    public string? ReasoningEffort { get; set; }
+    public string? ActivityJson { get; set; }
     public int TotalSegments { get; set; }
     public int SelectedSegments { get; set; }
     public int SkippedExistingSegments { get; set; }

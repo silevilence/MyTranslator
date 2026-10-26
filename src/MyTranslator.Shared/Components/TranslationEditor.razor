@@ -56,6 +56,9 @@
                 <DetailContent>
                     <MudPaper Outlined="true" Elevation="0" Class="pa-3">
                         <SegmentEditorPanel @ref="_panel" Draft="_draft" Disabled="Locked" OnChange="DraftChangedAsync"
+                            CanPrevious="@(_items.FindIndex(row => row.Id == _draft?.Original.Id) > 0)"
+                            CanNext="@(_nextCursor is not null || _items.FindIndex(row => row.Id == _draft?.Original.Id) < _items.Count - 1)"
+                            OnPrevious="() => MoveAsync(-1)" OnNext="() => MoveAsync(1)" OnConfirmNext="ConfirmNextAsync"
                             OnSave="SaveAsync" OnConfirm="ConfirmCurrentAsync"
                             OnUnconfirm="UnconfirmCurrentAsync" OnClear="ClearAsync" OnKeyDown="EditorKeyAsync">
                             <References Context="segment">
@@ -257,6 +260,8 @@
         if (Busy || _stale) return;
         await SaveCoreAsync();
         _draft = new(_items.First(row => row.Id == segment.Id));
+        if (_detailCollapsed) { _detailCollapsed = false; await PersistLayoutAsync(); }
+        _refocusPanel = true;
     });
 
     private async Task SaveCoreAsync(string? status = null, bool clear = false)
@@ -362,12 +367,20 @@
         if (args.CtrlKey && args.Key.Equals("s", StringComparison.OrdinalIgnoreCase)) await RunAsync(() => SaveCoreAsync());
         if (args.CtrlKey && args.Key == "Enter") await RunAsync(async () => { await SaveCoreAsync("confirmed"); await MoveCoreAsync(1); });
     }
+    private Task ConfirmNextAsync() => Locked ? Task.CompletedTask : RunAsync(async () =>
+    {
+        await SaveCoreAsync("confirmed");
+        await MoveCoreAsync(1);
+    });
     private Task MoveAsync(int delta) => Locked ? Task.CompletedTask : RunAsync(async () => { await SaveCoreAsync(); await MoveCoreAsync(delta); });
     private async Task MoveCoreAsync(int delta)
     {
         var index = _items.FindIndex(row => row.Id == _draft?.Original.Id) + delta;
         if (index >= _items.Count && _nextCursor is not null) await LoadMoreAsync();
-        if (index >= 0 && index < _items.Count) _draft = new(_items[index]);
+        if (index >= 0 && index < _items.Count)
+        {
+            _draft = new(_items[index]);
+        }
     }
 
     private IReadOnlyList<RuleFinding> RulesFor(Segment segment) => EditorDiagnostics.RulesFor(_rules, TaskId, ExtractionRevision, segment);

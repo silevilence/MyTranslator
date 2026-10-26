@@ -1,0 +1,61 @@
+@namespace MyTranslator.Shared.Components
+@inject IStringLocalizer<TranslationActivityPanel> L
+@inject ApiErrorMessageProvider Errors
+
+<div class="mt-activity" aria-live="polite">
+    @if (Run.Status == "queued")
+    {
+        <MudText Typo="Typo.body2"><MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" /> @L["Queued"]</MudText>
+    }
+    else if (Run.Status == "processing" && Run.Events.LastOrDefault() is { } current)
+    {
+        <MudText Typo="Typo.body2"><MudIcon Icon="@Icons.Material.Filled.Sync" Size="Size.Small" /> @Stage(current)</MudText>
+        <MudText Typo="Typo.caption">@L["Batch", current.FirstSegmentOrder, current.LastSegmentOrder, current.SegmentCount, current.Attempt, current.MaxAttempts]</MudText>
+        @if (current.Stage == "requesting")
+        {
+            <MudText Typo="Typo.body2">@L["Waiting", SecondsSince(current.At), current.TimeoutSeconds]</MudText>
+            <MudText Typo="Typo.caption">@L["BatchHint"]</MudText>
+        }
+    }
+    else if (Run.Status == "processing")
+    {
+        <MudText Typo="Typo.body2">@L["Preparing"]</MudText>
+    }
+    <MudText Typo="Typo.caption">@L["Elapsed", SecondsSince(Run.StartedAt ?? Run.CreatedAt)]</MudText>
+    @if (PollFailed)
+    {
+        <MudText Typo="Typo.caption">@L["Stale"]</MudText>
+    }
+</div>
+@if (Run.Events.Count > 0)
+{
+    <MudExpansionPanels Elevation="0" Class="mt-2">
+        <MudExpansionPanel Text="@L["History"]">
+            <div class="mt-activity-history" role="list">
+                @foreach (var entry in Run.Events.Reverse())
+                {
+                    <div class="mt-activity-entry" role="listitem">
+                        <MudText Typo="Typo.caption">@entry.At.ToLocalTime().ToString("HH:mm:ss")</MudText>
+                        <div>
+                            <MudText Typo="Typo.body2">@Stage(entry)</MudText>
+                            <MudText Typo="Typo.caption">@L["Batch", entry.FirstSegmentOrder, entry.LastSegmentOrder, entry.SegmentCount, entry.Attempt, entry.MaxAttempts]</MudText>
+                            @if (entry.Code is not null) { <MudText Typo="Typo.caption">@Errors.ForFailureCode(entry.Code)</MudText> }
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
+@code {
+    /// <summary>服务端运行快照，由父面板的既有轮询更新。</summary>
+    [Parameter, EditorRequired] public required TranslationRun Run { get; set; }
+    /// <summary>轮询失败时明确说明展示的是最后一次快照。</summary>
+    [Parameter] public bool PollFailed { get; set; }
+    private int SecondsSince(DateTimeOffset at) => (int)Math.Max(0, ((Run.FinishedAt ?? DateTimeOffset.UtcNow) - at).TotalSeconds);
+    private string Stage(TranslationActivity activity) => L[activity.Stage switch
+    {
+        "requesting" => "Requesting", "validating" => "Validating", "saving" => "Saving", "retrying" => "Retrying", _ => "Preparing"
+    }];
+}

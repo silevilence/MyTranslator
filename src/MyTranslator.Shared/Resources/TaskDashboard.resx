@@ -96,4 +96,10 @@
   <data name="LoadedAnnouncement" xml:space="preserve">
     <value>已加载 {0} 个任务</value>
   </data>
+  <data name="Format_txt" xml:space="preserve"><value>纯文本</value></data>
+  <data name="Format_markdown" xml:space="preserve"><value>Markdown 文档</value></data>
+  <data name="Format_html" xml:space="preserve"><value>网页文档</value></data>
+  <data name="Format_epub" xml:space="preserve"><value>EPUB 电子书</value></data>
+  <data name="Format_bundle" xml:space="preserve"><value>多文件任务</value></data>
+  <data name="Format_unknown" xml:space="preserve"><value>文件</value></data>
 </root>

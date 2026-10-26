@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ public sealed class TranslationRunService(
         CancellationToken cancellationToken)
     {
         ValidateRevision(request.ExtractionRevision);
+        if (request.ReasoningEffort is not (null or "none" or "low" or "medium" or "high" or "xhigh"))
+            throw Problem("invalid_reasoning_effort", "Invalid reasoning effort.", StatusCodes.Status400BadRequest);
         var sourceLanguage = NormalizeLanguage(request.SourceLanguage, false);
         var targetLanguage = NormalizeLanguage(request.TargetLanguage, true)!;
         if (string.Equals(sourceLanguage, targetLanguage, StringComparison.OrdinalIgnoreCase))
@@ -78,7 +81,7 @@ public sealed class TranslationRunService(
         AiSelection selection;
         try
         {
-            selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, cancellationToken);
+            selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, request.ReasoningEffort, cancellationToken);
         }
         catch (TranslationRequestException exception)
         {
@@ -115,6 +118,7 @@ public sealed class TranslationRunService(
             TargetLanguage = targetLanguage,
             ProviderId = selection.ProviderId,
             ModelId = selection.ModelId,
+            ReasoningEffort = request.ReasoningEffort,
             TotalSegments = task.Segments.Count,
             SelectedSegments = selectedSegments,
             SkippedExistingSegments = task.Segments.Count - selectedSegments,
@@ -245,7 +249,9 @@ public sealed class TranslationRunService(
             ToFailure(run),
             run.CreatedAt,
             run.StartedAt,
-            run.FinishedAt);
+            run.FinishedAt,
+            run.ReasoningEffort,
+            run.ActivityJson is null ? [] : JsonSerializer.Deserialize<TranslationActivity[]>(run.ActivityJson));
     }
 
     internal static TranslationRunProgress ToProgress(TranslationRun run)
@@ -271,6 +277,7 @@ public sealed class TranslationRunService(
     private async Task<AiSelection> ResolveSelectionAsync(
         Guid? requestedProviderId,
         Guid? requestedModelId,
+        string? reasoningEffort,
         CancellationToken cancellationToken)
     {
         var explicitProvider = requestedProviderId.HasValue;
@@ -357,6 +364,9 @@ public sealed class TranslationRunService(
             throw NotConfigured(missing);
         }
 
+        if (reasoningEffort is not null &&
+            (!model.SupportsThinking || (provider.Kind == AiProviderKinds.Ollama && reasoningEffort == "xhigh")))
+            throw Problem("reasoning_not_supported", "The selected model does not support this reasoning setting.", StatusCodes.Status422UnprocessableEntity);
         return new AiSelection(provider.Id, model.Id);
     }
 

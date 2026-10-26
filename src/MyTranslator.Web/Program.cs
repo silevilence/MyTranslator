@@ -13,6 +13,11 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddLocalization();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddMudServices();
+builder.Services.AddTransient<MudBlazor.MudLocalizer, ChineseMudLocalizer>();
+builder.Services.AddLocalizationInterceptor<MudBlazor.DefaultLocalizationInterceptor>(sp =>
+    new MudBlazor.DefaultLocalizationInterceptor(
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(),
+        sp.GetRequiredService<MudBlazor.MudLocalizer>()) { IgnoreDefaultEnglish = true });
 
 // 共享服务（RCL，Web 与桌面端共用）
 builder.Services.AddScoped<TokenStore>();

@@ -68,6 +68,11 @@ public sealed record TranslationRun
     /// <summary>解析后的实际模型条目 ID；同上。</summary>
     public Guid? ModelId { get; init; }
 
+    /// <summary>本次运行实际使用的思考等级；null 表示模型默认。</summary>
+    public string? ReasoningEffort { get; init; }
+    /// <summary>服务端记录的最近 30 条批次过程事件。</summary>
+    public IReadOnlyList<TranslationActivity> Events { get; init; } = [];
+
     public TranslationRunSelection? Selection { get; init; }
     public TranslationRunProgress? Progress { get; init; }
 
@@ -112,3 +117,6 @@ public sealed record TranslationFailurePage
     public IReadOnlyList<SegmentTranslationFailure> Items { get; init; } = [];
     public string? NextCursor { get; init; }
 }
+
+/// <summary>真实批次阶段；不包含模型内部思考文本。</summary>
+public sealed record TranslationActivity(string Stage, DateTimeOffset At, int FirstSegmentOrder, int LastSegmentOrder, int SegmentCount, int Attempt, int MaxAttempts, double TimeoutSeconds, string? Code);

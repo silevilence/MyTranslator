@@ -148,7 +148,7 @@
     <value>连接器类型无效（仅支持 openai / ollama）</value>
   </data>
   <data name="invalid_base_url" xml:space="preserve">
-    <value>BaseUrl 须为绝对 http(s) 地址</value>
+    <value>请填写以 http:// 或 https:// 开头的服务地址。</value>
   </data>
   <data name="invalid_runtime_settings" xml:space="preserve">
     <value>运行参数超出合法范围（批大小 1..200，超时须大于 0，尝试次数 1..10）</value>
@@ -270,4 +270,7 @@
   <data name="invalid_segment_batch">
     <value>请选择 1 至 200 个不重复分段。</value>
   </data>
+  <data name="invalid_reasoning_effort" xml:space="preserve"><value>思考等级无效，请重新选择。</value></data>
+  <data name="reasoning_not_supported" xml:space="preserve"><value>当前模型未标注支持此思考等级，请使用“模型默认”，或在设置中核对模型能力。</value></data>
+  <data name="invalid_file_collection" xml:space="preserve"><value>请选择 1–20 个名称不同的文件，文件名不能包含路径。</value></data>
 </root>

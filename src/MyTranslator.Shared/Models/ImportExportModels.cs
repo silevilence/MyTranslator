@@ -73,6 +73,8 @@ public sealed record TaskSummary
 {
     /// <summary>当前译文完成与人工确认进度。</summary>
     public TaskProgress? Progress { get; init; }
+    /// <summary>多文件任务的原始文件清单；单文件任务可为空。</summary>
+    public IReadOnlyList<TaskFileSummary>? Files { get; init; }
     public Guid TaskId { get; init; }
     public string? Status { get; init; }
     public TaskSource? Source { get; init; }
@@ -117,6 +119,8 @@ public sealed record Chapter
 /// <summary>可译分段（§6 契约）。</summary>
 public sealed record Segment
 {
+    /// <summary>多文件任务中该分段所属原文件。</summary>
+    public string? SourceFileName { get; init; }
     public Guid Id { get; init; }
 
     /// <summary>当前提取修订内从 1 开始连续递增。</summary>
@@ -229,6 +233,8 @@ public sealed record TaskListItem
     public string? FileType { get; init; }
     public int ExtractionRevision { get; init; }
     public TaskProgress? Progress { get; init; }
+    /// <summary>多文件任务的原始文件清单；单文件任务可为空。</summary>
+    public IReadOnlyList<TaskFileSummary>? Files { get; init; }
 
     /// <summary>按 createdAt、runId 降序选取的当前提取修订最新运行；无运行时为 null。</summary>
     public LatestTranslationRun? LatestTranslationRun { get; init; }
@@ -242,3 +248,6 @@ public sealed record TaskListPage
     public IReadOnlyList<TaskListItem> Items { get; init; } = [];
     public string? NextCursor { get; init; }
 }
+
+/// <summary>多文件任务内的一个原文件。</summary>
+public sealed record TaskFileSummary(string FileName, string FileType, long ByteLength);

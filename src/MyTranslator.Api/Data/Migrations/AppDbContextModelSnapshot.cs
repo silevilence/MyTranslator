@@ -519,6 +519,8 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationSegment", b =>
                 {
+                    b.Property<string>("SourceFileName").HasColumnType("TEXT");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
@@ -569,6 +571,9 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
                 {
+                    b.Property<string>("ReasoningEffort").HasColumnType("TEXT");
+                    b.Property<string>("ActivityJson").HasColumnType("TEXT");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");

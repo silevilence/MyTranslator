@@ -1,0 +1,112 @@
+@namespace MyTranslator.Shared.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject ImportExportService Import
+@inject ApiErrorMessageProvider Errors
+@inject IStringLocalizer<FileImportPanel> L
+
+<MudText Typo="Typo.body2">@L["Description"]</MudText>
+<MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".txt,.md,.markdown,.html,.htm,.epub"
+               Files="_files" FilesChanged="FilesChanged" MaximumFileCount="1000" Disabled="_busy" Class="mt-4">
+    <CustomContent Context="upload">
+        <MudButton OnClick="upload.OpenFilePickerAsync" Disabled="_busy" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">@L["Choose"]</MudButton>
+    </CustomContent>
+    <SelectedTemplate>
+        <div class="mt-import-files" role="list" aria-label="@L["Selected"]">
+            @foreach (var file in _files)
+            {
+                <div class="mt-import-file" role="listitem">
+                    <span>@file.Name</span>
+                    <MudText Typo="Typo.caption">@L["Size", (file.Size / 1024d).ToString("0.#")]</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Disabled="_busy"
+                                   OnClick="() => Remove(file)" aria-label="@L["Remove", file.Name]" />
+                </div>
+            }
+        </div>
+    </SelectedTemplate>
+</MudFileUpload>
+@if (_files.Count > 0)
+{
+    <MudText Typo="Typo.body2" Class="mt-2">@L[_files.Count > 1 ? "MultipleSummary" : "SingleSummary", _files.Count]</MudText>
+}
+@if (_files.Count <= 1)
+{
+    <MudSelect T="string" @bind-Value="_type" Label="@L["FileType"]" HelperText="@L["TypeHelp"]"
+               Variant="Variant.Outlined" Disabled="_busy" Class="mt-4">
+        <MudSelectItem Value="@("auto")">@L["Auto"]</MudSelectItem>
+        <MudSelectItem Value="@("txt")">@L["Txt"]</MudSelectItem>
+        <MudSelectItem Value="@("markdown")">@L["Markdown"]</MudSelectItem>
+        <MudSelectItem Value="@("html")">@L["Html"]</MudSelectItem>
+        <MudSelectItem Value="@("epub")">@L["Epub"]</MudSelectItem>
+    </MudSelect>
+}
+@if (HasTextFiles)
+{
+    <MudSelect T="string" @bind-Value="_segmentation" Label="@L["Segmentation"]" HelperText="@L["SegmentationHelp"]"
+               Variant="Variant.Outlined" Disabled="_busy" Class="mt-4">
+        <MudSelectItem Value="@("auto")">@L["SegmentationAuto"]</MudSelectItem>
+        <MudSelectItem Value="@("paragraph")">@L["Paragraph"]</MudSelectItem>
+        <MudSelectItem Value="@("line")">@L["Line"]</MudSelectItem>
+    </MudSelect>
+}
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">@_error</MudAlert>
+}
+<MudButton OnClick="SubmitAsync" Disabled="_busy || _files.Count == 0" Variant="Variant.Filled" Color="Color.Primary"
+           StartIcon="@Icons.Material.Filled.FileUpload" Class="mt-4">
+    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" /> }
+    @L[_busy ? "Importing" : "Create"]
+</MudButton>
+
+@code {
+    /// <summary>创建一个任务成功后通知宿主导航。</summary>
+    [Parameter] public EventCallback<TaskSummary> OnCreated { get; set; }
+    private IReadOnlyList<IBrowserFile> _files = [];
+    private string _type = "auto";
+    private string _segmentation = "auto";
+    private bool _busy;
+    private string? _error;
+    private bool HasTextFiles => _files.Count > 1
+        ? _files.Any(file => Path.GetExtension(file.Name).Equals(".txt", StringComparison.OrdinalIgnoreCase))
+        : _type == "txt" || _type == "auto" && _files.Any(file => Path.GetExtension(file.Name).Equals(".txt", StringComparison.OrdinalIgnoreCase));
+
+    private void FilesChanged(IReadOnlyList<IBrowserFile> files)
+    {
+        if (_busy) return;
+        _files = files;
+        _type = "auto";
+        _error = Validate();
+    }
+    private void Remove(IBrowserFile file) { _files = _files.Where(item => item != file).ToArray(); _error = Validate(); }
+    private string? Validate()
+    {
+        if (_files.Count > 20 || _files.Select(file => file.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != _files.Count)
+            return Errors.ForError(400, "invalid_file_collection");
+        if (_files.Sum(file => file.Size) > 10 * 1024 * 1024)
+            return L["TooLarge"];
+        return null;
+    }
+    private async Task SubmitAsync()
+    {
+        if (_busy || _files.Count == 0) return;
+        _error = Validate();
+        if (_error is not null) return;
+        _busy = true;
+        try
+        {
+            var segmentation = HasTextFiles && _segmentation != "auto" ? _segmentation : null;
+            TaskSummary result;
+            if (_files.Count == 1)
+            {
+                var file = _files[0];
+                await using var stream = file.OpenReadStream(10 * 1024 * 1024);
+                result = await Import.CreateFromFileAsync(stream, file.Name, file.ContentType, _type == "auto" ? null : _type, segmentation);
+            }
+            else result = await Import.CreateFromFilesAsync(_files, segmentation);
+            await OnCreated.InvokeAsync(result);
+        }
+        catch (IOException) { _error = L["TooLarge"]; }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException) { _error = Errors.ForException(ex); }
+        finally { _busy = false; }
+    }
+}

@@ -40,6 +40,36 @@ public class ImportExportServiceTests
     }
 
     [Fact]
+    public async Task CreateFromFilesAsync_一次请求上传多个文件且失败后释放全部流()
+    {
+        var first = new BrowserFile("a.txt", "one");
+        var second = new BrowserFile("b.md", "two");
+        var service = Create(request =>
+        {
+            Assert.Equal("/api/tasks/imports/files", request.RequestUri!.AbsolutePath);
+            var form = Assert.IsType<MultipartFormDataContent>(request.Content);
+            var parts = form.Where(p => p.Headers.ContentDisposition!.Name!.Trim('"') == "files").ToArray();
+            Assert.Equal(2, parts.Length);
+            Assert.Equal(new[] { "one", "two" }, parts.Select(p => p.ReadAsStringAsync().GetAwaiter().GetResult()));
+            return JsonResponse(HttpStatusCode.BadRequest, new { code = "import_parse_failed" });
+        }, out var handler);
+        await Assert.ThrowsAsync<ApiErrorException>(() => service.CreateFromFilesAsync([first, second], null));
+        Assert.Single(handler.Requests);
+        Assert.False(first.Stream.CanRead);
+        Assert.False(second.Stream.CanRead);
+    }
+
+    private sealed class BrowserFile(string name, string text) : Microsoft.AspNetCore.Components.Forms.IBrowserFile
+    {
+        public MemoryStream Stream { get; } = new(Encoding.UTF8.GetBytes(text));
+        public string Name => name;
+        public DateTimeOffset LastModified => DateTimeOffset.UnixEpoch;
+        public long Size => Encoding.UTF8.GetByteCount(text);
+        public string ContentType => "text/plain";
+        public Stream OpenReadStream(long maxAllowedSize = 512000, CancellationToken cancellationToken = default) => Stream;
+    }
+
+    [Fact]
     public async Task CreateFromFileAsync_上传multipart并携带参数()
     {
         Dictionary<string, (string? FileName, string? MediaType, string Body)>? captured = null;

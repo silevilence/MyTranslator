@@ -135,4 +135,12 @@
   <data name="TmLanguagesEqualError" xml:space="preserve">
     <value>源语言与目标语言不得相同</value>
   </data>
+  <data name="Format_txt" xml:space="preserve"><value>纯文本</value></data>
+  <data name="Format_markdown" xml:space="preserve"><value>Markdown 文档</value></data>
+  <data name="Format_html" xml:space="preserve"><value>网页文件</value></data>
+  <data name="Format_epub" xml:space="preserve"><value>电子书</value></data>
+  <data name="Format_bundle" xml:space="preserve"><value>多文件任务（ZIP 导出）</value></data>
+  <data name="Format_unknown" xml:space="preserve"><value>未知格式</value></data>
+  <data name="FilesCount" xml:space="preserve"><value>本任务包含 {0} 个文件，统一翻译与导出。</value></data>
+  <data name="FilesList" xml:space="preserve"><value>查看文件清单</value></data>
 </root>

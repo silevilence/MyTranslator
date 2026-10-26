@@ -16,13 +16,13 @@
     <value>AI 翻译</value>
   </data>
   <data name="Description" xml:space="preserve">
-    <value>对当前提取修订中未翻译的分段执行全自动 AI 翻译；已有译文与已确认分段不会被覆盖</value>
+    <value>翻译尚无译文的分段，保留你已有的译文和确认结果。</value>
   </data>
   <data name="TargetLanguageLabel" xml:space="preserve">
     <value>目标语言</value>
   </data>
   <data name="TargetLanguageHelper" xml:space="preserve">
-    <value>BCP 47 标签，例如 zh-CN</value>
+    <value>填写语言代码，例如 zh-CN（简体中文）、en（英语）、ja（日语）。</value>
   </data>
   <data name="TargetLanguageRequired" xml:space="preserve">
     <value>目标语言必填</value>
@@ -93,4 +93,14 @@
   <data name="NoFailures" xml:space="preserve">
     <value>暂无失败明细</value>
   </data>
+  <data name="ReasoningLabel" xml:space="preserve"><value>思考等级</value></data>
+  <data name="ReasoningDefault" xml:space="preserve"><value>模型默认</value></data>
+  <data name="ReasoningNone" xml:space="preserve"><value>关闭</value></data>
+  <data name="ReasoningLow" xml:space="preserve"><value>低 · 较快</value></data>
+  <data name="ReasoningMedium" xml:space="preserve"><value>中 · 均衡</value></data>
+  <data name="ReasoningHigh" xml:space="preserve"><value>高 · 更充分</value></data>
+  <data name="ReasoningXhigh" xml:space="preserve"><value>极高 · 等待更久</value></data>
+  <data name="ReasoningHelp" xml:space="preserve"><value>在开始前选择；等级越高通常等待越久。具体支持的档位取决于模型。</value></data>
+  <data name="ReasoningUnavailable" xml:space="preserve"><value>当前模型未标注支持思考。可在设置中核对模型能力，或使用模型默认值。</value></data>
+  <data name="RunReasoning" xml:space="preserve"><value>本次思考等级：{0}</value></data>
 </root>

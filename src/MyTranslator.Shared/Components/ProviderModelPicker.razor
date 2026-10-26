@@ -85,6 +85,12 @@
 
     /// <summary>当前选中的提供商（按 ID 从已加载配置解析）。</summary>
     private AiProvider? SelectedProvider => ProviderById(_selectedProviderId);
+    /// <summary>按默认对和显式选择解析出的实际提供商。</summary>
+    public AiProvider? EffectiveProvider => SelectedProvider ?? _providers.DefaultProvider();
+    /// <summary>按默认对和显式选择解析出的实际模型。</summary>
+    public AiModel? EffectiveModel => _selectedModelId is { } id
+        ? EffectiveProvider?.Models.FirstOrDefault(model => model.Id == id)
+        : EffectiveProvider.DefaultModel();
 
     /// <summary>提供商选择器占位文案：缺省显示默认对（交互规范 §1）；未配置时提示缺失。</summary>
     private string ProviderPlaceholder

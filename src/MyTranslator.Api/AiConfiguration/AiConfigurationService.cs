@@ -69,7 +69,7 @@ public sealed class AiConfigurationService(AppDbContext database)
 
         if (request.IsDefault)
         {
-            await ClearDefaultProvidersAsync(cancellationToken);
+            await ClearDefaultProvidersAsync(cancellationToken, id);
         }
 
         provider.Name = request.Name;
@@ -204,7 +204,7 @@ public sealed class AiConfigurationService(AppDbContext database)
 
         if (request.IsDefault)
         {
-            await ClearDefaultModelsAsync(providerId, cancellationToken);
+            await ClearDefaultModelsAsync(providerId, cancellationToken, id);
         }
 
         model.ModelId = request.ModelId;
@@ -264,24 +264,26 @@ public sealed class AiConfigurationService(AppDbContext database)
 
     private static string? NormalizeNewKey(string? key) => IsReplacementKey(key) ? key : null;
 
-    private async Task ClearDefaultProvidersAsync(CancellationToken cancellationToken)
+    private async Task ClearDefaultProvidersAsync(CancellationToken cancellationToken, Guid? exceptId = null)
     {
         await database.Providers
-            .Where(provider => provider.IsDefault)
+            .Where(provider => provider.IsDefault && (!exceptId.HasValue || provider.Id != exceptId.Value))
             .ExecuteUpdateAsync(setters => setters.SetProperty(provider => provider.IsDefault, false), cancellationToken);
-        foreach (var provider in database.ChangeTracker.Entries<AiProvider>())
+        foreach (var provider in database.ChangeTracker.Entries<AiProvider>()
+                     .Where(entry => entry.Entity.Id != exceptId))
         {
             provider.Entity.IsDefault = false;
         }
     }
 
-    private async Task ClearDefaultModelsAsync(Guid providerId, CancellationToken cancellationToken)
+    private async Task ClearDefaultModelsAsync(Guid providerId, CancellationToken cancellationToken, Guid? exceptId = null)
     {
         await database.Models
-            .Where(model => model.ProviderId == providerId && model.IsDefault)
+            .Where(model => model.ProviderId == providerId && model.IsDefault &&
+                            (!exceptId.HasValue || model.Id != exceptId.Value))
             .ExecuteUpdateAsync(setters => setters.SetProperty(model => model.IsDefault, false), cancellationToken);
         foreach (var model in database.ChangeTracker.Entries<AiModel>()
-                     .Where(entry => entry.Entity.ProviderId == providerId))
+                     .Where(entry => entry.Entity.ProviderId == providerId && entry.Entity.Id != exceptId))
         {
             model.Entity.IsDefault = false;
         }

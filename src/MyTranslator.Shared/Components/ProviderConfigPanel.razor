@@ -65,7 +65,7 @@
                 <div class="mt-provider-card-header">
                     <div class="mt-provider-card-title">
                         <MudText Typo="Typo.body1">@provider.Name</MudText>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mt-mono">@provider.Kind</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" >@Localizer[provider.Kind switch { "openai" => "KindOpenai", "ollama" => "KindOllama", _ => "KindUnknown" }]</MudChip>
                         @if (provider.IsDefault)
                         {
                             <MudChip T="string" Size="Size.Small" Color="Color.Primary"

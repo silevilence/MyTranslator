@@ -71,3 +71,21 @@
     margin-top: 4px;
     margin-bottom: 12px;
 }
+
+/* 连续编辑的导航始终在详情滚动区内可见。 */
+.mt-seg-navigation {
+    position: sticky;
+    top: -12px;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    background: var(--mud-palette-surface);
+    padding-block: 8px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    margin-bottom: 8px;
+}
+.mt-seg-source-text { max-height: 20vh; overflow: auto; }
+.mt-seg-source-text:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
+.mt-seg-panel ::deep .mt-seg-actions { flex-wrap: wrap; }

@@ -21,7 +21,7 @@ else if (_summary is null)
 }
 else
 {
-    <MudText Typo="Typo.h1">@Localizer["Title"]</MudText>
+    <MudText Typo="Typo.h1">@(_summary.Source?.FileName ?? Localizer["Title"])</MudText>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
         <code class="mt-mono">@_summary.TaskId</code>
     </MudText>
@@ -55,6 +55,13 @@ else
         <MudDivider Class="my-4" />
         @if (_summary.Progress is { } progress) { <ProgressBoard Status="@_summary.Status" Progress="progress" /> }
 
+        @if (_summary.Files is { Count: > 0 } files)
+        {
+            <MudText Typo="Typo.body2">@Localizer["FilesCount", files.Count]</MudText>
+            <MudExpansionPanels Elevation="0"><MudExpansionPanel Text="@Localizer["FilesList"]">
+                @foreach (var file in files) { <MudText Typo="Typo.body2">@file.FileName</MudText> }
+            </MudExpansionPanel></MudExpansionPanels>
+        }
         <div class="mt-task-meta">
             <div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["SourceSection"]</MudText>
@@ -68,7 +75,7 @@ else
             </div>
             <div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["FileType"]</MudText>
-                <MudText Typo="Typo.body1">@_summary.FileType</MudText>
+                <MudText Typo="Typo.body1">@Localizer[_summary.FileType switch { "txt" => "Format_txt", "markdown" => "Format_markdown", "html" => "Format_html", "epub" => "Format_epub", "bundle" => "Format_bundle", _ => "Format_unknown" }]</MudText>
             </div>
             <div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">@Localizer["Encoding"]</MudText>

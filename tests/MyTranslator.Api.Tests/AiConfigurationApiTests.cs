@@ -17,6 +17,35 @@ public sealed class AiConfigurationApiTests
 {
     private const string DevelopmentToken = "sk-dev-00000000000000000000000000000000";
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EditingCurrentDefaultPreservesDefaultInDatabase(bool editModel)
+    {
+        using var factory = new ApiFactory();
+        using var client = CreateClient(factory);
+        var provider = await CreateProviderAsync(client, "Default", "openai", "https://test.invalid/v1", "test-key", isDefault: true);
+        var providerId = provider.GetProperty("id").GetGuid();
+        var model = await CreateModelAsync(client, providerId, "test", "Test", isDefault: true);
+        var modelId = model.GetProperty("id").GetGuid();
+        var response = editModel
+            ? await client.PutAsJsonAsync($"/api/providers/{providerId}/models/{modelId}", new
+            {
+                modelId = "test", displayName = "Edited", supportsThinking = true,
+                supportsToolUse = false, supportsStreaming = false, isDefault = true
+            })
+            : await client.PutAsJsonAsync($"/api/providers/{providerId}", new
+            {
+                name = "Edited", kind = "openai", baseUrl = "https://test.invalid/v1",
+                enabled = true, isDefault = true, batchSize = 10, requestTimeout = "00:01:00", maxAttempts = 3
+            });
+        response.EnsureSuccessStatusCode();
+        var providers = await client.GetFromJsonAsync<JsonElement>("/api/providers");
+        var saved = Assert.Single(providers.EnumerateArray());
+        Assert.True(saved.GetProperty("isDefault").GetBoolean());
+        Assert.True(Assert.Single(saved.GetProperty("models").EnumerateArray()).GetProperty("isDefault").GetBoolean());
+    }
+
     [Fact]
     public async Task ProviderAndModelCrudEnforcesDefaultsMasksKeysAndCascades()
     {
