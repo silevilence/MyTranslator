@@ -33,6 +33,7 @@ else
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ms-2">
                     @Localizer["Revision", _summary.ExtractionRevision]
                 </MudText>
+                <MudButton Href="@($"tasks/{TaskId}#task-segments")" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.EditNote" Class="ms-2">@Localizer["JumpToEditor"]</MudButton>
             </div>
             <div class="mt-task-export">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -43,11 +44,14 @@ else
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
                     }
-                    @Localizer["Export"]
+                    @Localizer[_exporting ? "Exporting" : _summary.FileType switch { "srt" => "ExportSrt", "vtt" => "ExportVtt", "bundle" => "ExportZip", _ => "Export" }]
                 </MudButton>
-                @if (!CanExport)
+                <div role="status" aria-live="polite" class="mt-task-export-hint">
+                    <MudText Typo="Typo.caption">@Localizer[ExportHintKey]</MudText>
+                </div>
+                @if (_exportError is not null)
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">@Localizer["ExportNotReady"]</MudText>
+                    <ErrorBanner Message="@_exportError" OnRetry="ExportAsync" />
                 }
             </div>
         </div>
@@ -123,6 +127,7 @@ else
                         OnRunStateChanged="OnRunReviewStateChangedAsync" />
     </MudPaper>
 
+    <section id="task-segments" class="mt-task-editor-section" aria-label="@Localizer["SegmentsTitle"]">
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
         <MudText Typo="Typo.h2">@Localizer["SegmentsTitle"]</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@Localizer["SegmentsHint"]</MudText>
@@ -157,11 +162,13 @@ else
         <div class="mt-task-segments">
             <TranslationEditor @ref="_segmentList" @key="(TaskId, _segmentsKey, _summary.ExtractionRevision)"
                                TaskId="TaskId" ExtractionRevision="_summary.ExtractionRevision"
+                               FileType="@_summary.FileType" SourceFiles="_summary.Files"
                                Language="_tmLanguage" Busy="_translationRunActive || _reviewRunActive"
                                OnSaved="LoadAsync" OnRevisionChanged="OnSegmentsRevisionChanged"
                                OnDirtyChanged="dirty => _editorDirty = dirty" />
         </div>
     </MudPaper>
+    </section>
 
     @if (_summary.Capabilities?.CanReextract == true && !_editorDirty && !_translationRunActive && !_reviewRunActive)
     {
@@ -175,6 +182,7 @@ else
     private TaskSummary? _summary;
     private string? _loadError;
     private bool _exporting;
+    private string? _exportError;
     private int _segmentsKey;
     private TranslationEditor? _segmentList;
     private bool _translationRunActive;
@@ -196,6 +204,12 @@ else
 
     /// <summary>任务摘要声明的公开导出条件（§4.3 capabilities.canExport）。</summary>
     private bool CanExport => _summary?.Capabilities?.CanExport == true && !_editorDirty && !_translationRunActive && !_reviewRunActive;
+    private string ExportHintKey => _exporting ? "ExportPreparing"
+        : _editorDirty ? "ExportSaveFirst"
+        : _translationRunActive || _reviewRunActive ? "ExportRunActive"
+        : !CanExport ? "ExportNotReady"
+        : _summary?.FileType == "bundle" ? "ExportZipHint"
+        : FileFormatPresentation.IsSubtitle(_summary?.FileType) ? "ExportSubtitleHint" : "ExportReady";
 
     [Parameter]
     public Guid TaskId { get; set; }
@@ -206,6 +220,7 @@ else
         var requestedTaskId = TaskId;
         _loadedTaskId = TaskId;
         _summary = null;
+        _exportError = null;
         _editorDirty = false;
         _translationRunActive = false;
         _reviewRunActive = false;
@@ -320,19 +335,26 @@ else
         }
 
         _exporting = true;
+        _exportError = null;
+        var requestedTaskId = TaskId;
         try
         {
-            var result = await Import.ExportAsync(TaskId);
+            var result = await Import.ExportAsync(requestedTaskId);
+            if (requestedTaskId != TaskId) return;
             var base64 = Convert.ToBase64String(result.Content);
             var downloaded = await Js.InvokeAsync<bool>(
                 "mtDownload.download", result.FileName, result.MediaType, base64);
+            if (requestedTaskId != TaskId) return;
+            if (!downloaded) _exportError = Localizer["ExportFailedBrowser"];
             Snackbar.Add(
                 downloaded ? Localizer["ExportStarted"] : Localizer["ExportFailedBrowser"],
                 downloaded ? Severity.Success : Severity.Error);
         }
         catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
         {
-            Snackbar.Add(ErrorProvider.ForException(ex), Severity.Error);
+            if (requestedTaskId != TaskId) return;
+            _exportError = ErrorProvider.ForException(ex);
+            Snackbar.Add(_exportError, Severity.Error);
         }
         finally
         {

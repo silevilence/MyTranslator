@@ -5,7 +5,10 @@
   <data name="SelectFirst" xml:space="preserve"><value>请选择分段开始编辑。</value></data>
   <data name="Segment" xml:space="preserve"><value>编辑分段 {0}</value></data>
   <data name="Dirty" xml:space="preserve"><value>未保存</value></data>
-  <data name="ProtectedHint" xml:space="preserve"><value>占位符只读；在占位符之间的间隙输入译文，悬停占位符查看标记含义。</value></data>
+  <data name="ProtectedHint" xml:space="preserve"><value>占位符只读；在占位符之间输入译文，聚焦或悬停占位符可查看标记含义。</value></data>
+  <data name="SrtEditing" xml:space="preserve"><value>SRT 字幕正文 · 时间轴受保护</value></data>
+  <data name="VttEditing" xml:space="preserve"><value>WebVTT 字幕正文 · 时间轴受保护</value></data>
+  <data name="SubtitleEditingHint" xml:space="preserve"><value>Enter 可在本条内换行；请勿留空白行、首尾换行，或输入时间轴箭头与新标签。保存失败时草稿会保留。</value></data>
   <data name="TextPart" xml:space="preserve"><value>译文文本 {0}</value></data>
   <data name="SourceLabel" xml:space="preserve"><value>原文</value></data>
   <data name="TargetLabel" xml:space="preserve"><value>译文</value></data>

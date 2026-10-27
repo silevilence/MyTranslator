@@ -56,6 +56,7 @@
                 <DetailContent>
                     <MudPaper Outlined="true" Elevation="0" Class="pa-3">
                         <SegmentEditorPanel @ref="_panel" Draft="_draft" Disabled="Locked" OnChange="DraftChangedAsync"
+                            SourceFileType="@FileFormatPresentation.ForSegment(FileType, SourceFiles, _draft?.Original)"
                             CanPrevious="@(_items.FindIndex(row => row.Id == _draft?.Original.Id) > 0)"
                             CanNext="@(_nextCursor is not null || _items.FindIndex(row => row.Id == _draft?.Original.Id) < _items.Count - 1)"
                             OnPrevious="() => MoveAsync(-1)" OnNext="() => MoveAsync(1)" OnConfirmNext="ConfirmNextAsync"
@@ -85,6 +86,10 @@
     [Parameter] public Guid TaskId { get; set; }
     /// <summary>当前提取修订。</summary>
     [Parameter] public int ExtractionRevision { get; set; }
+    /// <summary>后端声明的任务格式，用于当前分段的编辑提示。</summary>
+    [Parameter] public string? FileType { get; set; }
+    /// <summary>多文件任务的持久化成员格式；与 sourceFileName 匹配。</summary>
+    [Parameter] public IReadOnlyList<TaskFileSummary>? SourceFiles { get; set; }
     /// <summary>确认和参考信息所用明确语言对。</summary>
     [Parameter] public LanguagePair Language { get; set; } = new(null, null);
     /// <summary>后台翻译/审核活动期间禁止人工编辑。</summary>

@@ -2,13 +2,21 @@
 <root>
   <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
   <resheader name="version"><value>2.0</value></resheader>
-  <data name="Description" xml:space="preserve"><value>可一次选择最多 20 个相关文件，共同创建一个翻译任务。支持文本、Markdown、HTML、EPUB、SRT 和 WebVTT，总大小不超过 10 MiB。字幕每条对应一个分段，保留时间轴；WebVTT 仅接受字幕轨道。</value></data>
+  <data name="Heading" xml:space="preserve"><value>选择要翻译的文件</value></data>
+  <data name="Description" xml:space="preserve"><value>文档：TXT、Markdown、HTML、EPUB · 字幕：SRT、WebVTT</value></data>
+  <data name="Limits" xml:space="preserve"><value>最多 20 个文件，总大小不超过 10 MiB；一次导入创建一个任务。</value></data>
+  <data name="SelectionSummary" xml:space="preserve"><value>已选 {0} / 20 个文件 · 共 {1} KiB（上限 10 MiB）</value></data>
+  <data name="UnknownFormat" xml:space="preserve"><value>格式待识别</value></data>
+  <data name="SubtitleHeading" xml:space="preserve"><value>字幕按条目翻译，时间轴自动保留</value></data>
+  <data name="SubtitleStructure" xml:space="preserve"><value>每条字幕对应一个分段，多行正文仍在同一分段内；导出保持原格式、条目顺序和时间轴。</value></data>
+  <data name="SubtitleEncoding" xml:space="preserve"><value>请使用 UTF-8 编码；SRT 也支持带 BOM 的 UTF-16。</value></data>
+  <data name="VttTrack" xml:space="preserve"><value>WebVTT 仅接受字幕轨道，请勿导入章节或元数据轨道。</value></data>
   <data name="Choose" xml:space="preserve"><value>选择文件（可多选）</value></data>
   <data name="Selected" xml:space="preserve"><value>待导入文件</value></data>
   <data name="Remove" xml:space="preserve"><value>移除 {0}</value></data>
   <data name="Size" xml:space="preserve"><value>{0} KiB</value></data>
-  <data name="MultipleSummary" xml:space="preserve"><value>已选 {0} 个文件 → 1 个任务。每个文件自动识别格式；翻译完成后下载 ZIP，内含各文件的译文。多文件任务暂不支持重新提取。</value></data>
-  <data name="SingleSummary" xml:space="preserve"><value>已选 {0} 个文件，翻译完成后按原格式下载。</value></data>
+  <data name="MultipleSummary" xml:space="preserve"><value>每个文件自动识别格式；完成后下载 ZIP，内含各文件原格式译文。多文件任务暂不支持重新提取。</value></data>
+  <data name="SingleSummary" xml:space="preserve"><value>完成后按所选格式下载译文。</value></data>
   <data name="FileType" xml:space="preserve"><value>文件格式</value></data>
   <data name="TypeHelp" xml:space="preserve"><value>通常保持自动识别即可；文件扩展名不正确时可手动选择。</value></data>
   <data name="Auto" xml:space="preserve"><value>自动识别（推荐）</value></data>

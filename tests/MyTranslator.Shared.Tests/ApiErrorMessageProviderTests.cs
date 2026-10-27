@@ -9,6 +9,27 @@ namespace MyTranslator.Shared.Tests;
 
 public class ApiErrorMessageProviderTests
 {
+    [Theory]
+    [InlineData("{\"cue\":2,\"line\":6}", " 位置：第 2 条字幕。 原文件第 6 行。")]
+    [InlineData("{\"cue\":0,\"line\":1}", " 原文件第 1 行。")]
+    [InlineData("{\"cue\":-1,\"line\":\"6\"}", "")]
+    [InlineData("{}", "")]
+    public void 字幕解析失败呈现可信位置并容忍缺失或异常字段(string errorsJson, string suffix)
+    {
+        var errors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(errorsJson);
+        var exception = new ApiErrorException(422, "subtitle_parse_failed", null, errors, "不应展示的后端原始消息");
+        var provider = Create();
+        Assert.Equal(provider.ForError(422, "subtitle_parse_failed") + suffix, provider.ForException(exception));
+    }
+
+    [Fact]
+    public void 其他错误不误用字幕定位字段()
+    {
+        var errors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>("{\"cue\":2,\"line\":6}");
+        var provider = Create();
+        Assert.Equal(provider.ForError(409, "task_busy"), provider.ForException(new ApiErrorException(409, "task_busy", null, errors, "test")));
+    }
+
     private static ApiErrorMessageProvider Create()
     {
         var options = Options.Create(new LocalizationOptions());

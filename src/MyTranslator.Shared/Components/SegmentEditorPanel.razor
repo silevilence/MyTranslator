@@ -34,7 +34,20 @@
                 <SegmentMarkupViewer Text="@(Draft.Original.SourceText ?? string.Empty)" MarkupTable="Draft.Original.MarkupTable" />
             </div>
         </section>
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-hint">@L["ProtectedHint"]</MudText>
+        @if (FileFormatPresentation.IsSubtitle(SourceFileType))
+        {
+            <div class="mt-seg-subtitle-hint" id="@_subtitleHintId">
+                <MudIcon Icon="@Icons.Material.Filled.Subtitles" Color="Color.Info" Size="Size.Small" />
+                <div>
+                    <MudText Typo="Typo.body2">@L[SourceFileType == "srt" ? "SrtEditing" : "VttEditing"]</MudText>
+                    <MudText Typo="Typo.caption">@L["SubtitleEditingHint"]</MudText>
+                </div>
+            </div>
+        }
+        @if (Draft.Original.MarkupTable.Count > 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-hint">@L["ProtectedHint"]</MudText>
+        }
         <div class="mt-seg-surface" role="group" aria-label="@L["TargetLabel"]">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-seg-area-label">@L["TargetLabel"]</MudText>
             <div class="mt-seg-surface-flow">
@@ -44,7 +57,7 @@
                     var part = Draft.Parts[index];
                     if (part.Markup is not null)
                     {
-                        <span class="mt-seg-chip" aria-hidden="true">
+                        <span class="mt-seg-chip">
                             <SegmentMarkupViewer Text="@part.Text" MarkupTable="Draft.Original.MarkupTable" />
                         </span>
                     }
@@ -52,7 +65,8 @@
                     {
                         <MudTextField T="string" Value="@part.Text" ValueChanged="value => ChangeAsync(partIndex, value)" Immediate="true"
                                       Lines="1" MaxLines="14" Sizing="InputSizing.Auto" Variant="Variant.Text" Disabled="Disabled"
-                                      Class="mt-seg-input" aria-label="@L["TextPart", EditableOrdinal(index)]" />
+                                      Class="mt-seg-input" aria-label="@L["TextPart", EditableOrdinal(index)]"
+                                      HelperId="@(FileFormatPresentation.IsSubtitle(SourceFileType) ? _subtitleHintId : null)" />
                     }
                 }
             </div>
@@ -74,6 +88,9 @@
 
 @code {
     private ElementReference _panel;
+    private readonly string _subtitleHintId = "subtitle-hint-" + Guid.NewGuid().ToString("N");
+    /// <summary>当前分段所属文件的持久化格式，用于字幕编辑提示。</summary>
+    [Parameter] public string? SourceFileType { get; set; }
     /// <summary>存在上一段。</summary>
     [Parameter] public bool CanPrevious { get; set; }
     /// <summary>存在下一段（含尚未加载页）。</summary>

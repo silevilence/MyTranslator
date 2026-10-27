@@ -73,7 +73,16 @@ public class ApiErrorMessageProvider
     /// <summary>按 <see cref="ApiErrorException"/> 的 code/状态码返回映射文案。</summary>
     public string ForError(ApiErrorException exception)
     {
-        return ForError(exception.StatusCode, exception.Code);
+        var message = ForError(exception.StatusCode, exception.Code);
+        // 只呈现字幕契约定义的位置，不展示服务端原始 detail 或推测文件归属。
+        if (exception.Code == "subtitle_parse_failed")
+        {
+            if (exception.GetErrorInt("cue") is > 0 and var cue)
+                message += " " + _localizer["SubtitleCueLocation", cue];
+            if (exception.GetErrorInt("line") is > 0 and var line)
+                message += " " + _localizer["SubtitleLineLocation", line];
+        }
+        return message;
     }
 
     /// <summary>

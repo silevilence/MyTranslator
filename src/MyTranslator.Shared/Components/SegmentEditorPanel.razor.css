@@ -89,3 +89,13 @@
 .mt-seg-source-text { max-height: 20vh; overflow: auto; }
 .mt-seg-source-text:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
 .mt-seg-panel ::deep .mt-seg-actions { flex-wrap: wrap; }
+
+.mt-seg-subtitle-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-block: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--mud-default-borderradius);
+}

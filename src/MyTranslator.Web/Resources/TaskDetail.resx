@@ -22,7 +22,7 @@
     <value>导出文件</value>
   </data>
   <data name="ExportNotReady" xml:space="preserve">
-    <value>完成全部分段翻译后可导出</value>
+    <value>请先补齐全部分段译文；导出时会检查占位符及文件结构。</value>
   </data>
   <data name="ExportStarted" xml:space="preserve">
     <value>文件已开始下载</value>
@@ -88,7 +88,7 @@
     <value>几乎没有空行</value>
   </data>
   <data name="SegmentsTitle" xml:space="preserve">
-    <value>分段预览</value>
+    <value>分段编辑</value>
   </data>
   <data name="SegmentsHint" xml:space="preserve">
     <value>仅展示可译分段；受保护块在导出时原位还原</value>
@@ -121,7 +121,7 @@
     <value>历史翻译对比</value>
   </data>
   <data name="TmLanguagePairLabel" xml:space="preserve">
-    <value>历史对比语言对</value>
+    <value>确认与历史对比语言对</value>
   </data>
   <data name="TmSourceLanguageLabel" xml:space="preserve">
     <value>源语言</value>
@@ -130,7 +130,7 @@
     <value>目标语言</value>
   </data>
   <data name="TmLanguageHint" xml:space="preserve">
-    <value>历史对比需要明确源/目标语言（BCP 47），两者不得相同；修改后按回车或点击别处生效</value>
+    <value>确认分段、术语检查与历史对比需要明确且不同的源/目标语言；填写语言代码（如 en、zh-CN），按回车或点击别处生效。</value>
   </data>
   <data name="TmLanguagesEqualError" xml:space="preserve">
     <value>源语言与目标语言不得相同</value>
@@ -145,4 +145,15 @@
   <data name="FilesList" xml:space="preserve"><value>查看文件清单</value></data>
   <data name="Format_srt" xml:space="preserve"><value>SRT 字幕</value></data>
   <data name="Format_vtt" xml:space="preserve"><value>WebVTT 字幕</value></data>
+  <data name="ExportSrt" xml:space="preserve"><value>下载 SRT 字幕</value></data>
+  <data name="ExportVtt" xml:space="preserve"><value>下载 WebVTT 字幕</value></data>
+  <data name="ExportZip" xml:space="preserve"><value>下载 ZIP</value></data>
+  <data name="Exporting" xml:space="preserve"><value>正在准备下载…</value></data>
+  <data name="ExportPreparing" xml:space="preserve"><value>正在校验并生成文件，请稍候。</value></data>
+  <data name="ExportSaveFirst" xml:space="preserve"><value>当前分段有未保存修改，请先保存（Ctrl+S）。</value></data>
+  <data name="ExportRunActive" xml:space="preserve"><value>翻译或审核正在进行，结束后可下载。</value></data>
+  <data name="ExportZipHint" xml:space="preserve"><value>ZIP 中每个文件保留原文件名与格式；字幕时间轴保持不变。</value></data>
+  <data name="ExportSubtitleHint" xml:space="preserve"><value>保留原格式、编码和时间轴，仅替换字幕正文。</value></data>
+  <data name="ExportReady" xml:space="preserve"><value>译文已齐备，可按原格式下载。</value></data>
+  <data name="JumpToEditor" xml:space="preserve"><value>编辑分段</value></data>
 </root>
