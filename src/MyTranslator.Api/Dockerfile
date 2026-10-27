@@ -6,6 +6,7 @@ COPY src/MyTranslator.Api/MyTranslator.Api.csproj src/MyTranslator.Api/
 RUN dotnet restore src/MyTranslator.Api/MyTranslator.Api.csproj
 
 COPY src/MyTranslator.Api/ src/MyTranslator.Api/
+COPY src/MyTranslator.Shared/Models/TranslationMessageFormats.cs src/MyTranslator.Shared/Models/
 RUN dotnet publish src/MyTranslator.Api/MyTranslator.Api.csproj \
     --configuration Release --no-restore --output /app/publish \
     /p:UseAppHost=false
