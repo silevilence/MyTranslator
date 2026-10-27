@@ -17,7 +17,8 @@ public sealed record ModelWriteRequest(
     bool SupportsThinking,
     bool SupportsToolUse,
     bool SupportsStreaming,
-    bool IsDefault);
+    bool IsDefault,
+    string TranslationMessageFormat = MyTranslator.Contracts.TranslationMessageFormats.General);
 
 public sealed record AiModelResponse(
     Guid Id,
@@ -28,7 +29,8 @@ public sealed record AiModelResponse(
     bool SupportsToolUse,
     bool SupportsStreaming,
     bool IsDefault,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string TranslationMessageFormat = MyTranslator.Contracts.TranslationMessageFormats.General);
 
 public sealed record AiProviderResponse(
     Guid Id,

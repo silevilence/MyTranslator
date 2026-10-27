@@ -77,6 +77,7 @@ public sealed class TranslationRunProcessor(
             return null;
         }
 
+        model.TranslationMessageFormat = run.TranslationMessageFormat;
         return new AiExecutionConfiguration(provider, model);
     }
 

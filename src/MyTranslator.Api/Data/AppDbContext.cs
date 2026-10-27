@@ -79,6 +79,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var run = modelBuilder.Entity<TranslationRun>();
         run.ToTable("TranslationRuns");
         run.HasKey(entity => entity.Id);
+        run.Property(entity => entity.TranslationMessageFormat).HasMaxLength(40).HasDefaultValue("general").IsRequired();
         run.Property(entity => entity.Status)
             .HasConversion(
                 status => status.ToWireValue(),
@@ -192,6 +193,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var model = modelBuilder.Entity<AiModel>();
         model.ToTable("Models");
         model.HasKey(entity => entity.Id);
+        model.Property(entity => entity.TranslationMessageFormat).HasMaxLength(40).HasDefaultValue("general").IsRequired();
         model.Property(entity => entity.ModelId).HasMaxLength(500).IsRequired();
         model.Property(entity => entity.DisplayName).HasMaxLength(200).IsRequired();
         model.HasIndex(entity => new { entity.ProviderId, entity.ModelId }).IsUnique();

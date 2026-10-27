@@ -50,6 +50,9 @@ public sealed record TranslationRunFailure
 /// </summary>
 public sealed record TranslationRun
 {
+    /// <summary>运行创建时固定的翻译消息格式。</summary>
+    public string TranslationMessageFormat { get; init; } = MyTranslator.Contracts.TranslationMessageFormats.General;
+
     public Guid RunId { get; init; }
     public Guid TaskId { get; init; }
 

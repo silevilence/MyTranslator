@@ -153,6 +153,7 @@ public sealed class AiConfigurationService(AppDbContext database)
             ProviderId = providerId,
             ModelId = request.ModelId,
             DisplayName = request.DisplayName,
+            TranslationMessageFormat = request.TranslationMessageFormat,
             SupportsThinking = request.SupportsThinking,
             SupportsToolUse = request.SupportsToolUse,
             SupportsStreaming = request.SupportsStreaming,
@@ -209,6 +210,7 @@ public sealed class AiConfigurationService(AppDbContext database)
 
         model.ModelId = request.ModelId;
         model.DisplayName = request.DisplayName;
+        model.TranslationMessageFormat = request.TranslationMessageFormat;
         model.SupportsThinking = request.SupportsThinking;
         model.SupportsToolUse = request.SupportsToolUse;
         model.SupportsStreaming = request.SupportsStreaming;
@@ -325,7 +327,8 @@ public sealed class AiConfigurationService(AppDbContext database)
         model.SupportsToolUse,
         model.SupportsStreaming,
         model.IsDefault,
-        model.CreatedAt);
+        model.CreatedAt,
+        model.TranslationMessageFormat);
 
     private static bool IsUniqueConstraint(DbUpdateException exception) =>
         exception.InnerException is SqliteException { SqliteErrorCode: 19 };

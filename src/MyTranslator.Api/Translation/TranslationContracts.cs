@@ -40,7 +40,8 @@ public sealed record TranslationRunResponse(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     string? ReasoningEffort = null,
-    IReadOnlyList<TranslationActivity>? Events = null);
+    IReadOnlyList<TranslationActivity>? Events = null,
+    string TranslationMessageFormat = MyTranslator.Contracts.TranslationMessageFormats.General);
 
 public sealed record TranslationRunPage(
     int ExtractionRevision,

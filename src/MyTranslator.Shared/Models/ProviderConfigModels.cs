@@ -47,6 +47,9 @@ public sealed record AiProvider
 /// </summary>
 public sealed record AiModel
 {
+    /// <summary>模型级翻译消息格式；旧响应缺省为通用。</summary>
+    public string TranslationMessageFormat { get; init; } = MyTranslator.Contracts.TranslationMessageFormats.General;
+
     /// <summary>模型条目 ID（翻译运行请求的 `modelId` 即此 ID）。</summary>
     public Guid Id { get; init; }
 
@@ -106,6 +109,9 @@ public sealed record AiProviderUpsert
 /// <summary>模型创建/更新请求体（§5）。PUT 为全字段替换，无密钥类例外。</summary>
 public sealed record AiModelUpsert
 {
+    /// <summary>模型级翻译消息格式；旧响应缺省为通用。</summary>
+    public string TranslationMessageFormat { get; init; } = MyTranslator.Contracts.TranslationMessageFormats.General;
+
     /// <summary>厂商模型 ID；同一提供商内唯一。</summary>
     public string ModelId { get; init; } = string.Empty;
 

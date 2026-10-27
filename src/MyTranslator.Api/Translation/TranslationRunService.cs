@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MyTranslator.Contracts;
 using System.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -95,6 +96,11 @@ public sealed class TranslationRunService(
             throw;
         }
 
+        if (TranslationMessageFormats.IsSpecialized(selection.TranslationMessageFormat) &&
+            (TranslationLanguageNames.Find(targetLanguage) is null ||
+             (sourceLanguage is not null && TranslationLanguageNames.Find(sourceLanguage) is null)))
+            throw Problem("unsupported_language_pair", "Cannot resolve a full language name.", StatusCodes.Status422UnprocessableEntity);
+
         var selectedSegments = task.Segments.Count(segment => segment.TargetText is null);
         if (selectedSegments == 0)
         {
@@ -118,6 +124,7 @@ public sealed class TranslationRunService(
             TargetLanguage = targetLanguage,
             ProviderId = selection.ProviderId,
             ModelId = selection.ModelId,
+            TranslationMessageFormat = selection.TranslationMessageFormat,
             ReasoningEffort = request.ReasoningEffort,
             TotalSegments = task.Segments.Count,
             SelectedSegments = selectedSegments,
@@ -251,7 +258,8 @@ public sealed class TranslationRunService(
             run.StartedAt,
             run.FinishedAt,
             run.ReasoningEffort,
-            run.ActivityJson is null ? [] : JsonSerializer.Deserialize<TranslationActivity[]>(run.ActivityJson));
+            run.ActivityJson is null ? [] : JsonSerializer.Deserialize<TranslationActivity[]>(run.ActivityJson),
+            run.TranslationMessageFormat);
     }
 
     internal static TranslationRunProgress ToProgress(TranslationRun run)
@@ -364,10 +372,12 @@ public sealed class TranslationRunService(
             throw NotConfigured(missing);
         }
 
-        if (reasoningEffort is not null &&
+        if (model.TranslationMessageFormat == TranslationMessageFormats.IndexTranslate && reasoningEffort is not (null or "none"))
+            throw Problem("translation_reasoning_conflict", "Index translation requires thinking disabled.", StatusCodes.Status422UnprocessableEntity);
+        if (model.TranslationMessageFormat != TranslationMessageFormats.IndexTranslate && reasoningEffort is not null &&
             (!model.SupportsThinking || (provider.Kind == AiProviderKinds.Ollama && reasoningEffort == "xhigh")))
             throw Problem("reasoning_not_supported", "The selected model does not support this reasoning setting.", StatusCodes.Status422UnprocessableEntity);
-        return new AiSelection(provider.Id, model.Id);
+        return new AiSelection(provider.Id, model.Id, model.TranslationMessageFormat);
     }
 
     private static TranslationRequestException NotConfigured(IReadOnlyList<string> missing) => Problem(
@@ -472,5 +482,5 @@ public sealed class TranslationRunService(
         IReadOnlyDictionary<string, object?>? errors = null) =>
         new(code, message, statusCode, errors);
 
-    private sealed record AiSelection(Guid ProviderId, Guid ModelId);
+    private sealed record AiSelection(Guid ProviderId, Guid ModelId, string TranslationMessageFormat);
 }

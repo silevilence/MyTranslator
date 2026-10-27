@@ -179,13 +179,22 @@ public static class AiConfigurationEndpoints
         RequireObject(body);
         var modelId = RequiredNonBlankString(body, "modelId", "invalid_model").Trim();
         var displayName = RequiredNonBlankString(body, "displayName", "invalid_model").Trim();
+        var format = MyTranslator.Contracts.TranslationMessageFormats.General;
+        if (body.TryGetProperty("translationMessageFormat", out var formatValue))
+        {
+            if (formatValue.ValueKind != JsonValueKind.String ||
+                !MyTranslator.Contracts.TranslationMessageFormats.IsSupported(formatValue.GetString()))
+                throw Invalid("invalid_translation_message_format", "Unknown translation message format.");
+            format = formatValue.GetString()!;
+        }
         return new ModelWriteRequest(
             modelId,
             displayName,
             OptionalBoolean(body, "supportsThinking", false),
             OptionalBoolean(body, "supportsToolUse", false),
             OptionalBoolean(body, "supportsStreaming", false),
-            OptionalBoolean(body, "isDefault", false));
+            OptionalBoolean(body, "isDefault", false),
+            format);
     }
 
     private static void RequireObject(JsonElement body)

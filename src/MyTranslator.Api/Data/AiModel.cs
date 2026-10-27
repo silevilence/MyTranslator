@@ -2,6 +2,7 @@ namespace MyTranslator.Api.Data;
 
 public sealed class AiModel
 {
+    public string TranslationMessageFormat { get; set; } = MyTranslator.Contracts.TranslationMessageFormats.General;
     public Guid Id { get; set; }
     public Guid ProviderId { get; set; }
     public AiProvider Provider { get; set; } = null!;
