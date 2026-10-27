@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MyTranslator.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using MyTranslator.Api.Data;
@@ -33,7 +34,8 @@ public sealed class TranslationRunProcessor(
             var configuration = await LoadConfigurationAsync(run, cancellationToken);
             var segments = await LoadNextBatchAsync(
                 run,
-                configuration?.Provider.BatchSize ?? AiProviderRuntimeSettings.DefaultBatchSize,
+                TranslationMessageFormats.IsSpecialized(run.TranslationMessageFormat) ? 1 :
+                    configuration?.Provider.BatchSize ?? AiProviderRuntimeSettings.DefaultBatchSize,
                 cancellationToken);
             if (segments.Count == 0)
             {
@@ -116,6 +118,23 @@ public sealed class TranslationRunProcessor(
             _ => new FailureCause("llm_response_invalid", true));
         var maxAttempts = AiProviderRuntimeSettings.ClampMaxAttempts(configuration.Provider.MaxAttempts);
 
+        SpecializedTranslationPrompt? specializedPrompt = null;
+        if (TranslationMessageFormats.IsSpecialized(run.TranslationMessageFormat))
+        {
+            var segment = batch.Single();
+            var terms = run.SourceLanguage is null ? [] : await database.Terms.AsNoTracking()
+                .Where(term => term.SourceLanguage == run.SourceLanguage && term.TargetLanguage == run.TargetLanguage)
+                .ToArrayAsync(cancellationToken);
+            specializedPrompt = SpecializedTranslationPrompt.Build(run.TranslationMessageFormat,
+                run.SourceLanguage, run.TargetLanguage, segment.SourceText, segment.MarkupTableJson, segment.FileType, terms);
+            if (!specializedPrompt.FitsBudget)
+            {
+                await RecordFailuresAsync(run.Id, batch,
+                    batch.ToDictionary(item => item.Id, _ => new FailureCause("translation_request_too_large", false)), 0, cancellationToken);
+                return;
+            }
+        }
+
         IChatClient chatClient;
         try
         {
@@ -145,6 +164,7 @@ public sealed class TranslationRunProcessor(
                         pending.Values.OrderBy(segment => segment.Order).ToArray(),
                         configuration.Provider.RequestTimeout,
                         run.ReasoningEffort,
+                        specializedPrompt,
                         cancellationToken);
                 }
                 catch (TranslationExecutionException exception)
@@ -248,6 +268,7 @@ public sealed class TranslationRunProcessor(
         IReadOnlyList<SegmentWork> segments,
         TimeSpan requestTimeout,
         string? reasoningEffort,
+        SpecializedTranslationPrompt? specializedPrompt,
         CancellationToken cancellationToken)
     {
         var input = JsonSerializer.Serialize(new
@@ -270,6 +291,10 @@ public sealed class TranslationRunProcessor(
                     : string.Empty)),
             new ChatMessage(ChatRole.User, input)
         };
+        if (specializedPrompt is not null)
+            messages = [new ChatMessage(ChatRole.User, specializedPrompt.Text)];
+        if (specializedPrompt?.Format == TranslationMessageFormats.IndexTranslate)
+            reasoningEffort = null;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(requestTimeout);
 
@@ -292,9 +317,14 @@ public sealed class TranslationRunProcessor(
                             _ => throw new InvalidOperationException("Invalid persisted reasoning effort.")
                         }
                     },
-                    ResponseFormat = ChatResponseFormat.Json
+                    MaxOutputTokens = specializedPrompt is null ? null : SpecializedTranslationPrompt.OutputTokens,
+                    ResponseFormat = specializedPrompt is null ? ChatResponseFormat.Json : null
                 },
                 timeout.Token);
+            if (response.FinishReason == ChatFinishReason.Length)
+                throw new TranslationExecutionException("llm_output_truncated", true, "The translation output was truncated.");
+            if (specializedPrompt is not null)
+                return [new TranslationOutput(segments.Single().Id, specializedPrompt.Validate(response.Text))];
             if (string.IsNullOrWhiteSpace(response.Text))
             {
                 throw InvalidResponse();
@@ -319,12 +349,12 @@ public sealed class TranslationRunProcessor(
         }
         catch (ClientResultException exception)
         {
-            throw MapStatus(exception.Status, HasUnsupportedLanguageCode(exception), exception);
+            throw MapStatus(exception.Status, HasUnsupportedLanguageCode(exception), exception, specializedPrompt?.Format);
         }
         catch (HttpRequestException exception)
         {
             throw exception.StatusCode is { } status
-                ? MapStatus((int)status, false, exception)
+                ? MapStatus((int)status, false, exception, specializedPrompt?.Format)
                 : new TranslationExecutionException(
                     "llm_provider_unavailable",
                     true,
@@ -373,7 +403,7 @@ public sealed class TranslationRunProcessor(
     private static TranslationExecutionException MapStatus(
         int status,
         bool unsupportedLanguagePair,
-        Exception exception)
+        Exception exception, string? format = null)
     {
         if (unsupportedLanguagePair && status is 400 or 422)
         {
@@ -384,6 +414,8 @@ public sealed class TranslationRunProcessor(
                 exception);
         }
 
+        if (format == TranslationMessageFormats.IndexTranslate && status is 400 or 422)
+            return new TranslationExecutionException("llm_request_rejected", false, "The service rejected required request parameters.", exception);
         return status switch
         {
             0 => new TranslationExecutionException(

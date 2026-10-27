@@ -20,12 +20,20 @@ public sealed class AiChatClientFactory(IHttpClientFactory httpClientFactory) : 
         _ => throw new NotSupportedException($"Unsupported AI provider kind '{provider.Kind}'.")
     };
 
+    private HttpClient CreateHttpClient(AiProvider provider, AiModel model)
+    {
+        var client = httpClientFactory.CreateClient("AiChatClient");
+        return model.TranslationMessageFormat == MyTranslator.Contracts.TranslationMessageFormats.IndexTranslate
+            ? new HttpClient(new IndexThinkingHandler(client, provider.Kind)) { Timeout = Timeout.InfiniteTimeSpan }
+            : client;
+    }
+
     private IChatClient CreateOpenAi(AiProvider provider, AiModel model)
     {
         var options = new OpenAIClientOptions
         {
             Endpoint = new Uri(provider.BaseUrl!, UriKind.Absolute),
-            Transport = new HttpClientPipelineTransport(httpClientFactory.CreateClient("AiChatClient")),
+            Transport = new HttpClientPipelineTransport(CreateHttpClient(provider, model)),
             RetryPolicy = new ClientRetryPolicy(0)
         };
         return new ChatClient(model.ModelId, new ApiKeyCredential(provider.ApiKey!), options).AsIChatClient();
@@ -33,7 +41,7 @@ public sealed class AiChatClientFactory(IHttpClientFactory httpClientFactory) : 
 
     private IChatClient CreateOllama(AiProvider provider, AiModel model)
     {
-        var httpClient = httpClientFactory.CreateClient("AiChatClient");
+        var httpClient = CreateHttpClient(provider, model);
         httpClient.BaseAddress = new Uri(provider.BaseUrl!, UriKind.Absolute);
         return new ErrorMappedOllamaApiClient(httpClient, model.ModelId);
     }
