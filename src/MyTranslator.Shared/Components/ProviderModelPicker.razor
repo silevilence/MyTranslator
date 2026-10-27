@@ -37,7 +37,7 @@
     {
         foreach (var model in selected.Models)
         {
-            <MudSelectItem Value="@model.Id.ToString()">@ModelOptionLabel(model)</MudSelectItem>
+            <MudSelectItem Value="@model.Id.ToString()" Disabled="@(ForReview && model.TranslationMessageFormat != TranslationMessageFormats.General)">@ModelOptionLabel(model)</MudSelectItem>
         }
     }
 </MudSelect>
@@ -56,6 +56,17 @@
     /// <summary>禁用选择（父面板创建中或活动运行期间互斥）。</summary>
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>审核用途：禁用专用翻译模型，保留当前选择供用户显式纠正。</summary>
+    [Parameter]
+    public bool ForReview { get; set; }
+
+    /// <summary>当前模型是否允许审核；不会自动切换默认对。</summary>
+    public bool ReviewModelAllowed => EffectiveModel?.TranslationMessageFormat == TranslationMessageFormats.General;
+
+    /// <summary>已加载配置中是否存在启用提供商的通用模型。</summary>
+    public bool HasReviewModel => _providers?.Any(provider => provider.Enabled &&
+        provider.Models.Any(model => model.TranslationMessageFormat == TranslationMessageFormats.General)) == true;
 
     /// <summary>配置或选择状态变化通知；父面板据此重算配置提示与运行回显。</summary>
     [Parameter]
@@ -217,9 +228,9 @@
         return $"{provider.Name}{suffix}";
     }
 
-    private string ModelOptionLabel(AiModel model) => model.IsDefault
-        ? $"{model.DisplayName}（{model.ModelId}）{Localizer["OptionDefaultSuffix"].Value}"
-        : $"{model.DisplayName}（{model.ModelId}）";
+    private string ModelOptionLabel(AiModel model) =>
+        $"{model.DisplayName}（{model.ModelId}） · {Localizer[TranslationMessageFormats.ResourceKey(model.TranslationMessageFormat)]}" +
+        (model.IsDefault ? Localizer["OptionDefaultSuffix"].Value : string.Empty);
 
     public void Dispose()
     {

@@ -348,6 +348,8 @@ public sealed class ReviewRunService(
             throw NotConfigured(missing);
         }
 
+        if (model.TranslationMessageFormat != MyTranslator.Contracts.TranslationMessageFormats.General)
+            throw Problem("model_not_review_capable", "Review requires a general model.", StatusCodes.Status422UnprocessableEntity);
         return new AiSelection(provider.Id, model.Id);
     }
 

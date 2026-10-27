@@ -38,8 +38,8 @@
                                  OnStateChanged="OnPickerStateChanged" />
             <MudSelect T="string" Label="@Localizer["ReasoningLabel"]" Variant="Variant.Outlined"
                        Class="mt-run-field" @bind-Value="_reasoningEffort"
-                       Disabled="CreateDisabled || _picker?.EffectiveModel?.SupportsThinking != true"
-                       HelperText="@Localizer[_picker?.EffectiveModel?.SupportsThinking == true ? "ReasoningHelp" : "ReasoningUnavailable"]">
+                       Disabled="CreateDisabled || IsIndex || _picker?.EffectiveModel?.SupportsThinking != true"
+                       HelperText="@Localizer[IsIndex ? "IndexThinkingDisabled" : _picker?.EffectiveModel?.SupportsThinking == true ? "ReasoningHelp" : "ReasoningUnavailable"]">
                 <MudSelectItem Value="@("default")">@Localizer["ReasoningDefault"]</MudSelectItem>
                 <MudSelectItem Value="@("none")">@Localizer["ReasoningNone"]</MudSelectItem>
                 <MudSelectItem Value="@("low")">@Localizer["ReasoningLow"]</MudSelectItem>
@@ -59,6 +59,10 @@
                 @Localizer["StartTranslation"]
             </MudButton>
         </div>
+        @if (_picker?.EffectiveModel is { } selectedModel && TranslationMessageFormats.IsSpecialized(selectedModel.TranslationMessageFormat))
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-3" role="status">@Localizer["SpecializedHelp"]</MudAlert>
+        }
         @if (_createConfigError is not null)
         {
             <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-3" role="alert">
@@ -138,7 +142,7 @@
                 </div>
             }
 
-            <MudText Typo="Typo.caption" Class="mt-2">@Localizer["RunReasoning", ReasoningLabel(run.ReasoningEffort)]</MudText>
+            <MudText Typo="Typo.caption" Class="mt-2">@Localizer["RunReasoning", ReasoningLabel(run.TranslationMessageFormat == TranslationMessageFormats.IndexTranslate ? "none" : run.ReasoningEffort)]</MudText>
             <TranslationActivityPanel Run="run" PollFailed="@(PollError is not null)" />
             @if (run.Failure is { } failure)
             {
@@ -210,6 +214,7 @@
 @code {
     private const int FailurePageSize = 200;
 
+    private bool IsIndex => _picker?.EffectiveModel?.TranslationMessageFormat == TranslationMessageFormats.IndexTranslate;
     private string _reasoningEffort = "default";
     private string _targetLanguage = "zh-CN";
     private string _sourceLanguage = string.Empty;
@@ -341,7 +346,8 @@
     /// <summary>选择器/配置状态变化：重算配置提示（含运行回显解析依赖的配置数据）。</summary>
     private Task OnPickerStateChanged()
     {
-        if (_picker?.EffectiveModel?.SupportsThinking != true ||
+        if (IsIndex) _reasoningEffort = "none";
+        else if (_picker?.EffectiveModel?.SupportsThinking != true ||
             (_reasoningEffort == "xhigh" && _picker?.EffectiveProvider?.Kind != "openai"))
             _reasoningEffort = "default";
         StateHasChanged();

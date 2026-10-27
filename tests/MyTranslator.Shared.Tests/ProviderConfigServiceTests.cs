@@ -36,6 +36,25 @@ public class ProviderConfigServiceTests
         };
     }
 
+    [Theory]
+    [InlineData("general")]
+    [InlineData("hy-mt2")]
+    [InlineData("bilibili-index-translate")]
+    public async Task ModelFormatSurvivesWireRoundTrip(string format)
+    {
+        string? captured = null;
+        var service = Create(request =>
+        {
+            captured = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new StringContent(captured, Encoding.UTF8, "application/json") };
+        }, out _);
+        var model = await service.UpdateModelAsync(ProviderId, ModelEntryId,
+            new AiModelUpsert { ModelId = "test", DisplayName = "Test", TranslationMessageFormat = format });
+        Assert.Equal(format, model.TranslationMessageFormat);
+        Assert.Equal(format, JsonSerializer.Deserialize<JsonElement>(captured!).GetProperty("translationMessageFormat").GetString());
+    }
+
     [Fact]
     public async Task GetProvidersAsync_反序列化内嵌models的两级配置()
     {
@@ -89,6 +108,7 @@ public class ProviderConfigServiceTests
         Assert.Equal("00:01:00", provider.RequestTimeout);
         Assert.Equal(3, provider.MaxAttempts);
         var model = Assert.Single(provider.Models);
+        Assert.Equal("general", model.TranslationMessageFormat);
         Assert.Equal(ModelEntryId, model.Id);
         Assert.Equal(ProviderId, model.ProviderId);
         Assert.Equal("deepseek-chat", model.ModelId);

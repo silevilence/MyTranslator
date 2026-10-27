@@ -51,4 +51,10 @@
   <data name="Save" xml:space="preserve">
     <value>保存</value>
   </data>
+  <data name="FormatGeneral" xml:space="preserve"><value>通用</value></data>
+  <data name="FormatHyMt2" xml:space="preserve"><value>HY-MT2</value></data>
+  <data name="FormatIndexTranslate" xml:space="preserve"><value>Bilibili Index-Translate</value></data>
+  <data name="FormatUnknown" xml:space="preserve"><value>未知格式</value></data>
+  <data name="FormatLabel" xml:space="preserve"><value>翻译消息格式</value></data>
+  <data name="FormatHelp" xml:space="preserve"><value>专用格式每次翻译一个完整分段，仅用于翻译；审核请选择通用模型。</value></data>
 </root>

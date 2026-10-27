@@ -53,6 +53,13 @@ public sealed class ReviewRunProcessor(
                 continue;
             }
 
+            if (configuration.Model.TranslationMessageFormat != MyTranslator.Contracts.TranslationMessageFormats.General)
+            {
+                await RecordFailuresAsync(run.Id, segments,
+                    segments.ToDictionary(segment => segment.SegmentId, _ => new FailureCause("model_not_review_capable", false)),
+                    0, cancellationToken);
+                continue;
+            }
             await ProcessBatchAsync(run, configuration, segments, cancellationToken);
         }
 
@@ -122,6 +129,18 @@ public sealed class ReviewRunProcessor(
         {
             for (var attempt = 1; attempt <= maxAttempts && pending.Count > 0; attempt++)
             {
+                // 重试也属于实际调用：配置在上次响应期间变化时，不再发送结构化审核请求。
+                var currentFormat = await database.Models.AsNoTracking()
+                    .Where(model => model.Id == run.ModelId && model.ProviderId == run.ProviderId)
+                    .Select(model => model.TranslationMessageFormat)
+                    .SingleOrDefaultAsync(cancellationToken);
+                if (currentFormat != MyTranslator.Contracts.TranslationMessageFormats.General)
+                {
+                    var code = currentFormat is null ? "llm_model_unavailable" : "model_not_review_capable";
+                    await RecordFailuresAsync(run.Id, pending.Values,
+                        pending.Keys.ToDictionary(id => id, _ => new FailureCause(code, false)), attempt - 1, cancellationToken);
+                    return;
+                }
                 IReadOnlyList<ReviewOutput> outputs;
                 try
                 {

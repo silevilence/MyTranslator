@@ -35,6 +35,21 @@ public class ProviderErrorMappingTests
         Assert.Equal(expected, Create().ForError(status, code));
     }
 
+    [Theory]
+    [InlineData("invalid_translation_message_format")]
+    [InlineData("translation_reasoning_conflict")]
+    [InlineData("model_not_review_capable")]
+    [InlineData("translation_request_too_large")]
+    [InlineData("llm_output_truncated")]
+    [InlineData("llm_prompt_echo")]
+    [InlineData("llm_request_rejected")]
+    public void SpecializedErrorsHaveLocalizedMessages(string code)
+    {
+        var messages = Create();
+        Assert.NotEqual(messages.For(422), messages.ForError(422, code));
+        Assert.NotEqual(code, messages.ForFailureCode(code));
+    }
+
     [Fact]
     public void ForError_llmNotConfigured_提示配置入口()
     {

@@ -42,4 +42,8 @@
   <data name="PlaceholderNoDefaultModel" xml:space="preserve">
     <value>无默认模型</value>
   </data>
+  <data name="FormatGeneral" xml:space="preserve"><value>通用</value></data>
+  <data name="FormatHyMt2" xml:space="preserve"><value>HY-MT2</value></data>
+  <data name="FormatIndexTranslate" xml:space="preserve"><value>Bilibili Index-Translate</value></data>
+  <data name="FormatUnknown" xml:space="preserve"><value>未知格式</value></data>
 </root>

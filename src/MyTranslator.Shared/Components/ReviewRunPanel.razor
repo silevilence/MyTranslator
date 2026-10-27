@@ -32,14 +32,14 @@
                           Class="mt-run-field"
                           @bind-Value="_sourceLanguage"
                           Disabled="CreateDisabled" />
-            <ProviderModelPicker @ref="_picker"
+            <ProviderModelPicker @ref="_picker" ForReview="true"
                                  TaskId="TaskId"
                                  Disabled="CreateDisabled"
                                  OnStateChanged="OnPickerStateChanged" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.RateReview"
                        Class="mt-run-start"
-                       Disabled="CreateDisabled || string.IsNullOrWhiteSpace(_targetLanguage)"
+                       Disabled="CreateDisabled || _picker?.ReviewModelAllowed != true || string.IsNullOrWhiteSpace(_targetLanguage)"
                        OnClick="CreateRunAsync">
                 @CreateSpinner
                 @Localizer["StartReview"]
@@ -346,6 +346,8 @@
                 return Localizer["ConfigLoadFailed"].Value;
             }
 
+            if (_picker.Providers is not null && !_picker.ReviewModelAllowed)
+                return Localizer[_picker.HasReviewModel ? "SelectGeneralModel" : "NoGeneralModel"].Value;
             var providers = _picker.Providers;
             if (providers is null)
             {
@@ -449,6 +451,7 @@
             case "provider_not_found":
             case "model_not_found":
             case "provider_disabled":
+            case "model_not_review_capable":
                 // 配置不可用（503/404/422）：不创建运行、不改任务状态；提示配置状态并给出设置入口（§12.1 第 5 步）
                 _createConfigError = ErrorProvider.ForError(ex);
                 Snackbar.Add(_createConfigError, Severity.Error);

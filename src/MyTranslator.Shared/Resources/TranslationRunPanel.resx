@@ -103,4 +103,6 @@
   <data name="ReasoningHelp" xml:space="preserve"><value>在开始前选择；等级越高通常等待越久。具体支持的档位取决于模型。</value></data>
   <data name="ReasoningUnavailable" xml:space="preserve"><value>当前模型未标注支持思考。可在设置中核对模型能力，或使用模型默认值。</value></data>
   <data name="RunReasoning" xml:space="preserve"><value>本次思考等级：{0}</value></data>
+  <data name="IndexThinkingDisabled" xml:space="preserve"><value>Index 翻译固定关闭思考。</value></data>
+  <data name="SpecializedHelp" xml:space="preserve"><value>此格式逐分段请求，批大小设置不适用。超出请求预算的分段会明确失败；审核需另选通用模型。</value></data>
 </root>

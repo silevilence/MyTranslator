@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -276,4 +276,11 @@
   <data name="subtitle_parse_failed" xml:space="preserve"><value>字幕格式、时间轴或正文标记不受支持，请检查原文件后重试。</value></data>
   <data name="subtitle_encoding_invalid" xml:space="preserve"><value>字幕编码不受支持或内容损坏，请使用 UTF-8；SRT 也支持带 BOM 的 UTF-16。</value></data>
   <data name="subtitle_structure_violation" xml:space="preserve"><value>字幕译文含空行、非法标记或控制内容。请移除空行、时间轴箭头及新增标签后重新保存；可在同一条目内正常换行。</value></data>
+  <data name="invalid_translation_message_format" xml:space="preserve"><value>翻译消息格式无效，请选择通用、HY-MT2 或 Bilibili Index-Translate。</value></data>
+  <data name="translation_reasoning_conflict" xml:space="preserve"><value>Index 翻译要求关闭思考，请关闭后重试。</value></data>
+  <data name="model_not_review_capable" xml:space="preserve"><value>此模型仅用于专用翻译，请明确选择通用模型进行审核。</value></data>
+  <data name="translation_request_too_large" xml:space="preserve"><value>此分段连同模板、术语及输出预留超过请求预算，原文未截断。请另选合适的模型。</value></data>
+  <data name="llm_output_truncated" xml:space="preserve"><value>模型输出被截断，译文未保存；请检查输出限制后重试。</value></data>
+  <data name="llm_prompt_echo" xml:space="preserve"><value>模型回显了提示词或术语材料，译文未保存。</value></data>
+  <data name="llm_request_rejected" xml:space="preserve"><value>服务拒绝了专用翻译请求，请核对服务是否支持 Index 关闭思考参数。</value></data>
 </root>

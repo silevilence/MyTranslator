@@ -24,6 +24,13 @@
                           Disabled="_saving"
                           Error="_displayNameError is not null"
                           ErrorText="_displayNameError" />
+            <MudSelect T="string" Label="@Localizer["FormatLabel"]" HelperText="@Localizer["FormatHelp"]"
+                       Variant="Variant.Outlined" @bind-Value="_translationMessageFormat" Disabled="_saving">
+                @foreach (var format in TranslationMessageFormats.All)
+                {
+                    <MudSelectItem Value="@format">@Localizer[TranslationMessageFormats.ResourceKey(format)]</MudSelectItem>
+                }
+            </MudSelect>
             <MudText Typo="Typo.body2" Class="mt-model-form-capability-title">@Localizer["CapabilityTitle"]</MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">@Localizer["CapabilityHelper"]</MudText>
             <div class="mt-model-form-switches">
@@ -55,6 +62,7 @@
 @code {
     private string _modelId = string.Empty;
     private string _displayName = string.Empty;
+    private string _translationMessageFormat = TranslationMessageFormats.General;
     private bool _supportsThinking;
     private bool _supportsToolUse;
     private bool _supportsStreaming;
@@ -81,6 +89,7 @@
         {
             _modelId = model.ModelId;
             _displayName = model.DisplayName;
+            _translationMessageFormat = model.TranslationMessageFormat;
             _supportsThinking = model.SupportsThinking;
             _supportsToolUse = model.SupportsToolUse;
             _supportsStreaming = model.SupportsStreaming;
@@ -110,6 +119,7 @@
             {
                 ModelId = _modelId.Trim(),
                 DisplayName = _displayName.Trim(),
+                TranslationMessageFormat = _translationMessageFormat,
                 SupportsThinking = _supportsThinking,
                 SupportsToolUse = _supportsToolUse,
                 SupportsStreaming = _supportsStreaming,
