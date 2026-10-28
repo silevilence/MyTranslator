@@ -27,6 +27,8 @@
         </div>
     </div>
 
+    <GlossaryManager SelectedId="_glossaryId" SelectedIdChanged="SelectGlossaryAsync" />
+
     <MudGrid Class="mt-terms-filters" Spacing="3">
         <MudItem xs="12" md="6" lg="6">
             <MudTextField T="string"
@@ -178,6 +180,13 @@
 </section>
 
 @code {
+    private Guid _glossaryId = Glossary.DefaultId;
+    private async Task SelectGlossaryAsync(Guid id)
+    {
+        _glossaryId = id;
+        await ReloadFromFirstPageAsync();
+    }
+
     private string _searchText = string.Empty;
     private string _sourceLanguage = string.Empty;
     private string _targetLanguage = string.Empty;
@@ -238,7 +247,7 @@
             {
                 var page = await Terms.GetTermsAsync(
                     NullIfBlank(_searchText), NullIfBlank(_sourceLanguage), NullIfBlank(_targetLanguage), _cursor,
-                    request.CancellationToken);
+                    request.CancellationToken, _glossaryId);
                 if (IsStaleGeneration())
                 {
                     return EmptyResult(); // 重置已发生：响应属旧查询条件，作废；新一轮以新条件重查
@@ -405,6 +414,7 @@
         var parameters = new DialogParameters<TermEditDialog>
         {
             { x => x.Term, term },
+            { x => x.GlossaryId, _glossaryId },
         };
         var options = new DialogOptions { CloseOnEscapeKey = true, BackdropClick = false, MaxWidth = MaxWidth.Small, FullWidth = true };
         var dialog = await Dialog.ShowAsync<TermEditDialog>(

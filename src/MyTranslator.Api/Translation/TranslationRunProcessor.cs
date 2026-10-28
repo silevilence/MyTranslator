@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using MyTranslator.Api.Data;
 using MyTranslator.Api.Rules;
+using MyTranslator.Api.Terms;
 using MyTranslator.Api.FileTasks;
 using System.ClientModel;
 
@@ -118,15 +119,13 @@ public sealed class TranslationRunProcessor(
             _ => new FailureCause("llm_response_invalid", true));
         var maxAttempts = AiProviderRuntimeSettings.ClampMaxAttempts(configuration.Provider.MaxAttempts);
 
+        var terms = JsonSerializer.Deserialize<Term[]>(run.TermSnapshotJson) ?? [];
         SpecializedTranslationPrompt? specializedPrompt = null;
         if (TranslationMessageFormats.IsSpecialized(run.TranslationMessageFormat))
         {
             var segment = batch.Single();
-            var terms = run.SourceLanguage is null ? [] : await database.Terms.AsNoTracking()
-                .Where(term => term.SourceLanguage == run.SourceLanguage && term.TargetLanguage == run.TargetLanguage)
-                .ToArrayAsync(cancellationToken);
             specializedPrompt = SpecializedTranslationPrompt.Build(run.TranslationMessageFormat,
-                run.SourceLanguage, run.TargetLanguage, segment.SourceText, segment.MarkupTableJson, segment.FileType, terms);
+                run.SourceLanguage, run.TargetLanguage, segment.SourceText, segment.MarkupTableJson, segment.FileType, terms, run.BackgroundInformation);
             if (!specializedPrompt.FitsBudget)
             {
                 await RecordFailuresAsync(run.Id, batch,
@@ -164,7 +163,7 @@ public sealed class TranslationRunProcessor(
                         pending.Values.OrderBy(segment => segment.Order).ToArray(),
                         configuration.Provider.RequestTimeout,
                         run.ReasoningEffort,
-                        specializedPrompt,
+                        specializedPrompt, terms, run.BackgroundInformation,
                         cancellationToken);
                 }
                 catch (TranslationExecutionException exception)
@@ -268,7 +267,7 @@ public sealed class TranslationRunProcessor(
         IReadOnlyList<SegmentWork> segments,
         TimeSpan requestTimeout,
         string? reasoningEffort,
-        SpecializedTranslationPrompt? specializedPrompt,
+        SpecializedTranslationPrompt? specializedPrompt, IReadOnlyList<Term> terms, string? backgroundInformation,
         CancellationToken cancellationToken)
     {
         var input = JsonSerializer.Serialize(new
@@ -278,17 +277,20 @@ public sealed class TranslationRunProcessor(
             segments = segments.Select(segment => new
             {
                 segmentId = segment.Id,
-                sourceText = segment.SourceText
+                sourceText = segment.SourceText,
+                terms = terms.Where(term => TermAlignmentMatcher.CountSourceOccurrences(segment.SourceText,
+                    segment.MarkupTableJson, term.SourceTerm, term.CaseSensitive) > 0)
+                    .Select(term => new { term.SourceTerm, term.TargetTerm })
             })
         }, JsonOptions);
         var messages = new[]
         {
             new ChatMessage(
                 ChatRole.System,
-                "Translate every segment and return JSON as {\"translations\":[{\"segmentId\":\"uuid\",\"targetText\":\"...\"}]}. Preserve every <xN>, </xN>, and <xN/> token exactly, including order and nesting. Return every requested segment ID exactly once and no additional IDs." +
+                "Translate every segment using its supplied terminology and return JSON as {\"translations\":[{\"segmentId\":\"uuid\",\"targetText\":\"...\"}]}. Preserve every <xN>, </xN>, and <xN/> token exactly, including order and nesting. Return every requested segment ID exactly once and no additional IDs." +
                 (segments.Any(segment => segment.FileType is "srt" or "vtt")
                     ? " Subtitle segments are complete cues: keep each cue intact, use only nonblank body lines, and do not add timestamps, cue numbers, blank lines, markup, entities, or -->."
-                    : string.Empty)),
+                    : string.Empty) + ReasoningSettings.Background(backgroundInformation)),
             new ChatMessage(ChatRole.User, input)
         };
         if (specializedPrompt is not null)
@@ -305,18 +307,7 @@ public sealed class TranslationRunProcessor(
                 new ChatOptions
                 {
                     Temperature = reasoningEffort is null or "none" ? 0 : null,
-                    Reasoning = reasoningEffort is null ? null : new ReasoningOptions
-                    {
-                        Effort = reasoningEffort switch
-                        {
-                            "none" => ReasoningEffort.None,
-                            "low" => ReasoningEffort.Low,
-                            "medium" => ReasoningEffort.Medium,
-                            "high" => ReasoningEffort.High,
-                            "xhigh" => ReasoningEffort.ExtraHigh,
-                            _ => throw new InvalidOperationException("Invalid persisted reasoning effort.")
-                        }
-                    },
+                    Reasoning = ReasoningSettings.Create(reasoningEffort),
                     MaxOutputTokens = specializedPrompt is null ? null : SpecializedTranslationPrompt.OutputTokens,
                     ResponseFormat = specializedPrompt is null ? ChatResponseFormat.Json : null
                 },

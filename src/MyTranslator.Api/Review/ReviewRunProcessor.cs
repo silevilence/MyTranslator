@@ -146,6 +146,7 @@ public sealed class ReviewRunProcessor(
                 {
                     outputs = await RequestReviewsAsync(
                         chatClient,
+                        run,
                         run.SourceLanguage,
                         run.TargetLanguage,
                         pending.Values.OrderBy(segment => segment.SegmentOrder).ToArray(),
@@ -228,6 +229,7 @@ public sealed class ReviewRunProcessor(
 
     private static async Task<IReadOnlyList<ReviewOutput>> RequestReviewsAsync(
         IChatClient chatClient,
+        ReviewRun run,
         string? sourceLanguage,
         string targetLanguage,
         IReadOnlyList<ReviewRunSegment> segments,
@@ -256,7 +258,7 @@ public sealed class ReviewRunProcessor(
         {
             new ChatMessage(
                 ChatRole.System,
-                "Review every translation for fidelity (mistranslation, omission, and addition), required terminology, naturalness, style, and consistency. A null sourceLanguage means detect the source language automatically. Return JSON as {\"reviews\":[{\"segmentId\":\"uuid\",\"comments\":[{\"severity\":\"high|medium|low\",\"issue\":\"...\",\"suggestion\":\"... or null\"}]}]}. Return every requested segment ID exactly once and no additional IDs. Return zero to twenty comments per segment; never exceed 20, keeping higher-severity non-duplicate issues first. Treat <xN>, </xN>, and <xN/> tokens as transparent placeholders: do not translate, rewrite, delete, add, or move them, and report any placeholder problem as a review comment."),
+                "Review every translation for fidelity (mistranslation, omission, and addition), required terminology, naturalness, style, and consistency. A null sourceLanguage means detect the source language automatically. Return JSON as {\"reviews\":[{\"segmentId\":\"uuid\",\"comments\":[{\"severity\":\"high|medium|low\",\"issue\":\"...\",\"suggestion\":\"... or null\"}]}]}. Return every requested segment ID exactly once and no additional IDs. Return zero to twenty comments per segment; never exceed 20, keeping higher-severity non-duplicate issues first. Treat <xN>, </xN>, and <xN/> tokens as transparent placeholders: do not translate, rewrite, delete, add, or move them, and report any placeholder problem as a review comment." + ReasoningSettings.Background(run.BackgroundInformation)),
             new ChatMessage(ChatRole.User, input)
         };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -268,7 +270,8 @@ public sealed class ReviewRunProcessor(
                 messages,
                 new ChatOptions
                 {
-                    Temperature = 0,
+                    Temperature = run.ReasoningEffort is null or "none" ? 0 : null,
+                    Reasoning = ReasoningSettings.Create(run.ReasoningEffort),
                     ResponseFormat = ChatResponseFormat.Json
                 },
                 timeout.Token);

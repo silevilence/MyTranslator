@@ -83,6 +83,9 @@
     <EmbeddedResource Update="Resources\EditorSplitArea.resx">
       <LogicalName>MyTranslator.Shared.Components.EditorSplitArea.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Update="Resources\GlossaryManager.resx"><LogicalName>MyTranslator.Shared.Components.GlossaryManager.resources</LogicalName></EmbeddedResource>
+    <EmbeddedResource Update="Resources\GlossaryEditDialog.resx"><LogicalName>MyTranslator.Shared.Components.GlossaryEditDialog.resources</LogicalName></EmbeddedResource>
+    <EmbeddedResource Update="Resources\TaskReferencePanel.resx"><LogicalName>MyTranslator.Shared.Components.TaskReferencePanel.resources</LogicalName></EmbeddedResource>
   </ItemGroup>
 
 </Project>

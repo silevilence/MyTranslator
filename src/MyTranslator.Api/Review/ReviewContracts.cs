@@ -5,7 +5,8 @@ public sealed record CreateReviewRunRequest(
     string? SourceLanguage,
     string? TargetLanguage,
     Guid? ProviderId,
-    Guid? ModelId);
+    Guid? ModelId,
+    string? ReasoningEffort = null);
 
 public sealed record ReviewRunResponse(
     Guid RunId,
@@ -21,7 +22,8 @@ public sealed record ReviewRunResponse(
     ReviewRunFailureSummary? Failure,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? FinishedAt);
+    DateTimeOffset? FinishedAt,
+    string? ReasoningEffort = null);
 
 public sealed record ReviewRunSelection(
     int TotalSegments,

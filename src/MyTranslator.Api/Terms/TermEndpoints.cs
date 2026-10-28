@@ -20,7 +20,7 @@ public static class TermEndpoints
                         OptionalQueryValue(request, "targetLanguage"),
                         ParseLimit(request.Query["limit"].ToString()),
                         OptionalQueryValue(request, "cursor"),
-                        cancellationToken)))
+                        cancellationToken, ParseGlossaryQuery(request))))
             .WithName("ListTerms")
             .WithTags("Terms");
 
@@ -95,6 +95,12 @@ public static class TermEndpoints
         return endpoints;
     }
 
+    private static Guid? ParseGlossaryQuery(HttpRequest request)
+    {
+        if (!request.Query.TryGetValue("glossaryId", out var value)) return null;
+        return Guid.TryParse(value, out var id) && id != Guid.Empty ? id : throw Invalid("invalid_glossary_id", "Invalid glossary ID.");
+    }
+
     private static CreateTermRequest ParseCreate(JsonElement body)
     {
         RequireObject(body);
@@ -104,7 +110,7 @@ public static class TermEndpoints
             RequiredLanguage(body, "sourceLanguage"),
             RequiredLanguage(body, "targetLanguage"),
             OptionalNotes(body),
-            OptionalBoolean(body, "caseSensitive", false));
+            OptionalBoolean(body, "caseSensitive", false), GlossaryEndpoints.ReadId(body));
     }
 
     private static UpdateTermRequest ParseUpdate(JsonElement body)

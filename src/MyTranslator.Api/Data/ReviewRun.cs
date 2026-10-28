@@ -5,6 +5,8 @@ namespace MyTranslator.Api.Data;
 public sealed class ReviewRun
 {
     public Guid Id { get; set; }
+    public string? BackgroundInformation { get; set; }
+    public string? ReasoningEffort { get; set; }
     public Guid TaskId { get; set; }
     public TranslationTask Task { get; set; } = null!;
     [Column("ActiveTaskId")]

@@ -6,7 +6,8 @@ public sealed record CreateTermRequest(
     string SourceLanguage,
     string TargetLanguage,
     string? Notes,
-    bool CaseSensitive);
+    bool CaseSensitive,
+    Guid? GlossaryId = null);
 
 public sealed record UpdateTermRequest(
     string SourceTerm,
@@ -20,6 +21,7 @@ public sealed record UpdateTermRequest(
 public record TermResponse
 {
     public Guid Id { get; init; }
+    public Guid GlossaryId { get; init; }
     public string SourceTerm { get; init; } = string.Empty;
     public string TargetTerm { get; init; } = string.Empty;
     public string SourceLanguage { get; init; } = string.Empty;

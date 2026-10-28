@@ -1,0 +1,99 @@
+@namespace MyTranslator.Shared.Components
+@implements IDisposable
+@inject TermService Terms
+@inject ApiErrorMessageProvider Errors
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<GlossaryManager> Localizer
+
+<MudPaper Outlined="true" Elevation="0" Class="pa-4 my-4">
+    @if (_loading) { <MudSkeleton Width="100%" Height="56px" /> }
+    else
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudSelect T="Guid" Value="SelectedId" ValueChanged="SelectAsync" Label="@Localizer["Label"]"
+                       Variant="Variant.Outlined" Disabled="_working">
+                @foreach (var glossary in _items) { <MudSelectItem Value="glossary.Id">@glossary.Name</MudSelectItem> }
+            </MudSelect>
+            <MudButton OnClick="@(() => EditAsync(null))" Disabled="_working" StartIcon="@Icons.Material.Filled.Add">@Localizer["Create"]</MudButton>
+            <MudButton OnClick="@(() => EditAsync(Selected))" Disabled="_working || Selected is null" StartIcon="@Icons.Material.Filled.Edit">@Localizer["Rename"]</MudButton>
+            <MudButton OnClick="DeleteAsync" Disabled="_working || Selected is null || SelectedId == Glossary.DefaultId"
+                       Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete">@Localizer["Delete"]</MudButton>
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_working" aria-label="@Localizer["Refresh"]" />
+        </MudStack>
+    }
+    <MudText Typo="Typo.body2" Class="mt-2">@Localizer["Help"]</MudText>
+    @if (_error is not null) { <ErrorBanner Message="_error" OnRetry="LoadAsync" /> }
+</MudPaper>
+
+@code {
+    /// <summary>当前管理的术语表 ID。</summary>
+    [Parameter] public Guid SelectedId { get; set; } = Glossary.DefaultId;
+    /// <summary>切换或新建术语表后重置词条查询。</summary>
+    [Parameter] public EventCallback<Guid> SelectedIdChanged { get; set; }
+    private IReadOnlyList<Glossary> _items = [];
+    private Glossary? Selected => _items.FirstOrDefault(g => g.Id == SelectedId);
+    private bool _loading = true;
+    private bool _working;
+    private string? _error;
+    private readonly CancellationTokenSource _lifetime = new();
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _items = await Terms.GetGlossariesAsync(_lifetime.Token);
+            if (Selected is null) await SelectedIdChanged.InvokeAsync(Glossary.DefaultId);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException) { _error = Errors.ForException(ex); }
+        finally { _loading = false; }
+    }
+    private Task SelectAsync(Guid id) => SelectedIdChanged.InvokeAsync(id);
+    private async Task EditAsync(Glossary? glossary)
+    {
+        if (_working) return;
+        _working = true;
+        try
+        {
+            var parameters = new DialogParameters<GlossaryEditDialog> { { x => x.Glossary, glossary } };
+            var dialog = await Dialog.ShowAsync<GlossaryEditDialog>(Localizer[glossary is null ? "Create" : "Rename"], parameters,
+                new DialogOptions { CloseOnEscapeKey = true, BackdropClick = false, FullWidth = true, MaxWidth = MaxWidth.Small });
+            if (await dialog.Result is { Canceled: false, Data: Glossary saved })
+            {
+                await LoadAsync();
+                await SelectedIdChanged.InvokeAsync(saved.Id);
+                Snackbar.Add(Localizer["Saved"], Severity.Success);
+            }
+        }
+        finally { _working = false; }
+    }
+    private async Task DeleteAsync()
+    {
+        if (_working || Selected is not { } glossary) return;
+        _working = true;
+        try
+        {
+            var parameters = new DialogParameters<ConfirmDialog>
+            {
+                { x => x.Message, Localizer["DeleteMessage", glossary.Name].Value },
+                { x => x.Detail, Localizer["DeleteDetail"].Value }
+            };
+            var dialog = await Dialog.ShowAsync<ConfirmDialog>(Localizer["DeleteTitle"], parameters);
+            if (await dialog.Result is not { Canceled: false, Data: true }) return;
+            await Terms.DeleteGlossaryAsync(glossary, _lifetime.Token);
+            await LoadAsync();
+            Snackbar.Add(Localizer["Deleted"], Severity.Success);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            Snackbar.Add(Errors.ForException(ex), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _working = false; }
+    }
+    public void Dispose() { _lifetime.Cancel(); _lifetime.Dispose(); }
+}

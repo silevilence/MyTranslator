@@ -11,6 +11,20 @@ namespace MyTranslator.Shared.Tests;
 
 public class ReviewRunServiceTests
 {
+    [Fact]
+    public async Task CreateRunAsync_发送并回显审核思考等级()
+    {
+        string? body = null;
+        var service = Create(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return JsonResponse(HttpStatusCode.Accepted, new { runId = RunId, reasoningEffort = "high" });
+        }, out _);
+        var result = await service.CreateRunAsync(TaskId, 1, "en", "zh-CN", reasoningEffort: "high");
+        Assert.Equal("high", JsonSerializer.Deserialize<JsonElement>(body!).GetProperty("reasoningEffort").GetString());
+        Assert.Equal("high", result.Run.ReasoningEffort);
+    }
+
     private static readonly Guid TaskId = Guid.Parse("4d898d78-1f24-47e9-8e30-adcee716c13d");
     private static readonly Guid RunId = Guid.Parse("8060fd5f-4d8e-4149-b973-c828b77ff9d8");
 

@@ -1,0 +1,42 @@
+@namespace MyTranslator.Shared.Components
+@inject TermService Terms
+@inject ApiErrorMessageProvider Errors
+@inject IStringLocalizer<GlossaryEditDialog> Localizer
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_name" Label="@Localizer["Name"]" Variant="Variant.Outlined"
+                      Immediate="true" MaxLength="100" Disabled="_saving" Error="_invalid" ErrorText="@Localizer["Required"]" />
+        @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">@_error</MudAlert> }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_saving">@Localizer["Cancel"]</MudButton>
+        <MudButton OnClick="SaveAsync" Disabled="_saving" Color="Color.Primary" Variant="Variant.Filled">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+            @Localizer["Save"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>待重命名的表；null 表示新建。</summary>
+    [Parameter] public Glossary? Glossary { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    private string _name = "";
+    private string? _error;
+    private bool _saving;
+    private bool _invalid;
+    protected override void OnInitialized() => _name = Glossary?.Name ?? "";
+    private void Cancel() => MudDialog.Cancel();
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+        _invalid = _name.Trim().Length is 0 or > 100;
+        if (_invalid) return;
+        _saving = true;
+        _error = null;
+        try { MudDialog.Close(DialogResult.Ok(await Terms.SaveGlossaryAsync(_name.Trim(), Glossary))); }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException) { _error = Errors.ForException(ex); }
+        finally { _saving = false; }
+    }
+}

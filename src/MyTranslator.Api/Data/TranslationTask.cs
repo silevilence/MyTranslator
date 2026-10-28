@@ -3,6 +3,9 @@ namespace MyTranslator.Api.Data;
 public sealed class TranslationTask
 {
     public Guid Id { get; set; }
+    public Guid? GlossaryId { get; set; } = Glossary.DefaultId;
+    public string? BackgroundInformation { get; set; }
+    public int ReferenceVersion { get; set; } = 1;
     public TranslationTaskStatus Status { get; set; } = TranslationTaskStatus.Created;
     public string SourceKind { get; set; } = null!;
     public string FileName { get; set; } = null!;

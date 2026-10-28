@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Title" xml:space="preserve"><value>参考资料</value></data>
+  <data name="Glossary" xml:space="preserve"><value>使用的术语表</value></data>
+  <data name="None" xml:space="preserve"><value>不使用术语表</value></data>
+  <data name="Manage" xml:space="preserve"><value>管理术语表</value></data>
+  <data name="Help" xml:space="preserve"><value>翻译、审核和术语对齐检查使用此表。翻译与审核需填写与词条一致的源语言和目标语言，自动识别源语言时不注入术语。</value></data>
+  <data name="Background" xml:space="preserve"><value>背景信息（可选）</value></data>
+  <data name="BackgroundHelp" xml:space="preserve"><value>最多 4000 个字符。可填写作品背景、人物关系、领域、语气与译法要求；翻译和审核都会参考。</value></data>
+  <data name="Save" xml:space="preserve"><value>保存参考资料</value></data>
+  <data name="Cancel" xml:space="preserve"><value>取消修改并重新加载</value></data>
+  <data name="Dirty" xml:space="preserve"><value>参考资料尚未保存。请保存或取消后再开始翻译、审核。</value></data>
+  <data name="Saved" xml:space="preserve"><value>参考资料已保存，下次运行生效。</value></data>
+  <data name="Busy" xml:space="preserve"><value>请先等待运行结束或保存分段修改，再编辑参考资料。</value></data>
+  <data name="LeaveTitle" xml:space="preserve"><value>离开任务</value></data>
+  <data name="LeaveMessage" xml:space="preserve"><value>参考资料尚未保存，离开将丢失修改。</value></data>
+  <data name="LeaveDetail" xml:space="preserve"><value>确认离开当前任务？</value></data>
+  <data name="Refresh" xml:space="preserve"><value>重新加载</value></data>
+</root>

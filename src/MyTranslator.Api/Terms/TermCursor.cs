@@ -12,25 +12,25 @@ internal static class TermCursor
         string? targetLanguage,
         double? matchScore,
         DateTimeOffset updatedAt,
-        Guid termId) => OpaqueCursorCodec.Encode(new CursorPayload(
+        Guid termId, Guid glossaryId) => OpaqueCursorCodec.Encode(new CursorPayload(
         Resource,
         query,
         sourceLanguage,
         targetLanguage,
         matchScore,
         updatedAt,
-        termId));
+        termId, glossaryId));
 
     public static TermCursorPosition Decode(
         string cursor,
         string? query,
         string? sourceLanguage,
-        string? targetLanguage)
+        string? targetLanguage, Guid glossaryId)
     {
         try
         {
             var payload = OpaqueCursorCodec.Decode<CursorPayload>(cursor);
-            if (payload.Resource != Resource ||
+            if (payload.Resource != Resource || payload.GlossaryId != glossaryId ||
                 payload.Query != query ||
                 payload.SourceLanguage != sourceLanguage ||
                 payload.TargetLanguage != targetLanguage ||
@@ -64,7 +64,7 @@ internal static class TermCursor
         string? TargetLanguage,
         double? MatchScore,
         DateTimeOffset UpdatedAt,
-        Guid TermId);
+        Guid TermId, Guid GlossaryId);
 }
 
 internal sealed record TermCursorPosition(double? MatchScore, DateTimeOffset UpdatedAt, Guid TermId);

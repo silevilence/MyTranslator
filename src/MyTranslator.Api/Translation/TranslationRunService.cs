@@ -126,6 +126,11 @@ public sealed class TranslationRunService(
             ModelId = selection.ModelId,
             TranslationMessageFormat = selection.TranslationMessageFormat,
             ReasoningEffort = request.ReasoningEffort,
+            BackgroundInformation = task.BackgroundInformation,
+            TermSnapshotJson = JsonSerializer.Serialize(sourceLanguage is null || task.GlossaryId is null ? [] :
+                await database.Terms.AsNoTracking().Where(term => term.GlossaryId == task.GlossaryId &&
+                    term.SourceLanguage == sourceLanguage && term.TargetLanguage == targetLanguage)
+                    .OrderBy(term => term.Id).ToArrayAsync(cancellationToken)),
             TotalSegments = task.Segments.Count,
             SelectedSegments = selectedSegments,
             SkippedExistingSegments = task.Segments.Count - selectedSegments,

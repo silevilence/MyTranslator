@@ -285,4 +285,13 @@
   <data name="llm_output_truncated" xml:space="preserve"><value>模型输出被截断，译文未保存；请检查输出限制后重试。</value></data>
   <data name="llm_prompt_echo" xml:space="preserve"><value>模型回显了提示词或术语材料，译文未保存。</value></data>
   <data name="llm_request_rejected" xml:space="preserve"><value>服务拒绝了专用翻译请求，请核对服务是否支持 Index 关闭思考参数。</value></data>
+  <data name="glossary_not_found" xml:space="preserve"><value>术语表不存在，请刷新后重新选择。</value></data>
+  <data name="invalid_glossary_id" xml:space="preserve"><value>请选择有效的术语表。</value></data>
+  <data name="invalid_glossary_name" xml:space="preserve"><value>术语表名称不能为空，且不能超过 100 个字符。</value></data>
+  <data name="invalid_glossary_version" xml:space="preserve"><value>术语表版本无效，请刷新后重试。</value></data>
+  <data name="glossary_version_conflict" xml:space="preserve"><value>术语表已被修改，请重新打开后再编辑。</value></data>
+  <data name="glossary_in_use" xml:space="preserve"><value>只能删除空且未绑定任务的非默认术语表。</value></data>
+  <data name="invalid_task_reference_version" xml:space="preserve"><value>参考资料版本无效，请重新加载。</value></data>
+  <data name="task_reference_version_conflict" xml:space="preserve"><value>参考资料已在其他位置修改。请取消当前修改、重新加载后再编辑。</value></data>
+  <data name="invalid_background_information" xml:space="preserve"><value>背景信息不能超过 4000 个字符。</value></data>
 </root>

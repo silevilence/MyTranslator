@@ -107,11 +107,15 @@ else
         </div>
     </MudPaper>
 
+    <TaskReferencePanel @key="TaskId" TaskId="TaskId"
+                        Disabled="_translationRunActive || _reviewRunActive || _editorDirty"
+                        OnBlockedChanged="blocked => _referenceBlocked = blocked" OnSaved="OnReferenceSavedAsync" />
+
     <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
         <TranslationRunPanel @key="(TaskId, _summary.ExtractionRevision)"
                              TaskId="TaskId"
                              ExtractionRevision="_summary.ExtractionRevision"
-                             ExternalBusy="_reviewRunActive || _editorDirty"
+                             ExternalBusy="_reviewRunActive || _editorDirty || _referenceBlocked"
                              OnActivityChanged="OnTranslationActivityChangedAsync"
                              OnTranslationsCommitted="OnTranslationsCommittedAsync"
                              OnTaskStateChanged="OnRunTaskStateChangedAsync" />
@@ -121,7 +125,7 @@ else
         <ReviewRunPanel @key="(TaskId, _summary.ExtractionRevision)"
                         TaskId="TaskId"
                         ExtractionRevision="_summary.ExtractionRevision"
-                        ExternalBusy="_translationRunActive || _editorDirty"
+                        ExternalBusy="_translationRunActive || _editorDirty || _referenceBlocked"
                         OnActivityChanged="OnReviewActivityChangedAsync"
                         OnCommentsCommitted="OnReviewCommentsCommittedAsync"
                         OnRunStateChanged="OnRunReviewStateChangedAsync" />
@@ -163,7 +167,7 @@ else
             <TranslationEditor @ref="_segmentList" @key="(TaskId, _segmentsKey, _summary.ExtractionRevision)"
                                TaskId="TaskId" ExtractionRevision="_summary.ExtractionRevision"
                                FileType="@_summary.FileType" SourceFiles="_summary.Files"
-                               Language="_tmLanguage" Busy="_translationRunActive || _reviewRunActive"
+                               Language="_tmLanguage" Busy="_translationRunActive || _reviewRunActive || _referenceBlocked"
                                OnSaved="LoadAsync" OnRevisionChanged="OnSegmentsRevisionChanged"
                                OnDirtyChanged="dirty => _editorDirty = dirty" />
         </div>
@@ -188,6 +192,12 @@ else
     private bool _translationRunActive;
     private bool _reviewRunActive;
     private bool _editorDirty;
+    private bool _referenceBlocked = true;
+    private Task OnReferenceSavedAsync()
+    {
+        _segmentsKey++;
+        return Task.CompletedTask;
+    }
     private Guid? _loadedTaskId;
 
     /// <summary>历史对比语言对输入框值；失焦提交后才作用于对比请求，避免输入中间态触发请求。</summary>
@@ -222,6 +232,7 @@ else
         _summary = null;
         _exportError = null;
         _editorDirty = false;
+        _referenceBlocked = true;
         _translationRunActive = false;
         _reviewRunActive = false;
         _tmLanguage = new(null, null);

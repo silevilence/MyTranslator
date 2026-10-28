@@ -64,6 +64,7 @@ public sealed record ReviewRunFailure
 /// </summary>
 public sealed record ReviewRun
 {
+    public string? ReasoningEffort { get; init; }
     public Guid RunId { get; init; }
     public Guid TaskId { get; init; }
 

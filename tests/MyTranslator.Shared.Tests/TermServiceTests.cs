@@ -11,6 +11,30 @@ namespace MyTranslator.Shared.Tests;
 
 public class TermServiceTests
 {
+    [Fact]
+    public async Task 术语查询绑定表且参考资料保存保留版本和空选择()
+    {
+        var glossaryId = Guid.NewGuid();
+        string? body = null;
+        var service = Create(request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return JsonResponse(HttpStatusCode.OK, new { glossaryId = (Guid?)null, backgroundInformation = "人物背景", version = 3 });
+            }
+            return JsonResponse(HttpStatusCode.OK, new { items = Array.Empty<object>(), nextCursor = (string?)null });
+        }, out var handler);
+        await service.GetTermsAsync(null, "en", "zh-CN", null, glossaryId: glossaryId);
+        Assert.Contains($"glossaryId={glossaryId}", handler.Requests[0].RequestUri!.Query);
+        var saved = await service.SaveReferenceAsync(Guid.NewGuid(), new(null, "人物背景", 2));
+        var sent = JsonSerializer.Deserialize<JsonElement>(body!);
+        Assert.Equal(JsonValueKind.Null, sent.GetProperty("glossaryId").ValueKind);
+        Assert.Equal(2, sent.GetProperty("version").GetInt32());
+        Assert.Equal("人物背景", sent.GetProperty("backgroundInformation").GetString());
+        Assert.Equal(3, saved.Version);
+    }
+
     private static readonly Guid TermId = Guid.Parse("01f42ee7-2f9b-45e8-b753-a070253a230d");
 
     private static TermService Create(

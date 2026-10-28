@@ -17,6 +17,15 @@ namespace MyTranslator.Api.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
 
+            modelBuilder.Entity("MyTranslator.Api.Data.Glossary", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("TEXT");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
+                    b.Property<int>("Version").IsConcurrencyToken().HasColumnType("INTEGER");
+                    b.HasKey("Id");
+                    b.ToTable("Glossaries", (string)null);
+                });
+
             modelBuilder.Entity("MyTranslator.Api.Data.ApiToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -231,6 +240,8 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.ReviewRun", b =>
                 {
+                    b.Property<string>("BackgroundInformation").HasColumnType("TEXT");
+                    b.Property<string>("ReasoningEffort").HasColumnType("TEXT");
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
@@ -390,6 +401,7 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.Term", b =>
                 {
+                    b.Property<Guid>("GlossaryId").HasColumnType("TEXT");
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
@@ -443,7 +455,7 @@ namespace MyTranslator.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SourceLanguage", "TargetLanguage", "SourceTermKey")
+                    b.HasIndex("GlossaryId", "SourceLanguage", "TargetLanguage", "SourceTermKey")
                         .IsUnique();
 
                     b.HasIndex("UpdatedAtSortKey", "Id")
@@ -572,6 +584,8 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationRun", b =>
                 {
+                    b.Property<string>("TermSnapshotJson").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("BackgroundInformation").HasColumnType("TEXT");
                     b.Property<string>("TranslationMessageFormat").IsRequired().ValueGeneratedOnAdd().HasMaxLength(40).HasColumnType("TEXT").HasDefaultValue("general");
                     b.Property<string>("ReasoningEffort").HasColumnType("TEXT");
                     b.Property<string>("ActivityJson").HasColumnType("TEXT");
@@ -692,6 +706,10 @@ namespace MyTranslator.Api.Data.Migrations
 
             modelBuilder.Entity("MyTranslator.Api.Data.TranslationTask", b =>
                 {
+                    b.Property<Guid?>("GlossaryId").HasColumnType("TEXT");
+                    b.Property<string>("BackgroundInformation").HasColumnType("TEXT");
+                    b.Property<int>("ReferenceVersion").IsConcurrencyToken().HasColumnType("INTEGER");
+                    b.HasIndex("GlossaryId");
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Label" xml:space="preserve"><value>术语表</value></data>
+  <data name="Create" xml:space="preserve"><value>新建术语表</value></data>
+  <data name="Rename" xml:space="preserve"><value>重命名</value></data>
+  <data name="Delete" xml:space="preserve"><value>删除术语表</value></data>
+  <data name="Help" xml:space="preserve"><value>先选择术语表，再添加词条；到任务详情的“参考资料”中绑定。不同表可为同一术语设置不同译法。</value></data>
+  <data name="DeleteTitle" xml:space="preserve"><value>删除术语表</value></data>
+  <data name="DeleteMessage" xml:space="preserve"><value>删除术语表“{0}”？</value></data>
+  <data name="DeleteDetail" xml:space="preserve"><value>仅可删除空且未绑定任务的非默认术语表。</value></data>
+  <data name="Saved" xml:space="preserve"><value>术语表已保存</value></data>
+  <data name="Deleted" xml:space="preserve"><value>术语表已删除</value></data>
+  <data name="Refresh" xml:space="preserve"><value>刷新术语表</value></data>
+</root>

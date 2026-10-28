@@ -20,6 +20,8 @@ public sealed class ReviewRunService(
         CancellationToken cancellationToken)
     {
         ValidateRevision(request.ExtractionRevision);
+        if (request.ReasoningEffort is not (null or "none" or "low" or "medium" or "high" or "xhigh"))
+            throw Problem("invalid_reasoning_effort", "Invalid reasoning effort.", 400);
         var sourceLanguage = NormalizeLanguage(request.SourceLanguage, false);
         var targetLanguage = NormalizeLanguage(request.TargetLanguage, true)!;
         if (string.Equals(sourceLanguage, targetLanguage, StringComparison.OrdinalIgnoreCase))
@@ -84,13 +86,13 @@ public sealed class ReviewRunService(
                 StatusCodes.Status409Conflict);
         }
 
-        var selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, cancellationToken);
-        var termSnapshot = sourceLanguage is null
+        var selection = await ResolveSelectionAsync(request.ProviderId, request.ModelId, request.ReasoningEffort, cancellationToken);
+        var termSnapshot = sourceLanguage is null || task.GlossaryId is null
             ? Array.Empty<ReviewTermSnapshot>()
             : await database.Terms
                 .AsNoTracking()
                 .Where(term =>
-                    term.SourceLanguage == sourceLanguage &&
+                    term.GlossaryId == task.GlossaryId && term.SourceLanguage == sourceLanguage &&
                     term.TargetLanguage == targetLanguage)
                 .OrderBy(term => term.Id)
                 .Select(term => new ReviewTermSnapshot(
@@ -111,6 +113,8 @@ public sealed class ReviewRunService(
             ProviderId = selection.ProviderId,
             ModelId = selection.ModelId,
             TermSnapshotJson = JsonSerializer.Serialize(termSnapshot),
+            BackgroundInformation = task.BackgroundInformation,
+            ReasoningEffort = request.ReasoningEffort,
             TotalSegments = task.Segments.Count,
             SelectedSegments = selectedSegments.Length,
             SkippedUntranslatedSegments = task.Segments.Count - selectedSegments.Length,
@@ -243,7 +247,7 @@ public sealed class ReviewRunService(
         ToFailure(run),
         run.CreatedAt,
         run.StartedAt,
-        run.FinishedAt);
+        run.FinishedAt, run.ReasoningEffort);
 
     internal static ReviewRunProgress ToProgress(ReviewRun run)
     {
@@ -268,6 +272,7 @@ public sealed class ReviewRunService(
     private async Task<AiSelection> ResolveSelectionAsync(
         Guid? requestedProviderId,
         Guid? requestedModelId,
+        string? reasoningEffort,
         CancellationToken cancellationToken)
     {
         var explicitProvider = requestedProviderId.HasValue;
@@ -350,6 +355,8 @@ public sealed class ReviewRunService(
 
         if (model.TranslationMessageFormat != MyTranslator.Contracts.TranslationMessageFormats.General)
             throw Problem("model_not_review_capable", "Review requires a general model.", StatusCodes.Status422UnprocessableEntity);
+        if (reasoningEffort is not null && (!model.SupportsThinking || (provider.Kind == AiProviderKinds.Ollama && reasoningEffort == "xhigh")))
+            throw Problem("reasoning_not_supported", "The model does not support this reasoning setting.", 422);
         return new AiSelection(provider.Id, model.Id);
     }
 

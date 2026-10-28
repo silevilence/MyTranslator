@@ -112,6 +112,9 @@
     [Parameter]
     public Term? Term { get; set; }
 
+    /// <summary>新增词条所属术语表。</summary>
+    [Parameter] public Guid GlossaryId { get; set; } = Glossary.DefaultId;
+
     protected override void OnInitialized()
     {
         if (Term is { } term)
@@ -146,6 +149,7 @@
         {
             var request = new TermUpsert
             {
+                GlossaryId = _editing?.GlossaryId ?? GlossaryId,
                 SourceTerm = _sourceTerm.Trim(),
                 TargetTerm = _targetTerm.Trim(),
                 SourceLanguage = _sourceLanguage.Trim(),

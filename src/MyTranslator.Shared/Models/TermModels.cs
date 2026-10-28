@@ -7,6 +7,7 @@ namespace MyTranslator.Shared.Models;
 public record Term
 {
     public Guid Id { get; init; }
+    public Guid GlossaryId { get; init; }
 
     /// <summary>源术语；NFC、去首尾空白后 1..500 个 Unicode 标量值。</summary>
     public string SourceTerm { get; init; } = string.Empty;
@@ -62,6 +63,7 @@ public sealed record TermListPage
 /// </summary>
 public sealed record TermUpsert
 {
+    public Guid? GlossaryId { get; init; }
     public string SourceTerm { get; init; } = string.Empty;
 
     public string TargetTerm { get; init; } = string.Empty;

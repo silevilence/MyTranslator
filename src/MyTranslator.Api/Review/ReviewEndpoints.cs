@@ -115,12 +115,21 @@ public static class ReviewEndpoints
             throw InvalidLanguageTag();
         }
 
+        var reasoning = ParseReasoning(body);
         return new CreateReviewRunRequest(
             revisionValue,
             sourceLanguage,
             target.GetString(),
             ParseOptionalId(body, "providerId"),
-            ParseOptionalId(body, "modelId"));
+            ParseOptionalId(body, "modelId"), reasoning);
+    }
+
+    private static string? ParseReasoning(JsonElement body)
+    {
+        if (!body.TryGetProperty("reasoningEffort", out var value) || value.ValueKind == JsonValueKind.Null) return null;
+        if (value.ValueKind != JsonValueKind.String)
+            throw new ReviewRequestException("invalid_reasoning_effort", "Invalid reasoning effort.", 400);
+        return value.GetString();
     }
 
     private static Guid? ParseOptionalId(JsonElement body, string property)

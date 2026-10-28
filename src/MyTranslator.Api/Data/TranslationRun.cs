@@ -6,6 +6,8 @@ public sealed class TranslationRun
 {
     public string TranslationMessageFormat { get; set; } = MyTranslator.Contracts.TranslationMessageFormats.General;
     public Guid Id { get; set; }
+    public string TermSnapshotJson { get; set; } = "[]";
+    public string? BackgroundInformation { get; set; }
     public Guid TaskId { get; set; }
     public TranslationTask Task { get; set; } = null!;
     [Column("ActiveTaskId")]

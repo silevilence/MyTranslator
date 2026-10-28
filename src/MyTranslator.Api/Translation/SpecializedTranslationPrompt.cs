@@ -17,7 +17,7 @@ internal sealed record SpecializedTranslationPrompt(string Text, string Source, 
     public bool FitsBudget => (long)Encoding.UTF8.GetByteCount(Text) + 64 + OutputTokens <= RequestBudget;
 
     public static SpecializedTranslationPrompt Build(string format, string? sourceLanguage, string targetLanguage,
-        string source, string markupTableJson, string fileType, IReadOnlyList<Term> candidates)
+        string source, string markupTableJson, string fileType, IReadOnlyList<Term> candidates, string? backgroundInformation = null)
     {
         var targetName = TranslationLanguageNames.Find(targetLanguage)
             ?? throw new TranslationExecutionException("unsupported_language_pair", false, "Unknown target language name.");
@@ -46,10 +46,13 @@ internal sealed record SpecializedTranslationPrompt(string Text, string Source, 
         if (format == TranslationMessageFormats.HyMt2)
         {
             var glossary = lines.Count == 0 ? "" : $"参考下面的翻译：\n{string.Join('\n', lines)}\n\n";
-            prompt = $"{glossary}{string.Join('\n', constraints)}\n将以下文本翻译为{targetName}，注意只需要输出翻译后的结果，不要额外解释：\n{source}";
+            var background = string.IsNullOrWhiteSpace(backgroundInformation) ? "" : $"【背景信息】\n{backgroundInformation}\n\n";
+            var sourceLabel = background.Length == 0 ? "" : "【待翻译文本】\n";
+            prompt = $"{background}{glossary}{string.Join('\n', constraints)}\n将以下文本翻译为{targetName}，注意只需要输出翻译后的结果，不要额外解释：\n{sourceLabel}{source}";
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(backgroundInformation)) constraints.Add($"背景参考信息：{backgroundInformation}");
             if (lines.Count > 0) constraints.Insert(0, $"专名/术语对照: {string.Join('、', lines)}");
             prompt = $"请将以下{sourceName}文本翻译成{targetName}，并且严格遵循所有约束要求。\n\n【源文】\n{source}\n\n【约束要求】\n" +
                 string.Join('\n', constraints.Select((constraint, index) => $"{index + 1}. 【硬性要求】{constraint}")) +
@@ -75,7 +78,7 @@ internal sealed record SpecializedTranslationPrompt(string Text, string Source, 
 
         string[] markers = Format == TranslationMessageFormats.HyMt2
             ? ["参考下面的翻译：", "〖待翻译文本〗", "【待翻译文本】", "〖背景信息〗", "【背景信息】", "注意只需要输出翻译后的结果", PlaceholderConstraint]
-            : ["【源文】", "【约束要求】", "【硬性要求】", "【注意】", "专名/术语对照:", "只输出译文，不要有任何额外说明", "严格遵循所有约束要求"];
+            : ["【源文】", "【约束要求】", "【硬性要求】", "【注意】", "背景参考信息：", "专名/术语对照:", "只输出译文，不要有任何额外说明", "严格遵循所有约束要求"];
         if (markers.Any(marker => text.Contains(marker, StringComparison.Ordinal) && !Source.Contains(marker, StringComparison.Ordinal)) ||
             EchoesTerms(text))
             throw new TranslationExecutionException("llm_prompt_echo", true, "Translation echoed prompt materials.");

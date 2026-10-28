@@ -16,6 +16,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<AiProvider> Providers => Set<AiProvider>();
     public DbSet<AiModel> Models => Set<AiModel>();
+    public DbSet<Glossary> Glossaries => Set<Glossary>();
     public DbSet<Term> Terms => Set<Term>();
     public DbSet<TranslationMemoryEntry> TranslationMemoryEntries => Set<TranslationMemoryEntry>();
 
@@ -206,6 +207,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(entity => entity.ProviderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        var glossary = modelBuilder.Entity<Glossary>();
+        glossary.ToTable("Glossaries");
+        glossary.HasKey(entity => entity.Id);
+        glossary.Property(entity => entity.Name).HasMaxLength(100).IsRequired();
+        glossary.Property(entity => entity.Version).IsConcurrencyToken();
+        task.Property(entity => entity.ReferenceVersion).IsConcurrencyToken();
+        task.HasIndex(entity => entity.GlossaryId);
+
         var term = modelBuilder.Entity<Term>();
         term.ToTable("Terms");
         term.HasKey(entity => entity.Id);
@@ -219,6 +228,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         term.Property(entity => entity.Version).IsConcurrencyToken();
         term.HasIndex(entity => new
         {
+            entity.GlossaryId,
             entity.SourceLanguage,
             entity.TargetLanguage,
             entity.SourceTermKey

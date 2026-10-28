@@ -16,7 +16,7 @@ public sealed class TermAlignmentService(AppDbContext database)
             cancellationToken);
         var task = await database.TranslationTasks.AsNoTracking()
             .Where(item => item.Id == taskId)
-            .Select(item => new { item.Id, item.ExtractionRevision })
+            .Select(item => new { item.Id, item.ExtractionRevision, item.GlossaryId })
             .SingleOrDefaultAsync(cancellationToken);
         if (task is null)
         {
@@ -40,7 +40,7 @@ public sealed class TermAlignmentService(AppDbContext database)
         }
 
         var terms = await database.Terms.AsNoTracking()
-            .Where(term => term.SourceLanguage == request.SourceLanguage &&
+            .Where(term => task.GlossaryId != null && term.GlossaryId == task.GlossaryId && term.SourceLanguage == request.SourceLanguage &&
                            term.TargetLanguage == request.TargetLanguage)
             .ToListAsync(cancellationToken);
         var segments = await database.TranslationSegments.AsNoTracking()

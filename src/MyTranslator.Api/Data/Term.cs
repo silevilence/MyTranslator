@@ -3,6 +3,7 @@ namespace MyTranslator.Api.Data;
 public sealed class Term
 {
     public Guid Id { get; set; }
+    public Guid GlossaryId { get; set; } = Glossary.DefaultId;
     public string SourceTerm { get; set; } = null!;
     public string SourceTermKey { get; set; } = null!;
     public string TargetTerm { get; set; } = null!;

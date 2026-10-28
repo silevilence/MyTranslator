@@ -43,9 +43,10 @@ public class TermService
         string? sourceLanguage,
         string? targetLanguage,
         string? cursor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Guid? glossaryId = null)
     {
         var requestUrl = new StringBuilder($"{ApiUrl("/api/terms")}?limit={PageSize}");
+        if (glossaryId is { } id) requestUrl.Append("&glossaryId=").Append(id);
         if (!string.IsNullOrWhiteSpace(query))
         {
             requestUrl.Append("&query=").Append(Uri.EscapeDataString(query.Trim()));
@@ -104,6 +105,47 @@ public class TermService
         {
             throw await ApiErrorException.FromResponseAsync(response, cancellationToken);
         }
+    }
+
+    public async Task<IReadOnlyList<Glossary>> GetGlossariesAsync(CancellationToken cancellationToken = default)
+    {
+        var items = new List<Glossary>();
+        string? cursor = null;
+        do
+        {
+            using var response = await _api.GetAsync(ApiUrl("/api/glossaries?limit=200") +
+                (cursor is null ? "" : "&cursor=" + Uri.EscapeDataString(cursor)), cancellationToken);
+            var page = await ReadResultAsync<GlossaryPage>(response, cancellationToken);
+            items.AddRange(page.Items);
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+        return items;
+    }
+
+    public async Task<Glossary> SaveGlossaryAsync(string name, Glossary? glossary, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateJsonRequest(glossary is null ? HttpMethod.Post : HttpMethod.Put,
+            ApiUrl("/api/glossaries") + (glossary is null ? "" : $"/{glossary.Id}"), new { name, version = glossary?.Version });
+        return await SendForResultAsync<Glossary>(request, cancellationToken);
+    }
+
+    public async Task DeleteGlossaryAsync(Glossary glossary, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, ApiUrl($"/api/glossaries/{glossary.Id}?version={glossary.Version}"));
+        using var response = await _api.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode) throw await ApiErrorException.FromResponseAsync(response, cancellationToken);
+    }
+
+    public async Task<TaskReference> GetReferenceAsync(Guid taskId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _api.GetAsync(ApiUrl($"/api/tasks/{taskId}/reference"), cancellationToken);
+        return await ReadResultAsync<TaskReference>(response, cancellationToken);
+    }
+
+    public async Task<TaskReference> SaveReferenceAsync(Guid taskId, TaskReference reference, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateJsonRequest(HttpMethod.Put, ApiUrl($"/api/tasks/{taskId}/reference"), reference);
+        return await SendForResultAsync<TaskReference>(request, cancellationToken);
     }
 
     private static HttpRequestMessage CreateJsonRequest(HttpMethod method, string url, object body)

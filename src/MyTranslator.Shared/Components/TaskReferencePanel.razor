@@ -1,0 +1,149 @@
+@namespace MyTranslator.Shared.Components
+@using Microsoft.AspNetCore.Components.Routing
+@implements IDisposable
+@inject TermService Terms
+@inject ApiErrorMessageProvider Errors
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<TaskReferencePanel> Localizer
+
+<NavigationLock ConfirmExternalNavigation="Dirty" OnBeforeInternalNavigation="BeforeNavigationAsync" />
+<MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+    <MudText Typo="Typo.h2">@Localizer["Title"]</MudText>
+    @if (_loading) { <MudSkeleton Width="100%" Height="100px" /> }
+    else if (_reference is not null)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-3">
+            <MudSelect T="Guid?" Value="_glossaryId" ValueChanged="ChangeGlossaryAsync" Label="@Localizer["Glossary"]"
+                       Variant="Variant.Outlined" Disabled="Disabled || _saving">
+                <MudSelectItem T="Guid?" Value="@((Guid?)null)">@Localizer["None"]</MudSelectItem>
+                @foreach (var glossary in _glossaries) { <MudSelectItem T="Guid?" Value="@((Guid?)glossary.Id)">@glossary.Name</MudSelectItem> }
+            </MudSelect>
+            <MudButton Href="/terms" StartIcon="@Icons.Material.Filled.MenuBook">@Localizer["Manage"]</MudButton>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mt-2">@Localizer["Help"]</MudText>
+        <MudTextField T="string" Value="_background" ValueChanged="ChangeBackgroundAsync" Immediate="true"
+                      Label="@Localizer["Background"]" HelperText="@Localizer["BackgroundHelp"]"
+                      Lines="4" MaxLength="4000" Variant="Variant.Outlined" Class="mt-4" Disabled="Disabled || _saving" />
+        <MudStack Row="true" Class="mt-3">
+            <MudButton OnClick="SaveAsync" Disabled="Disabled || _saving || !Dirty" Variant="Variant.Filled" Color="Color.Primary">
+                @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                @Localizer["Save"]
+            </MudButton>
+            <MudButton OnClick="LoadAsync" Disabled="_saving || Disabled">@Localizer[Dirty ? "Cancel" : "Refresh"]</MudButton>
+        </MudStack>
+        @if (Dirty) { <MudAlert Severity="Severity.Info" Class="mt-3" role="status">@Localizer["Dirty"]</MudAlert> }
+        @if (Disabled) { <MudText Typo="Typo.caption" Class="mt-2">@Localizer["Busy"]</MudText> }
+    }
+    @if (_error is not null)
+    {
+        @if (_reference is null) { <ErrorBanner Message="_error" OnRetry="LoadAsync" /> }
+        else { <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">@_error</MudAlert> }
+    }
+</MudPaper>
+
+@code {
+    /// <summary>参考资料所属任务；任务改变时取消旧请求。</summary>
+    [Parameter, EditorRequired] public Guid TaskId { get; set; }
+    /// <summary>活动运行或分段编辑未保存时禁止修改参考资料。</summary>
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>加载、提交或有未保存内容时阻止创建运行。</summary>
+    [Parameter] public EventCallback<bool> OnBlockedChanged { get; set; }
+    /// <summary>保存成功后刷新术语诊断。</summary>
+    [Parameter] public EventCallback OnSaved { get; set; }
+    private TaskReference? _reference;
+    private IReadOnlyList<Glossary> _glossaries = [];
+    private Guid? _glossaryId;
+    private string _background = "";
+    private Guid _loadedTask;
+    private int _generation;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _disposed;
+    private string? _error;
+    private CancellationTokenSource? _request;
+    private bool Dirty => _reference is not null && (_glossaryId != _reference.GlossaryId || _background != (_reference.BackgroundInformation ?? ""));
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedTask == TaskId) return;
+        _loadedTask = TaskId;
+        _reference = null;
+        await LoadAsync();
+    }
+    private async Task LoadAsync()
+    {
+        _request?.Cancel(); _request?.Dispose(); _request = new();
+        var generation = ++_generation;
+        var token = _request.Token;
+        _loading = true;
+        _error = null;
+        await OnBlockedChanged.InvokeAsync(true);
+        try
+        {
+            var reference = await Terms.GetReferenceAsync(TaskId, token);
+            var glossaries = await Terms.GetGlossariesAsync(token);
+            if (_disposed || generation != _generation) return;
+            _reference = reference;
+            _glossaries = glossaries;
+            _glossaryId = reference.GlossaryId;
+            _background = reference.BackgroundInformation ?? "";
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            if (!_disposed && generation == _generation) _error = Errors.ForException(ex);
+        }
+        finally
+        {
+            if (!_disposed && generation == _generation)
+            {
+                _loading = false;
+                await OnBlockedChanged.InvokeAsync(_error is not null || Dirty || _reference is null);
+            }
+        }
+    }
+    private async Task ChangeGlossaryAsync(Guid? value) { _glossaryId = value; await OnBlockedChanged.InvokeAsync(Dirty); }
+    private async Task ChangeBackgroundAsync(string value) { _background = value; await OnBlockedChanged.InvokeAsync(Dirty); }
+    private async Task SaveAsync()
+    {
+        if (_saving || Disabled || !Dirty || _reference is null) return;
+        _saving = true;
+        _error = null;
+        var generation = _generation;
+        var token = _request!.Token;
+        await OnBlockedChanged.InvokeAsync(true);
+        try
+        {
+            var saved = await Terms.SaveReferenceAsync(TaskId, new(_glossaryId, _background, _reference.Version), token);
+            if (_disposed || generation != _generation) return;
+            _reference = saved;
+            _background = saved.BackgroundInformation ?? "";
+            Snackbar.Add(Localizer["Saved"], Severity.Success);
+            await OnSaved.InvokeAsync();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) when (ex is ApiErrorException or HttpRequestException)
+        {
+            if (!_disposed && generation == _generation) _error = Errors.ForException(ex);
+        }
+        finally
+        {
+            if (!_disposed && generation == _generation)
+            {
+                _saving = false;
+                await OnBlockedChanged.InvokeAsync(Dirty);
+            }
+        }
+    }
+    private async Task BeforeNavigationAsync(LocationChangingContext context)
+    {
+        if (!Dirty) return;
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, Localizer["LeaveMessage"].Value }, { x => x.Detail, Localizer["LeaveDetail"].Value }
+        };
+        var dialog = await Dialog.ShowAsync<ConfirmDialog>(Localizer["LeaveTitle"], parameters);
+        if (await dialog.Result is not { Canceled: false, Data: true }) context.PreventNavigation();
+    }
+    public void Dispose() { _disposed = true; _generation++; _request?.Cancel(); _request?.Dispose(); }
+}

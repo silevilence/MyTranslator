@@ -40,7 +40,7 @@ public class ReviewRunService : RunApiClientBase
         string targetLanguage,
         Guid? providerId = null,
         Guid? modelId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? reasoningEffort = null)
     {
         var body = JsonSerializer.Serialize(
             new
@@ -50,6 +50,7 @@ public class ReviewRunService : RunApiClientBase
                 targetLanguage,
                 providerId,
                 modelId,
+                reasoningEffort,
             },
             ImportJson.Options);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiUrl("/api/tasks/")}{taskId}/review-runs")

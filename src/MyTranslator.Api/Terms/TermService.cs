@@ -16,7 +16,7 @@ public sealed class TermService(AppDbContext database)
         string? targetLanguage,
         int limit,
         string? cursor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? glossaryId = null)
     {
         if (limit is < 1 or > 200)
         {
@@ -29,7 +29,9 @@ public sealed class TermService(AppDbContext database)
         var normalizedQuery = TermText.NormalizeOptionalQuery(query);
         var normalizedSourceLanguage = NormalizeOptionalLanguage(sourceLanguage);
         var normalizedTargetLanguage = NormalizeOptionalLanguage(targetLanguage);
-        var termQuery = database.Terms.AsNoTracking();
+        var selectedGlossary = glossaryId ?? Glossary.DefaultId;
+        await GlossaryService.RequireAsync(database, selectedGlossary, cancellationToken);
+        var termQuery = database.Terms.AsNoTracking().Where(term => term.GlossaryId == selectedGlossary);
         if (normalizedSourceLanguage is not null)
         {
             termQuery = termQuery.Where(term => term.SourceLanguage == normalizedSourceLanguage);
@@ -46,7 +48,7 @@ public sealed class TermService(AppDbContext database)
                 cursor,
                 normalizedQuery,
                 normalizedSourceLanguage,
-                normalizedTargetLanguage);
+                normalizedTargetLanguage, selectedGlossary);
         if (normalizedQuery is null)
         {
             return await ListWithoutQueryAsync(
@@ -55,7 +57,7 @@ public sealed class TermService(AppDbContext database)
                 normalizedTargetLanguage,
                 limit,
                 position,
-                cancellationToken);
+                cancellationToken, selectedGlossary);
         }
 
         var terms = await termQuery.ToListAsync(cancellationToken);
@@ -81,15 +83,18 @@ public sealed class TermService(AppDbContext database)
             normalizedQuery,
             normalizedSourceLanguage,
             normalizedTargetLanguage,
-            limit);
+            limit, selectedGlossary);
     }
 
     public async Task<TermResponse> CreateAsync(
         CreateTermRequest request,
         CancellationToken cancellationToken)
     {
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var glossaryId = request.GlossaryId ?? Glossary.DefaultId;
+        await GlossaryService.RequireAsync(database, glossaryId, cancellationToken);
         if (await database.Terms.AnyAsync(
-                term => term.SourceLanguage == request.SourceLanguage &&
+                term => term.GlossaryId == glossaryId && term.SourceLanguage == request.SourceLanguage &&
                         term.TargetLanguage == request.TargetLanguage &&
                         term.SourceTermKey == TermText.SourceKey(request.SourceTerm),
                 cancellationToken))
@@ -98,13 +103,14 @@ public sealed class TermService(AppDbContext database)
                 request.SourceTerm,
                 request.SourceLanguage,
                 request.TargetLanguage,
-                cancellationToken);
+                cancellationToken, glossaryId);
         }
 
         var now = DateTimeOffset.UtcNow;
         var term = new Term
         {
             Id = Guid.NewGuid(),
+            GlossaryId = glossaryId,
             SourceTerm = request.SourceTerm,
             SourceTermKey = TermText.SourceKey(request.SourceTerm),
             TargetTerm = request.TargetTerm,
@@ -128,9 +134,10 @@ public sealed class TermService(AppDbContext database)
                 request.SourceTerm,
                 request.SourceLanguage,
                 request.TargetLanguage,
-                cancellationToken);
+                cancellationToken, glossaryId);
         }
 
+        await transaction.CommitAsync(cancellationToken);
         return ToResponse(term);
     }
 
@@ -159,7 +166,7 @@ public sealed class TermService(AppDbContext database)
 
         var sourceKey = TermText.SourceKey(request.SourceTerm);
         if (await database.Terms.AnyAsync(
-                item => item.Id != id &&
+                item => item.Id != id && item.GlossaryId == term.GlossaryId &&
                         item.SourceLanguage == request.SourceLanguage &&
                         item.TargetLanguage == request.TargetLanguage &&
                         item.SourceTermKey == sourceKey,
@@ -169,7 +176,7 @@ public sealed class TermService(AppDbContext database)
                 request.SourceTerm,
                 request.SourceLanguage,
                 request.TargetLanguage,
-                cancellationToken);
+                cancellationToken, term.GlossaryId);
         }
 
         term.SourceTerm = request.SourceTerm;
@@ -196,7 +203,7 @@ public sealed class TermService(AppDbContext database)
                 request.SourceTerm,
                 request.SourceLanguage,
                 request.TargetLanguage,
-                cancellationToken);
+                cancellationToken, term.GlossaryId);
         }
 
         return ToResponse(term);
@@ -230,11 +237,11 @@ public sealed class TermService(AppDbContext database)
         string sourceTerm,
         string sourceLanguage,
         string targetLanguage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid glossaryId)
     {
         database.ChangeTracker.Clear();
         var conflictingId = await database.Terms.AsNoTracking()
-            .Where(term => term.SourceLanguage == sourceLanguage &&
+            .Where(term => term.GlossaryId == glossaryId && term.SourceLanguage == sourceLanguage &&
                            term.TargetLanguage == targetLanguage &&
                            term.SourceTermKey == TermText.SourceKey(sourceTerm))
             .Select(term => term.Id)
@@ -252,7 +259,7 @@ public sealed class TermService(AppDbContext database)
         string? targetLanguage,
         int limit,
         TermCursorPosition? position,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid glossaryId)
     {
         if (position is not null)
         {
@@ -270,7 +277,7 @@ public sealed class TermService(AppDbContext database)
         var rows = terms
             .Select(term => new ScoredTerm(term, null, null))
             .ToList();
-        return CreatePage(rows, null, sourceLanguage, targetLanguage, limit);
+        return CreatePage(rows, null, sourceLanguage, targetLanguage, limit, glossaryId);
     }
 
     private static TermPage CreatePage(
@@ -278,7 +285,7 @@ public sealed class TermService(AppDbContext database)
         string? query,
         string? sourceLanguage,
         string? targetLanguage,
-        int limit)
+        int limit, Guid glossaryId)
     {
         var hasNextPage = rows.Count > limit;
         rows = rows.Take(limit).ToList();
@@ -290,7 +297,7 @@ public sealed class TermService(AppDbContext database)
                 targetLanguage,
                 rows[^1].MatchScore,
                 rows[^1].Term.UpdatedAt,
-                rows[^1].Term.Id)
+                rows[^1].Term.Id, glossaryId)
             : null;
         return new TermPage(items, nextCursor);
     }
@@ -298,6 +305,7 @@ public sealed class TermService(AppDbContext database)
     internal static TermResponse ToResponse(Term term) => new()
     {
         Id = term.Id,
+        GlossaryId = term.GlossaryId,
         SourceTerm = term.SourceTerm,
         TargetTerm = term.TargetTerm,
         SourceLanguage = term.SourceLanguage,
@@ -312,6 +320,7 @@ public sealed class TermService(AppDbContext database)
     private static TermListItemResponse ToListResponse(ScoredTerm item) => new()
     {
         Id = item.Term.Id,
+        GlossaryId = item.Term.GlossaryId,
         SourceTerm = item.Term.SourceTerm,
         TargetTerm = item.Term.TargetTerm,
         SourceLanguage = item.Term.SourceLanguage,

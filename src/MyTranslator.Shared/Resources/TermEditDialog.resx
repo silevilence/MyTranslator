@@ -19,7 +19,7 @@
     <value>源术语</value>
   </data>
   <data name="SourceTermHelper" xml:space="preserve">
-    <value>原文中的术语；同一语言对内不得重复</value>
+    <value>原文中的术语；同一术语表、同一语言对内不得重复</value>
   </data>
   <data name="TargetTermLabel" xml:space="preserve">
     <value>期望术语</value>
